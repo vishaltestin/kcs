@@ -1,0 +1,386 @@
+// KCS G-Mart — Prisma schema (MySQL)
+// Corporate gifting e-commerce platform: catalog, tiered bulk pricing,
+// orders, content (blogs), enquiries, bookings and auth (Auth.js JWT sessions).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+model User {
+  id                String    @id @default(cuid())
+  firstName         String
+  lastName          String
+  email             String    @unique
+  passwordHash      String
+  phone             String?
+  role              Role      @default(CUSTOMER)
+  emailVerifiedAt   DateTime?
+  verificationToken String?   @unique
+
+  // Company details (B2B)
+  companyName String?
+  gstNo       String?
+  panNo       String?
+
+  // Billing address
+  billingAddress  String?
+  billingCity     String?
+  billingState    String?
+  billingPincode  String?
+  billingCountry  String?
+
+  // Shipping address
+  shippingAddress String?
+  shippingCity    String?
+  shippingState   String?
+  shippingPincode String?
+  shippingCountry String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders         Order[]
+  reviews        Review[]
+  wishlistItems  WishlistItem[]
+}
+
+/// Per-user wishlist ("gifting ideas"). Strictly scoped to the owning user —
+/// every query filters by the authenticated user's id.
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Catalog
+// ---------------------------------------------------------------------------
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  title     String
+  slug      String   @unique
+  image     String?
+  parentId  Int?
+  isSpecial Boolean  @default(false)
+  sortOrder Int      @default(0)
+  /// SEO overrides — storefront metadata falls back to the category title.
+  metaTitle       String? @db.VarChar(70)
+  metaDescription String? @db.VarChar(165)
+  metaKeywords    String? @db.VarChar(255)
+  ogImage         String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent   Category?   @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[]  @relation("CategoryTree")
+  products ProductCategory[]
+
+  @@index([parentId])
+}
+
+model Brand {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  slug      String   @unique
+  logo      String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  sku         String?  @unique
+  introtext   String?
+  description String?  @db.Text
+  image       String
+  video       String?
+  delivery    String?
+  stock       Int      @default(0)
+  /// Denormalised first price tier — powers listing sort/filter without joins.
+  basePrice   Decimal  @default(0) @db.Decimal(10, 2)
+  baseMrp     Decimal  @default(0) @db.Decimal(10, 2)
+  isActive    Boolean  @default(true)
+  isNew       Boolean  @default(false)
+  isFeatured  Boolean  @default(false)
+  isBestSeller Boolean @default(false)
+  brandId     Int?
+  /// SEO overrides — storefront metadata falls back to name/introtext/image.
+  metaTitle       String? @db.VarChar(70)
+  metaDescription String? @db.VarChar(165)
+  metaKeywords    String? @db.VarChar(255)
+  ogImage         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  brand      Brand?            @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  images     ProductImage[]
+  prices     ProductPrice[]
+  specs      ProductSpec[]
+  categories ProductCategory[]
+  reviews    Review[]
+  wishlistedBy WishlistItem[]
+  orderItems OrderItem[]
+
+  @@index([brandId])
+  @@index([isActive])
+}
+
+model ProductImage {
+  id        Int      @id @default(autoincrement())
+  url       String
+  sortOrder Int      @default(0)
+  productId String
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+/// Tiered bulk pricing, e.g. 10+ units @ ₹249, 50+ units @ ₹229
+model ProductPrice {
+  id          Int                @id @default(autoincrement())
+  minQuantity Int
+  price       Decimal @db.Decimal(10, 2)
+  mrp         Decimal @db.Decimal(10, 2)
+  productId   String
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, minQuantity])
+}
+
+model ProductSpec {
+  id        Int     @id @default(autoincrement())
+  label     String
+  value     String
+  productId String
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model ProductCategory {
+  productId  String
+  categoryId Int
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@index([categoryId])
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  productId  String
+  userId     String?
+  authorName String
+  rating     Int
+  title      String?
+  comment    String   @db.Text
+  isApproved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([isApproved])
+}
+
+// ---------------------------------------------------------------------------
+// Orders
+// ---------------------------------------------------------------------------
+
+model Order {
+  id           String      @id @default(cuid())
+  orderNumber  String      @unique
+  userId       String?
+  status       OrderStatus @default(PENDING)
+
+  // Customer snapshot
+  customerName  String
+  customerEmail String
+  customerPhone String
+  companyName   String?
+  gstNo         String?
+
+  // Billing snapshot
+  billingAddress  String
+  billingCity     String
+  billingState    String
+  billingPincode  String
+  billingCountry  String  @default("India")
+
+  // Shipping snapshot
+  shippingAddress String
+  shippingCity    String
+  shippingState   String
+  shippingPincode String
+  shippingCountry String  @default("India")
+
+  subtotal Decimal         @db.Decimal(12, 2)
+  shipping Decimal         @db.Decimal(12, 2) @default(0)
+  total    Decimal         @db.Decimal(12, 2)
+  notes    String?         @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String?
+  name      String
+  image     String?
+  unitPrice Decimal @db.Decimal(10, 2)
+  quantity  Int
+  lineTotal Decimal @db.Decimal(12, 2)
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+// ---------------------------------------------------------------------------
+// Content
+// ---------------------------------------------------------------------------
+
+model BlogPost {
+  id          Int       @id @default(autoincrement())
+  title       String
+  slug        String    @unique
+  excerpt     String    @db.VarChar(500)
+  content     String    @db.Text
+  image       String
+  author      String    @default("KCS G-Mart Team")
+  isPublished Boolean   @default(true)
+  publishedAt DateTime  @default(now())
+  /// SEO overrides — storefront metadata falls back to title/excerpt/image.
+  metaTitle       String? @db.VarChar(70)
+  metaDescription String? @db.VarChar(165)
+  metaKeywords    String? @db.VarChar(255)
+  ogImage         String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isPublished])
+}
+
+// ---------------------------------------------------------------------------
+// Leads & engagement
+// ---------------------------------------------------------------------------
+
+model BulkEnquiry {
+  id          Int           @id @default(autoincrement())
+  name        String
+  email       String
+  phone       String
+  companyName String?
+  productId   String?
+  productName String?
+  quantity    Int?
+  message     String        @db.Text
+  status      EnquiryStatus @default(NEW)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model MeetingBooking {
+  id        Int           @id @default(autoincrement())
+  name      String
+  email     String
+  phone     String?
+  company   String?
+  date      DateTime
+  timeSlot  String
+  notes     String?       @db.Text
+  status    BookingStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([date])
+  @@index([status])
+}
+
+model ContactMessage {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([isRead])
+}
+
+model NewsletterSubscriber {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
