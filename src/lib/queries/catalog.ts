@@ -221,9 +221,22 @@ export function parsePriceRangeParams(values: string[]): { min: number; max: num
   return ranges;
 }
 
-export async function getFilteredProducts(filters: ProductFilters) {
-  const page = Math.max(1, filters.page ?? 1);
-  const perPage = filters.perPage ?? 12;
+/** Defensive id list: drops NaN / negative / non-integer / >int32 values before they reach Prisma. */
+function safeIds(ids: number[] | undefined): number[] {
+  return (ids ?? []).filter((n) => Number.isInteger(n) && n > 0 && n <= 2_147_483_647);
+}
+
+export async function getFilteredProducts(rawFilters: ProductFilters) {
+  const filters: ProductFilters = {
+    ...rawFilters,
+    categoryIds: safeIds(rawFilters.categoryIds),
+    brandIds: safeIds(rawFilters.brandIds),
+    // Trim and cap free-text search so pathological inputs can't build huge LIKE queries.
+    search: rawFilters.search?.trim().slice(0, 100) || undefined,
+  };
+  const rawPage = Number(filters.page ?? 1);
+  const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.min(Math.floor(rawPage), 10_000) : 1;
+  const perPage = Math.min(Math.max(1, filters.perPage ?? 12), 60);
 
   const where: Prisma.ProductWhereInput = {
     isActive: true,
@@ -271,23 +284,26 @@ export async function getFilteredProducts(filters: ProductFilters) {
           ? { name: "asc" }
           : { createdAt: "desc" };
 
-  const [total, products] = await Promise.all([
-    db.product.count({ where }),
-    db.product.findMany({
-      where,
-      include: productInclude,
-      orderBy,
-      skip: (page - 1) * perPage,
-      take: perPage,
-    }),
-  ]);
+  // Count first so an out-of-range `?page=` snaps to the last real page
+  // instead of rendering "Showing 11977–43 of 43".
+  const total = await db.product.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const currentPage = Math.min(page, totalPages);
+
+  const products = await db.product.findMany({
+    where,
+    include: productInclude,
+    orderBy,
+    skip: (currentPage - 1) * perPage,
+    take: perPage,
+  });
 
   return {
     items: products.map(toProductListItem),
     total,
-    page,
+    page: currentPage,
     perPage,
-    totalPages: Math.max(1, Math.ceil(total / perPage)),
+    totalPages,
   };
 }
 

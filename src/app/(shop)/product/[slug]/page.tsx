@@ -86,7 +86,7 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
               Home
             </Link>
           </li>
-          <li aria-hidden>/</li>
+          <li aria-hidden className="text-muted-foreground/50">›</li>
           <li>
             <Link href="/product" className="hover:text-primary">
               Products
@@ -94,7 +94,7 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
           </li>
           {product.categories[0] && (
             <>
-              <li aria-hidden>/</li>
+              <li aria-hidden className="text-muted-foreground/50">›</li>
               <li>
                 <Link href={`/category/${product.categories[0].slug}`} className="hover:text-primary">
                   {product.categories[0].title}
@@ -102,7 +102,7 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
               </li>
             </>
           )}
-          <li aria-hidden>/</li>
+          <li aria-hidden className="text-muted-foreground/50">›</li>
           <li className="text-foreground font-medium truncate max-w-[200px]">{product.name}</li>
         </ol>
       </nav>
@@ -127,14 +127,14 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
                 </span>
               )}
               {product.stock > 0 ? (
-                <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
-                  <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden /> In stock
+                <span className="flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">
+                  <span className="size-1.5 rounded-full bg-success" aria-hidden /> In stock
                 </span>
               ) : (
                 <span className="text-[11px] font-medium text-muted-foreground">Made to order</span>
               )}
             </div>
-            <h1 className="text-2xl font-bold capitalize leading-tight tracking-tight md:text-3xl">
+            <h1 className="text-2xl font-extrabold leading-tight tracking-tight md:text-[2rem]">
               {product.name}
             </h1>
           </div>
@@ -149,26 +149,35 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
           </div>
 
           {/* Price block */}
-          <div className="rounded-xl border bg-muted/30 p-5">
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <p className="text-3xl font-bold tracking-tight">
+          <div className="relative overflow-hidden rounded-2xl bg-surface p-5 ring-1 ring-foreground/[0.06]">
+            <div aria-hidden className="pointer-events-none absolute -top-10 -right-10 size-32 rounded-full bg-primary/[0.07] blur-2xl" />
+            <p className="eyebrow text-muted-foreground">Starting at</p>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <p className="text-4xl font-extrabold tracking-tight tabular-nums">
                 {baseTier ? formatCurrency(baseTier.price) : "Price on request"}
               </p>
+              {baseTier && (
+                <span className="text-sm font-medium text-muted-foreground">/ piece</span>
+              )}
               {baseTier && baseTier.price < baseTier.mrp && (
                 <>
-                  <p className="text-lg text-muted-foreground line-through">
+                  <p className="text-base text-muted-foreground tabular-nums line-through">
                     {formatCurrency(baseTier.mrp)}
                   </p>
-                  <Badge className="bg-primary">
-                    Save {formatCurrency(baseTier.mrp - baseTier.price)} (
-                    {Math.round(((baseTier.mrp - baseTier.price) / baseTier.mrp) * 100)}%)
+                  <Badge className="rounded-md bg-primary px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase">
+                    {Math.round(((baseTier.mrp - baseTier.price) / baseTier.mrp) * 100)}% off
                   </Badge>
                 </>
               )}
             </div>
             {baseTier && (
-              <p className="mt-1.5 text-sm text-muted-foreground">
-                Per piece at {baseTier.minQuantity}+ pcs — bulk slabs get cheaper
+              <p className="mt-2 text-sm text-muted-foreground">
+                {baseTier.price < baseTier.mrp && (
+                  <>
+                    You save <strong className="font-semibold text-success">{formatCurrency(baseTier.mrp - baseTier.price)}</strong> per piece ·{" "}
+                  </>
+                )}
+                Slabs get cheaper from {baseTier.minQuantity}+ pcs
               </p>
             )}
           </div>
@@ -189,16 +198,18 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
             ].map(({ icon: Icon, label }) => (
               <div
                 key={label}
-                className="flex flex-col items-center gap-1.5 rounded-xl border bg-card p-3 text-center"
+                className="flex flex-col items-center gap-2 rounded-xl bg-card p-3 text-center ring-1 ring-foreground/[0.06]"
               >
-                <Icon className="size-5 text-primary" aria-hidden />
-                <span className="text-[11px] font-medium leading-tight text-muted-foreground">{label}</span>
+                <span className="grid size-9 place-items-center rounded-full bg-primary/[0.08] text-primary">
+                  <Icon className="size-4" aria-hidden />
+                </span>
+                <span className="text-[11px] font-semibold leading-tight text-foreground/75">{label}</span>
               </div>
             ))}
           </div>
 
           {product.delivery && (
-            <div className="flex items-start gap-3.5 rounded-xl border p-4">
+            <div className="flex items-start gap-3.5 rounded-2xl bg-card p-4 ring-1 ring-foreground/[0.06]">
               <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
                 <Truck className="size-5" aria-hidden />
               </span>
@@ -221,20 +232,29 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
 
       {/* Reviews */}
       <div className="mt-14">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b pb-4">
-          <h2 className="text-2xl font-bold tracking-tight">Customer Reviews</h2>
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b pb-5">
+          <div>
+            <p className="eyebrow text-primary">What buyers say</p>
+            <h2 className="mt-1 text-2xl font-extrabold tracking-tight md:text-3xl">Customer Reviews</h2>
+          </div>
           {product.rating && (
-            <div className="flex items-center gap-2.5">
-              <StarRating rating={product.rating.average} />
-              <span className="text-sm font-semibold">{product.rating.average.toFixed(1)}/5</span>
-              <span className="text-sm text-muted-foreground">({product.rating.count})</span>
+            <div className="flex items-center gap-3 rounded-2xl bg-card px-4 py-2.5 ring-1 ring-foreground/[0.07]">
+              <span className="text-3xl font-extrabold tracking-tight tabular-nums">{product.rating.average.toFixed(1)}</span>
+              <div>
+                <StarRating rating={product.rating.average} size="sm" />
+                <p className="text-xs text-muted-foreground">
+                  {product.rating.count} {product.rating.count === 1 ? "review" : "reviews"}
+                </p>
+              </div>
             </div>
           )}
         </div>
         {reviews.length === 0 ? (
-          <div className="rounded-xl border border-dashed p-10 text-center">
-            <MessageSquareQuote className="mx-auto mb-3 size-10 text-muted-foreground/40" aria-hidden />
-            <p className="font-medium">No reviews yet</p>
+          <div className="rounded-2xl border border-dashed bg-surface/60 p-10 text-center">
+            <span className="mx-auto mb-3 grid size-14 place-items-center rounded-2xl bg-card text-primary ring-1 ring-foreground/5">
+              <MessageSquareQuote className="size-6" aria-hidden />
+            </span>
+            <p className="font-bold">No reviews yet</p>
             <p className="mt-1 text-sm text-muted-foreground">Be the first to share your experience.</p>
           </div>
         ) : (
@@ -256,8 +276,11 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
         )}
       </div>
 
-      <div className="mt-12">
-        <h2 className="mb-6 text-2xl font-bold tracking-tight">Write a Review</h2>
+      <div className="mt-12 rounded-3xl bg-card p-6 ring-1 ring-foreground/[0.07] md:p-8">
+        <div className="mb-6">
+          <p className="eyebrow text-primary">Share your experience</p>
+          <h2 className="mt-1 text-2xl font-extrabold tracking-tight">Write a Review</h2>
+        </div>
         <ReviewForm productId={product.id} />
       </div>
 
@@ -265,8 +288,8 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
       {related.length > 0 && (
         <div className="mt-16">
           <div className="flex flex-col gap-5">
-            <SectionHeader title="You May Also Like" viewMoreHref="/product" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <SectionHeader eyebrow="Pairs well with" title="You May Also Like" viewMoreHref="/product" />
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
               {related.map((item) => (
                 <ProductCard key={item.id} product={item} />
               ))}

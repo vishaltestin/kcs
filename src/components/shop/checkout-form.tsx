@@ -1,17 +1,27 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { ChevronDown, Loader2, Lock } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+  Loader2,
+  Lock,
+  MapPin,
+  MessageSquareText,
+  ShieldCheck,
+  ShoppingBag,
+  Truck,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
@@ -23,11 +33,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
+import { EmptyState } from "@/components/shared/empty-state";
 import { placeOrderAction } from "@/actions/orders";
 import { checkoutFormSchema, type CheckoutFormValues } from "@/lib/validations/shop";
 import { useCartStore } from "@/store/cart";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import type { ActionResult } from "@/types";
 
 type CheckoutDefaults = Pick<
@@ -47,6 +57,8 @@ type CheckoutDefaults = Pick<
   | "shippingPincode"
 >;
 
+const FREE_SHIPPING_THRESHOLD = 1000;
+
 export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
   const router = useRouter();
   const items = useCartStore((state) => state.items);
@@ -61,6 +73,12 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
     null
   );
 
+  // Keeps the button in its "busy" state from the moment the order succeeds
+  // until the success page has actually taken over — so the user only ever
+  // sees the button loading, never a blank/skeleton page in between.
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const handledState = useRef<typeof state>(null);
+
   const form = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutFormSchema),
     defaultValues: {
@@ -71,19 +89,30 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
   });
 
   useEffect(() => {
-    if (!state) return;
-    if (state.ok && state.data) {
-      resetCart();
-      toast.success(state.message ?? "Order placed!");
-      router.push(`/order-success/${state.data.orderNumber}`);
-    } else if (!state.ok) {
-      toast.error(state.message);
-    }
+    if (!state || handledState.current === state) return;
+    handledState.current = state;
+
+    // Defer to a microtask so the state update happens outside the effect
+    // body (avoids a cascading synchronous re-render); the button stays busy
+    // through the redirect either way.
+    const id = window.setTimeout(() => {
+      if (state.ok && state.data) {
+        setIsRedirecting(true);
+        resetCart();
+        toast.success(state.message ?? "Order placed!");
+        router.push(`/order-success/${state.data.orderNumber}`);
+      } else if (!state.ok) {
+        toast.error(state.message);
+      }
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [state, resetCart, router]);
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const shipping = subtotal >= 1000 || subtotal === 0 ? 0 : 100;
+  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : 100;
   const total = subtotal + shipping;
+  const pieces = items.reduce((sum, item) => sum + item.qty, 0);
+  const busy = isPending || isRedirecting;
 
   const onSubmit = (values: CheckoutFormValues) => {
     const formData = new FormData();
@@ -109,31 +138,41 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
       "items",
       JSON.stringify(items.map((item) => ({ productId: item.id, quantity: item.qty })))
     );
-    formAction(formData);
+    // Dispatching inside a transition keeps `isPending` accurate and stops
+    // React from treating the action as a blocking (full-page) update.
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
-  if (items.length === 0 && !state?.ok) {
+  if (items.length === 0 && !state?.ok && !isRedirecting) {
     return (
-      <div className="text-center py-16">
-        <h2 className="text-xl font-semibold mb-2">Your cart is empty</h2>
-        <p className="text-muted-foreground mb-6">Add products to your cart before checking out.</p>
-        <Button asChild>
-          <Link href="/product">Browse Products</Link>
-        </Button>
-      </div>
+      <EmptyState
+        icon={ShoppingBag}
+        title="Your cart is empty"
+        description="Add products to your cart before checking out."
+        action={
+          <Button size="lg" asChild>
+            <Link href="/product">
+              Browse Products <ArrowRight aria-hidden />
+            </Link>
+          </Button>
+        }
+      />
     );
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start"
+        aria-busy={busy}
+      >
+        <fieldset disabled={busy} className="min-w-0 space-y-5 disabled:opacity-90">
           {/* Contact */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Contact &amp; Company Details</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Section step={1} icon={Building2} title="Contact & Company" hint="Who should we reach for confirmation and invoicing?">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <FormField
                 control={form.control}
                 name="customerName"
@@ -141,7 +180,7 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                   <FormItem>
                     <FormLabel>Full name *</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input autoComplete="name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -154,7 +193,7 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                   <FormItem>
                     <FormLabel>Email *</FormLabel>
                     <FormControl>
-                      <Input type="email" {...field} />
+                      <Input type="email" autoComplete="email" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -167,7 +206,7 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                   <FormItem>
                     <FormLabel>Phone *</FormLabel>
                     <FormControl>
-                      <Input type="tel" {...field} />
+                      <Input type="tel" autoComplete="tel" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -180,7 +219,7 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                   <FormItem>
                     <FormLabel>Company name</FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ""} />
+                      <Input autoComplete="organization" {...field} value={field.value ?? ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -190,32 +229,29 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                 control={form.control}
                 name="gstNo"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="md:col-span-2">
                     <FormLabel>GST number (for invoicing)</FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ""} />
+                      <Input placeholder="22AAAAA0000A1Z5" className="uppercase" {...field} value={field.value ?? ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </CardContent>
-          </Card>
+            </div>
+          </Section>
 
           {/* Billing */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Billing Address</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Section step={2} icon={MapPin} title="Billing Address" hint="Appears on your GST invoice.">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <FormField
                 control={form.control}
                 name="billingAddress"
                 render={({ field }) => (
-                  <FormItem className="md:col-span-2">
+                  <FormItem className="md:col-span-3">
                     <FormLabel>Street address *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Office address" {...field} />
+                      <Input placeholder="Office address" autoComplete="street-address" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -228,7 +264,7 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                   <FormItem>
                     <FormLabel>City *</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input autoComplete="address-level2" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -241,7 +277,7 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                   <FormItem>
                     <FormLabel>State *</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input autoComplete="address-level1" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -254,20 +290,23 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                   <FormItem>
                     <FormLabel>PIN code *</FormLabel>
                     <FormControl>
-                      <Input inputMode="numeric" maxLength={6} {...field} />
+                      <Input inputMode="numeric" maxLength={6} autoComplete="postal-code" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </CardContent>
-          </Card>
+            </div>
+          </Section>
 
           {/* Shipping */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle>Shipping Address</CardTitle>
-              <label className="flex items-center gap-2 text-sm font-normal cursor-pointer">
+          <Section
+            step={3}
+            icon={Truck}
+            title="Shipping Address"
+            hint="Where the gifts get delivered."
+            aside={
+              <label className="flex cursor-pointer items-center gap-2 rounded-full border bg-background px-3 py-1.5 text-[13px] font-medium transition-colors hover:border-primary/40">
                 <Checkbox
                   checked={sameAsBilling}
                   onCheckedChange={(checked) => setSameAsBilling(checked === true)}
@@ -275,14 +314,20 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                 />
                 Same as billing
               </label>
-            </CardHeader>
-            {!sameAsBilling && (
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            }
+          >
+            {sameAsBilling ? (
+              <p className="flex items-center gap-2 rounded-xl bg-success/[0.08] px-4 py-3 text-sm text-foreground/80">
+                <CheckCircle2 className="size-4 text-success" aria-hidden />
+                We&apos;ll ship to your billing address.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="shippingAddress"
                   render={({ field }) => (
-                    <FormItem className="md:col-span-2">
+                    <FormItem className="md:col-span-3">
                       <FormLabel>Street address</FormLabel>
                       <FormControl>
                         <Input {...field} value={field.value ?? ""} />
@@ -330,96 +375,156 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                     </FormItem>
                   )}
                 />
-              </CardContent>
+              </div>
             )}
-          </Card>
+          </Section>
 
           {/* Notes */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Order Notes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Textarea
-                        rows={3}
-                        placeholder="Branding requirements, delivery timeline, packaging preferences…"
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
-        </div>
+          <Section step={4} icon={MessageSquareText} title="Order Notes" hint="Optional — branding, timelines, packaging.">
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Textarea
+                      rows={3}
+                      placeholder="Branding requirements, delivery timeline, packaging preferences…"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </Section>
+        </fieldset>
 
         {/* Summary */}
-        <div className="lg:col-span-1">
-          <div className="bg-muted/50 p-6 rounded-lg shadow sticky top-4">
-            <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
-            <ul className="space-y-3 max-h-64 overflow-y-auto pr-1">
+        <aside className="lg:sticky lg:top-20">
+          <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07] shadow-[0_24px_48px_-28px_rgb(0_0_0/0.35)]">
+            <div className="flex items-center justify-between border-b px-5 py-4">
+              <h2 className="text-base font-extrabold tracking-tight">Order Summary</h2>
+              <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                {items.length} {items.length === 1 ? "item" : "items"} · {pieces} pcs
+              </span>
+            </div>
+
+            <ul className="scrollbar-thin max-h-72 space-y-3 overflow-y-auto px-5 py-4">
               {items.map((item) => (
-                <li key={item.id} className="flex gap-3 items-center">
-                  <Image
-                    src={item.image}
-                    alt={item.name}
-                    width={44}
-                    height={44}
-                    className="rounded object-cover"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium line-clamp-1">{item.name}</p>
+                <li key={item.id} className="flex items-center gap-3">
+                  <span className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-foreground/5">
+                    <Image src={item.image} alt={item.name} fill sizes="48px" className="object-cover" />
+                    <span className="absolute -top-0.5 -right-0.5 rounded-full bg-foreground px-1.5 text-[10px] font-bold text-background">
+                      {item.qty}
+                    </span>
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-1 text-[13px] font-semibold">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {item.qty} × {formatCurrency(item.price)}
                     </p>
                   </div>
-                  <p className="text-sm font-semibold whitespace-nowrap">
+                  <p className="text-[13px] font-bold tabular-nums whitespace-nowrap">
                     {formatCurrency(item.price * item.qty)}
                   </p>
                 </li>
               ))}
             </ul>
 
-            <Separator className="my-4" />
-
-            <div className="flex justify-between mb-2 text-sm">
-              <span>Subtotal</span>
-              <span>{formatCurrency(subtotal)}</span>
+            <div className="space-y-2 border-t bg-surface px-5 py-4 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span className="font-medium text-foreground tabular-nums">{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Shipping</span>
+                <span className={cn("font-medium tabular-nums", shipping === 0 ? "text-success" : "text-foreground")}>
+                  {shipping === 0 ? "Free" : formatCurrency(shipping)}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between border-t pt-3">
+                <span className="text-base font-extrabold tracking-tight">Total</span>
+                <span className="text-xl font-extrabold tracking-tight tabular-nums">{formatCurrency(total)}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">Inclusive of all taxes · GST invoice on request</p>
             </div>
-            <div className="flex justify-between mb-2 text-sm">
-              <span>Shipping</span>
-              <span>{shipping === 0 ? "Free" : formatCurrency(shipping)}</span>
-            </div>
-            <Separator className="my-4" />
-            <div className="flex justify-between font-semibold text-lg">
-              <span>Total</span>
-              <span>{formatCurrency(total)}</span>
-            </div>
 
-            <Button type="submit" className="w-full mt-6" size="lg" disabled={isPending}>
-              {isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <Lock className="mr-2 h-4 w-4" aria-hidden />
-              )}
-              Place Order
-            </Button>
+            <div className="px-5 pt-4 pb-5">
+              <Button type="submit" size="xl" className="w-full" disabled={busy} aria-live="polite">
+                {busy ? (
+                  <>
+                    <Loader2 className="animate-spin" aria-hidden />
+                    {isRedirecting ? "Order placed — opening confirmation…" : "Placing your order…"}
+                  </>
+                ) : (
+                  <>
+                    <Lock aria-hidden /> Place Order <ArrowRight aria-hidden />
+                  </>
+                )}
+              </Button>
 
-            <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
-              <ChevronDown className="h-3 w-3" aria-hidden />
-              Our team confirms every corporate order by phone/email before dispatch.
-            </p>
+              <ul className="mt-4 space-y-1.5 text-xs text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
+                  Our team confirms every corporate order by phone/email before dispatch.
+                </li>
+                <li className="flex items-start gap-2">
+                  <Truck className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+                  Free standard shipping on orders above {formatCurrency(FREE_SHIPPING_THRESHOLD)}.
+                </li>
+              </ul>
+
+              <Link
+                href="/cart"
+                className="mt-4 block text-center text-xs font-semibold text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
+              >
+                Edit cart
+              </Link>
+            </div>
           </div>
-        </div>
+        </aside>
       </form>
     </Form>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function Section({
+  step,
+  icon: Icon,
+  title,
+  hint,
+  aside,
+  children,
+}: {
+  step: number;
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  hint?: string;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl bg-card ring-1 ring-foreground/[0.07]">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
+        <div className="flex items-center gap-3">
+          <span className="relative grid size-10 place-items-center rounded-xl bg-primary/[0.08] text-primary">
+            <Icon className="size-[18px]" />
+            <span className="absolute -top-1.5 -left-1.5 grid size-5 place-items-center rounded-full bg-foreground text-[10px] font-bold text-background">
+              {step}
+            </span>
+          </span>
+          <div>
+            <h2 className="text-[15px] font-extrabold tracking-tight">{title}</h2>
+            {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+          </div>
+        </div>
+        {aside}
+      </header>
+      <div className="px-5 py-5 sm:px-6">{children}</div>
+    </section>
   );
 }

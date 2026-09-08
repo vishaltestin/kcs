@@ -1,14 +1,12 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { startTransition, useActionState, useEffect } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Loader2 } from "lucide-react";
+import { Building2, ReceiptText } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -20,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { updateCompanyAction } from "@/actions/profile";
 import { updateCompanySchema, type UpdateCompanyInput } from "@/lib/validations/auth";
+import { FooterHint, ProfilePanel, SaveButton } from "./profile-panel";
 import type { ActionResult } from "@/types";
 
 export function CompanyForm({
@@ -52,20 +51,31 @@ export function CompanyForm({
     formData.set("companyName", values.companyName ?? "");
     formData.set("gstNo", values.gstNo ?? "");
     formData.set("panNo", values.panNo ?? "");
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   return (
-    <Card className="max-w-2xl">
-      <CardHeader>
-        <CardTitle>Company Details</CardTitle>
-        <CardDescription>
-          Used for GST invoicing on your corporate orders. Optional, but recommended.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} aria-busy={isPending}>
+        <ProfilePanel
+          icon={Building2}
+          title="Company details"
+          description="Used for GST invoicing on corporate orders. Optional, but recommended."
+          aside={
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-[11.5px] font-bold text-success">
+              <ReceiptText className="size-3.5" aria-hidden /> GST invoice ready
+            </span>
+          }
+          footer={
+            <>
+              <FooterHint>We validate GST numbers before dispatch.</FooterHint>
+              <SaveButton pending={isPending}>Save company details</SaveButton>
+            </>
+          }
+        >
+          <fieldset disabled={isPending} className="space-y-4">
             <FormField
               control={form.control}
               name="companyName"
@@ -80,7 +90,7 @@ export function CompanyForm({
               )}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="gstNo"
@@ -88,7 +98,7 @@ export function CompanyForm({
                   <FormItem>
                     <FormLabel>GST number</FormLabel>
                     <FormControl>
-                      <Input placeholder="07ABCDE1234F1Z5" {...field} value={field.value ?? ""} />
+                      <Input placeholder="07ABCDE1234F1Z5" className="font-mono uppercase tracking-wide" {...field} value={field.value ?? ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -101,7 +111,7 @@ export function CompanyForm({
                   <FormItem>
                     <FormLabel>PAN number</FormLabel>
                     <FormControl>
-                      <Input placeholder="ABCDE1234F" {...field} value={field.value ?? ""} />
+                      <Input placeholder="ABCDE1234F" className="font-mono uppercase tracking-wide" {...field} value={field.value ?? ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -109,13 +119,9 @@ export function CompanyForm({
               />
             </div>
 
-            <Button type="submit" disabled={isPending}>
-              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
-              Save company details
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+          </fieldset>
+        </ProfilePanel>
+      </form>
+    </Form>
   );
 }

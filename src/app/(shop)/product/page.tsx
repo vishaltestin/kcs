@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { PackageSearch, SearchX } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, ChevronRight, PackageSearch, SearchX, Sparkles, Star, TrendingUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/shared/product-card";
@@ -15,8 +16,14 @@ import {
   getCategoryTree,
   getBrands,
 } from "@/lib/queries/catalog";
-import { PRICE_FILTER_OPTIONS } from "@/lib/constants";
-import Link from "next/link";
+import { cn } from "@/lib/utils";
+
+/** `?page=` → a sane 1-based integer (junk, negatives and huge values fall back safely). */
+function clampPage(raw: string | undefined): number {
+  const n = Math.floor(Number(raw ?? "1"));
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(n, 10_000);
+}
 
 export const metadata: Metadata = {
   title: "Our Products — Corporate Gifts & Branded Merchandise",
@@ -25,6 +32,13 @@ export const metadata: Metadata = {
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+const QUICK_FILTERS = [
+  { label: "All", value: "", icon: null },
+  { label: "New Arrivals", value: "new", icon: Sparkles },
+  { label: "Featured", value: "featured", icon: Star },
+  { label: "Best Sellers", value: "bestseller", icon: TrendingUp },
+] as const;
 
 export default async function ProductListingPage({
   searchParams,
@@ -47,11 +61,19 @@ async function ProductListingContent({ searchParams }: { searchParams: SearchPar
   };
 
   const q = single("q") ?? "";
-  const cats = (single("cats") ?? "").split(",").filter(Boolean).map(Number);
-  const brands = (single("brands") ?? "").split(",").filter(Boolean).map(Number);
+  // Only keep positive integer ids — `?cats=abc` or `?brands=1e9` must not
+  // reach Prisma as NaN / out-of-range values.
+  const toIds = (raw: string | undefined) =>
+    (raw ?? "")
+      .split(",")
+      .map((v) => Number(v))
+      .filter((n) => Number.isSafeInteger(n) && n > 0);
+  const cats = toIds(single("cats"));
+  const brands = toIds(single("brands"));
   const brandParam = single("brand");
-  if (brandParam && !brands.includes(Number(brandParam))) {
-    brands.push(Number(brandParam));
+  const legacyBrand = Number(brandParam);
+  if (brandParam && Number.isSafeInteger(legacyBrand) && legacyBrand > 0 && !brands.includes(legacyBrand)) {
+    brands.push(legacyBrand);
   }
   const filterParam = (single("filter") ?? "").trim().toLowerCase();
   const productType =
@@ -77,7 +99,7 @@ async function ProductListingContent({ searchParams }: { searchParams: SearchPar
     sortParam === "price-asc" || sortParam === "price-desc" || sortParam === "name-asc"
       ? sortParam
       : "newest";
-  const page = Number(single("page") ?? "1") || 1;
+  const page = clampPage(single("page"));
 
   const [result, categoryTree, brandList] = await Promise.all([
     getFilteredProducts({
@@ -94,78 +116,149 @@ async function ProductListingContent({ searchParams }: { searchParams: SearchPar
     getBrands(100),
   ]);
 
+  const rangeStart = result.total === 0 ? 0 : (result.page - 1) * 12 + 1;
+  const rangeEnd = Math.min(result.total, (result.page - 1) * 12 + result.items.length);
+
+  // Preserve non-type params when switching quick filters
+  const quickHref = (value: string) => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (cats.length) p.set("cats", cats.join(","));
+    if (brands.length) p.set("brands", brands.join(","));
+    if (priceLabels.length) p.set("price", priceLabels.join(","));
+    if (sort !== "newest") p.set("sort", sort);
+    if (value) p.set("filter", value);
+    const s = p.toString();
+    return s ? `/product?${s}` : "/product";
+  };
+
   return (
-    <div className="container mx-auto px-4 py-8 md:py-10">
-      <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">{filterTitle ?? "Our Products"}</h1>
-          {filterTitle && !q && (
-            <p className="text-sm text-muted-foreground mt-1">
-              {result.total} product{result.total === 1 ? "" : "s"}{" "}
-              <Link href="/product" className="text-primary hover:underline">
-                Clear filter
-              </Link>
-            </p>
-          )}
-          {q && (
-            <p className="text-sm text-muted-foreground mt-1">
-              {result.total} result{result.total === 1 ? "" : "s"} for &quot;{q}&quot;{" "}
-              <Link href="/product" className="text-primary hover:underline">
-                Clear search
-              </Link>
-            </p>
-          )}
-          {!q && (
-            <p className="text-sm text-muted-foreground mt-1">
-              Showing {result.items.length} of {result.total} products
-            </p>
-          )}
+    <div>
+      {/* Header band */}
+      <div className="border-b bg-surface/70">
+        <div className="container mx-auto px-4 pt-7 pb-6 md:pt-9">
+          <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Link href="/" className="hover:text-primary">
+              Home
+            </Link>
+            <ChevronRight className="size-3" aria-hidden />
+            <span className="font-medium text-foreground">{filterTitle ?? "Products"}</span>
+          </nav>
+
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="eyebrow text-primary">
+                {q ? "Search results" : filterTitle ? "Curated selection" : "Full catalogue"}
+              </p>
+              <h1 className="mt-1 text-3xl font-extrabold tracking-tight md:text-4xl">
+                {q ? (
+                  <>
+                    Results for <span className="text-primary">&ldquo;{q}&rdquo;</span>
+                  </>
+                ) : (
+                  filterTitle ?? "Our Products"
+                )}
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {result.total === 0 ? (
+                  "No products to show"
+                ) : (
+                  <>
+                    Showing <strong className="font-semibold text-foreground">{rangeStart}–{rangeEnd}</strong> of{" "}
+                    <strong className="font-semibold text-foreground">{result.total}</strong>{" "}
+                    {result.total === 1 ? "product" : "products"}
+                  </>
+                )}
+                {(q || filterTitle) && (
+                  <>
+                    {" · "}
+                    <Link href="/product" className="font-semibold text-primary hover:underline">
+                      {q ? "Clear search" : "Clear filter"}
+                    </Link>
+                  </>
+                )}
+              </p>
+            </div>
+            <SortSelect current={sort} />
+          </div>
+
+          {/* Quick type filters */}
+          <div className="no-scrollbar mt-5 -mb-px flex gap-2 overflow-x-auto">
+            {QUICK_FILTERS.map((f) => {
+              const active = (productType ?? "") === f.value;
+              const Icon = f.icon;
+              return (
+                <Link
+                  key={f.label}
+                  href={quickHref(f.value)}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-4 text-[13px] font-semibold transition-all",
+                    active
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-card text-foreground/80 hover:border-primary/40 hover:text-primary"
+                  )}
+                >
+                  {Icon && <Icon className={cn("size-3.5", active ? "text-brand-amber" : "text-primary")} aria-hidden />}
+                  {f.label}
+                </Link>
+              );
+            })}
+          </div>
         </div>
-        <SortSelect current={sort} />
       </div>
 
-      <div className="flex flex-col gap-8 md:flex-row md:gap-10">
-        <ProductFilters categories={categoryTree} brands={brandList} />
+      <div className="container mx-auto px-4 py-8 md:py-10">
+        <div className="flex flex-col gap-6 md:flex-row md:gap-8 lg:gap-10">
+          <ProductFilters categories={categoryTree} brands={brandList} />
 
-        <div className="w-full md:w-3/4">
-          {result.items.length === 0 ? (
-            <EmptyState
-              icon={q ? SearchX : PackageSearch}
-              title="No products found"
-              description={
-                q
-                  ? `We couldn't find any products matching "${q}". Try different keywords or browse the categories.`
-                  : "No products match your filters. Try clearing some filters to see more results."
-              }
-              action={
-                <Button asChild>
-                  <Link href="/product">Clear all filters</Link>
-                </Button>
-              }
-            />
-          ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {result.items.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-
-              <PaginationControls
-                page={result.page}
-                totalPages={result.totalPages}
-                basePath="/product"
-                params={{
-                  ...(filterTitle ? { filter: filterTitle } : {}),
-                  ...(q ? { q } : {}),
-                  ...(cats.length ? { cats: cats.join(",") } : {}),
-                  ...(brands.length ? { brands: brands.join(",") } : {}),
-                  ...(priceLabels.length ? { price: priceLabels.join(",") } : {}),
-                  ...(sort !== "newest" ? { sort } : {}),
-                }}
+          <div className="min-w-0 flex-1">
+            {result.items.length === 0 ? (
+              <EmptyState
+                icon={q ? SearchX : PackageSearch}
+                title="No products found"
+                description={
+                  q
+                    ? `We couldn't find any products matching "${q}". Try different keywords or browse the categories.`
+                    : "No products match your filters. Try clearing some filters to see more results."
+                }
+                action={
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button asChild>
+                      <Link href="/product">Clear all filters</Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link href="/contact-us">
+                        Ask for a custom quote <ArrowRight aria-hidden />
+                      </Link>
+                    </Button>
+                  </div>
+                }
               />
-            </>
-          )}
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
+                  {result.items.map((product, i) => (
+                    <ProductCard key={product.id} product={product} priority={i < 3} />
+                  ))}
+                </div>
+
+                <PaginationControls
+                  page={result.page}
+                  totalPages={result.totalPages}
+                  basePath="/product"
+                  params={{
+                    ...(filterTitle ? { filter: filterTitle } : {}),
+                    ...(q ? { q } : {}),
+                    ...(cats.length ? { cats: cats.join(",") } : {}),
+                    ...(brands.length ? { brands: brands.join(",") } : {}),
+                    ...(priceLabels.length ? { price: priceLabels.join(",") } : {}),
+                    ...(sort !== "newest" ? { sort } : {}),
+                  }}
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

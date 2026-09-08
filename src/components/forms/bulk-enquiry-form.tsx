@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { startTransition, useActionState, useEffect } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -69,12 +69,14 @@ export function BulkEnquiryForm({
     formData.set("message", values.message);
     if (productId) formData.set("productId", productId);
     if (productName) formData.set("productName", productName);
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" aria-busy={isPending}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -174,9 +176,14 @@ export function BulkEnquiryForm({
           )}
         />
 
-        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
-          {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
-          Submit Enquiry
+        <Button type="submit" size="lg" disabled={isPending} className="w-full sm:w-auto sm:min-w-44">
+          {isPending ? (
+            <>
+              <Loader2 className="animate-spin" aria-hidden /> Sending…
+            </>
+          ) : (
+            "Submit Enquiry"
+          )}
         </Button>
       </form>
     </Form>

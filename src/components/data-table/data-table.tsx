@@ -49,6 +49,7 @@ export interface DataTableFacetedFilter {
 }
 
 export interface DataTableProps<TData extends RowData> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TanStack column defs are heterogeneous by design
   columns: ColumnDef<DataTableFeatures, TData, any>[];
   data: TData[];
   /** Global search predicate over the whole row. */
@@ -222,14 +223,14 @@ export function DataTable<TData extends RowData>({
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-lg border bg-background">
+      <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07]">
         <div className="overflow-x-auto">
           <Table className="min-w-[640px]">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="bg-muted/50 hover:bg-muted/50">
+                <TableRow key={headerGroup.id} className="bg-surface/70 hover:bg-surface/70">
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="h-10 whitespace-nowrap">
+                    <TableHead key={header.id} className="h-11 whitespace-nowrap text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground first:pl-5 last:pr-5">
                       {header.isPlaceholder ? null : <table.FlexRender header={header} />}
                     </TableHead>
                   ))}
@@ -245,7 +246,7 @@ export function DataTable<TData extends RowData>({
                     className="group/row"
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
+                      <TableCell key={cell.id} className="py-3 first:pl-5 last:pr-5">
                         <table.FlexRender cell={cell} />
                       </TableCell>
                     ))}
@@ -253,10 +254,12 @@ export function DataTable<TData extends RowData>({
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="h-40">
+                  <TableCell colSpan={columns.length} className="h-48">
                     <div className="flex flex-col items-center justify-center gap-1 text-center">
-                      <CircleAlertIcon className="size-8 text-muted-foreground/50" aria-hidden />
-                      <p className="font-medium">{emptyTitle}</p>
+                      <span className="mb-2 grid size-12 place-items-center rounded-2xl bg-primary/[0.08] text-primary">
+                        <CircleAlertIcon className="size-5" aria-hidden />
+                      </span>
+                      <p className="font-bold">{emptyTitle}</p>
                       <p className="text-sm text-muted-foreground">{emptyDescription}</p>
                     </div>
                   </TableCell>

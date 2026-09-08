@@ -12,18 +12,19 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <div>
-      <h1 className="text-3xl font-bold">Welcome back</h1>
-      <p className="text-muted-foreground mt-2 mb-8">
-        Sign in to manage your orders, addresses and gifting ideas.
+      <p className="eyebrow text-primary">Welcome back</p>
+      <h1 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Sign in to your account</h1>
+      <p className="mt-2 mb-8 text-muted-foreground">
+        Manage your orders, addresses and saved gifting ideas.
       </p>
 
       <Suspense>
         <LoginForm />
       </Suspense>
 
-      <p className="text-sm text-muted-foreground mt-8 text-center">
+      <p className="mt-8 text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
-        <Link href="/signup" className="text-primary font-semibold hover:underline">
+        <Link href="/signup" className="font-semibold text-primary hover:underline">
           Create one
         </Link>
       </p>

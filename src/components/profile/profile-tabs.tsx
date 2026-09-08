@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 import {
+  ArrowRight,
   Building2,
   ChevronRight,
   LogOut,
@@ -11,12 +13,13 @@ import {
   Package,
   Shield,
   ShoppingBag,
+  Sparkles,
   User,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { ProfileForm } from "./profile-form";
 import { CompanyForm } from "./company-form";
 import { AddressForm } from "./address-form";
@@ -53,11 +56,19 @@ type OrderSummary = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  PENDING: "bg-amber-100 text-amber-800",
-  CONFIRMED: "bg-blue-100 text-blue-800",
-  SHIPPED: "bg-violet-100 text-violet-800",
-  DELIVERED: "bg-emerald-100 text-emerald-800",
-  CANCELLED: "bg-red-100 text-red-800",
+  PENDING: "bg-brand-amber/15 text-[#7a5200] ring-brand-amber/30",
+  CONFIRMED: "bg-brand-blue/10 text-[#1d5fa3] ring-brand-blue/30",
+  SHIPPED: "bg-violet-50 text-violet-800 ring-violet-200",
+  DELIVERED: "bg-success/10 text-success ring-success/25",
+  CANCELLED: "bg-primary/[0.08] text-primary ring-primary/20",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pending",
+  CONFIRMED: "Confirmed",
+  SHIPPED: "Shipped",
+  DELIVERED: "Delivered",
+  CANCELLED: "Cancelled",
 };
 
 const NAV = [
@@ -71,6 +82,9 @@ const NAV = [
 export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: OrderSummary[] }) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const logout = useLogout();
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const initialTab = NAV.some((n) => n.value === requestedTab) ? (requestedTab as string) : "account";
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -81,65 +95,83 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
     .filter((o) => o.status !== "CANCELLED")
     .reduce((sum, o) => sum + o.total, 0);
 
+  const openOrders = orders.filter((o) => o.status !== "DELIVERED" && o.status !== "CANCELLED").length;
+
   return (
     <div className="space-y-8">
-      {/* Profile hero */}
-      <Card className="gap-0 overflow-hidden py-0">
-        <div className="h-20 bg-gradient-to-r from-primary via-primary/80 to-primary/50" aria-hidden />
-        <CardContent className="-mt-8 flex flex-col gap-5 pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex items-end gap-4">
-            <span className="grid size-20 shrink-0 place-items-center rounded-2xl border-4 border-card bg-primary text-2xl font-bold text-primary-foreground shadow-lg">
+      {/* Profile hero — charcoal band with dot-grid, avatar + stats */}
+      <section className="relative overflow-hidden rounded-3xl bg-brand-charcoal text-white">
+        <div aria-hidden className="dot-grid absolute inset-0 opacity-40" />
+        <div aria-hidden className="absolute -top-24 -right-16 size-72 rounded-full bg-primary/40 blur-3xl" />
+        <div aria-hidden className="absolute -bottom-24 left-1/3 size-56 rounded-full bg-brand-amber/20 blur-3xl" />
+
+        <div className="relative flex flex-col gap-6 px-6 py-7 sm:flex-row sm:items-center sm:justify-between md:px-8">
+          <div className="flex items-center gap-4">
+            <span className="relative grid size-16 shrink-0 place-items-center rounded-2xl bg-primary text-2xl font-extrabold text-primary-foreground shadow-[0_16px_32px_-14px_oklch(0.545_0.206_25.5/0.9)] ring-4 ring-white/10 sm:size-20">
               {initials(`${user.firstName} ${user.lastName}`)}
+              <span className="absolute -right-1 -bottom-1 grid size-6 place-items-center rounded-full bg-brand-amber text-[#3d2a00] ring-2 ring-brand-charcoal">
+                <Sparkles className="size-3" aria-hidden />
+              </span>
             </span>
-            <div className="pb-1">
-              <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+            <div>
+              <p className="eyebrow text-brand-amber">My account</p>
+              <h1 className="mt-1 text-xl font-extrabold tracking-tight sm:text-2xl">
                 {user.firstName} {user.lastName}
               </h1>
-              <p className="text-sm text-muted-foreground">{user.email}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Member since {formatDate(user.createdAt)}
+              <p className="text-[13px] text-white/70">
+                {user.email} · Member since {formatDate(user.createdAt)}
               </p>
             </div>
           </div>
-          <div className="flex gap-8 pb-1 sm:gap-10">
-            <div>
-              <p className="text-2xl font-bold tabular-nums">{orders.length}</p>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Orders</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold tabular-nums">{formatCurrency(totalSpent)}</p>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Spent</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      <Tabs defaultValue="account" className="w-full">
+          <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-white/10 ring-1 ring-white/10 sm:min-w-[24rem]">
+            {[
+              { label: "Orders", value: String(orders.length) },
+              { label: "In progress", value: String(openOrders) },
+              { label: "Spent", value: formatCurrency(totalSpent) },
+            ].map((stat) => (
+              <div key={stat.label} className="min-w-0 bg-brand-charcoal/60 px-3 py-3 backdrop-blur-sm sm:px-4">
+                <dt className="truncate text-[10px] font-bold uppercase tracking-[0.14em] text-white/55 sm:text-[10.5px] sm:tracking-[0.16em]">{stat.label}</dt>
+                <dd className="mt-0.5 text-[15px] font-extrabold tabular-nums tracking-tight sm:text-lg">{stat.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+
+      <Tabs defaultValue={initialTab} className="w-full">
         <div className="flex flex-col gap-8 lg:flex-row">
           {/* Side nav (desktop) / scrollable (mobile) */}
-          <TabsList className="h-auto w-full shrink-0 flex-row gap-1 overflow-x-auto bg-transparent p-0 lg:w-60 lg:flex-col lg:gap-1.5 lg:overflow-visible">
+          <TabsList className="no-scrollbar flex !h-auto w-full shrink-0 flex-row items-stretch justify-start gap-1.5 overflow-x-auto rounded-none bg-transparent p-0 group-data-horizontal/tabs:!h-auto lg:sticky lg:top-24 lg:w-64 lg:flex-col lg:gap-1 lg:overflow-visible lg:rounded-2xl lg:bg-card lg:p-2 lg:ring-1 lg:ring-foreground/[0.07]">
             {NAV.map(({ value, label, icon: Icon }) => (
               <TabsTrigger
                 key={value}
                 value={value}
-                className="w-full justify-start gap-2.5 rounded-xl px-4 py-2.5 text-sm font-medium text-muted-foreground data-[state=active]:bg-muted data-[state=active]:text-foreground"
+                className={cn(
+                  "group/tab !h-auto shrink-0 flex-none justify-start gap-2.5 rounded-full border border-border bg-card px-4 py-2 text-[13.5px] font-semibold text-muted-foreground shadow-none transition-colors",
+                  "data-[state=active]:border-foreground data-[state=active]:bg-foreground data-[state=active]:text-background",
+                  "lg:w-full lg:rounded-xl lg:border-transparent lg:bg-transparent lg:px-3.5 lg:py-2.5",
+                  "lg:hover:bg-surface lg:hover:text-foreground",
+                  "lg:data-[state=active]:border-transparent lg:data-[state=active]:bg-primary/[0.08] lg:data-[state=active]:text-primary"
+                )}
               >
-                <Icon className="size-4.5" aria-hidden />
+                <Icon className="size-4" aria-hidden />
                 <span className="whitespace-nowrap">{label}</span>
                 {value === "orders" && orders.length > 0 && (
-                  <span className="ml-auto hidden rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary lg:inline">
+                  <span className="ml-auto hidden rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[11px] font-bold tabular-nums group-data-[state=active]/tab:bg-primary group-data-[state=active]/tab:text-primary-foreground lg:inline">
                     {orders.length}
                   </span>
                 )}
               </TabsTrigger>
             ))}
+            <div className="hidden lg:my-2 lg:block lg:h-px lg:bg-border" aria-hidden />
             <Button
               variant="ghost"
               onClick={handleSignOut}
               disabled={isSigningOut}
-              className="w-full justify-start gap-2.5 rounded-xl px-4 py-2.5 text-sm font-medium text-muted-foreground hover:text-destructive lg:mt-4"
+              className="!h-auto shrink-0 flex-none justify-start gap-2.5 rounded-full border border-border bg-card px-4 py-2 text-[13.5px] font-semibold text-muted-foreground hover:border-primary/30 hover:bg-primary/[0.06] hover:text-primary lg:w-full lg:rounded-xl lg:border-transparent lg:bg-transparent lg:px-3.5 lg:py-2.5"
             >
-              <LogOut className="size-4.5" aria-hidden />
+              <LogOut className="size-4" aria-hidden />
               {isSigningOut ? "Signing out…" : "Sign out"}
             </Button>
           </TabsList>
@@ -150,56 +182,82 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
             </TabsContent>
 
             <TabsContent value="orders" className="mt-0">
-              <Card>
-                <CardHeader>
-                  <CardTitle>My Orders</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {orders.length === 0 ? (
-                    <div className="rounded-xl border border-dashed py-12 text-center">
-                      <Package className="mx-auto mb-3 size-10 text-muted-foreground/40" aria-hidden />
-                      <p className="font-medium">No orders yet</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Your placed orders will appear here.
+              <section className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07]">
+                <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
+                  <div className="flex items-center gap-3">
+                    <span className="grid size-10 place-items-center rounded-xl bg-primary/[0.08] text-primary">
+                      <ShoppingBag className="size-[18px]" />
+                    </span>
+                    <div>
+                      <h2 className="text-[15px] font-bold tracking-tight">My orders</h2>
+                      <p className="text-[12.5px] text-muted-foreground">
+                        {orders.length === 0
+                          ? "Nothing placed yet"
+                          : `${orders.length} order${orders.length === 1 ? "" : "s"} · ${openOrders} in progress`}
                       </p>
-                      <Button asChild className="mt-5">
-                        <Link href="/product">Browse Products</Link>
-                      </Button>
                     </div>
-                  ) : (
-                    <ul className="divide-y">
-                      {orders.map((order) => (
-                        <li key={order.id} className="group/order py-4 first:pt-0 last:pb-0">
-                          <Link
-                            href={`/order-success/${order.orderNumber}`}
-                            className="flex flex-wrap items-center justify-between gap-3 rounded-lg transition-colors"
+                  </div>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href="/product">
+                      Shop again <ArrowRight aria-hidden />
+                    </Link>
+                  </Button>
+                </header>
+
+                {orders.length === 0 ? (
+                  <div className="m-5 rounded-xl border border-dashed px-6 py-12 text-center sm:m-6">
+                    <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-primary/[0.08] text-primary">
+                      <Package className="size-6" aria-hidden />
+                    </span>
+                    <p className="mt-4 font-bold">No orders yet</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Your placed orders will appear here with live status.
+                    </p>
+                    <Button asChild className="mt-5">
+                      <Link href="/product">
+                        Browse Products <ArrowRight aria-hidden />
+                      </Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <ul className="divide-y">
+                    {orders.map((order) => (
+                      <li key={order.id} className="group/order">
+                        <Link
+                          href={`/order-success/${order.orderNumber}`}
+                          className="flex flex-wrap items-center gap-x-5 gap-y-2 px-5 py-4 transition-colors hover:bg-surface/70 sm:px-6"
+                        >
+                          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface text-muted-foreground ring-1 ring-foreground/[0.06] transition-colors group-hover/order:bg-primary/[0.08] group-hover/order:text-primary">
+                            <Package className="size-5" aria-hidden />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-mono text-[13.5px] font-bold tracking-tight">{order.orderNumber}</p>
+                            <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+                              {formatDate(order.createdAt)} · {order.itemCount} item
+                              {order.itemCount === 1 ? "" : "s"}
+                            </p>
+                          </div>
+                          <span
+                            className={cn(
+                              "rounded-full px-2.5 py-1 text-[11px] font-bold ring-1",
+                              STATUS_STYLES[order.status] ?? "bg-muted text-muted-foreground ring-border"
+                            )}
                           >
-                            <div>
-                              <p className="font-semibold tracking-tight">{order.orderNumber}</p>
-                              <p className="mt-0.5 text-sm text-muted-foreground">
-                                {formatDate(order.createdAt)} · {order.itemCount} item
-                                {order.itemCount === 1 ? "" : "s"}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <span
-                                className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_STYLES[order.status] ?? "bg-muted text-muted-foreground"}`}
-                              >
-                                {order.status}
-                              </span>
-                              <p className="font-bold tabular-nums">{formatCurrency(order.total)}</p>
-                              <ChevronRight
-                                className="size-4 text-muted-foreground/50 transition-transform group-hover/order:translate-x-0.5"
-                                aria-hidden
-                              />
-                            </div>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
+                            {STATUS_LABELS[order.status] ?? order.status}
+                          </span>
+                          <p className="min-w-[6rem] text-right text-[15px] font-extrabold tabular-nums tracking-tight">
+                            {formatCurrency(order.total)}
+                          </p>
+                          <ChevronRight
+                            className="size-4 text-muted-foreground/50 transition-transform group-hover/order:translate-x-0.5 group-hover/order:text-primary"
+                            aria-hidden
+                          />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
             </TabsContent>
 
             <TabsContent value="company" className="mt-0">

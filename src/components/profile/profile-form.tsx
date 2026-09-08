@@ -1,14 +1,12 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { startTransition, useActionState, useEffect } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Loader2 } from "lucide-react";
+import { UserRound } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -20,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { updateProfileAction } from "@/actions/profile";
 import { updateProfileSchema, type UpdateProfileInput } from "@/lib/validations/auth";
+import { FooterHint, ProfilePanel, SaveButton } from "./profile-panel";
 import type { ActionResult } from "@/types";
 
 export function ProfileForm({
@@ -52,19 +51,27 @@ export function ProfileForm({
     formData.set("firstName", values.firstName);
     formData.set("lastName", values.lastName);
     formData.set("phone", values.phone);
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Personal Information</CardTitle>
-        <CardDescription>Update your name and contact number.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} aria-busy={isPending}>
+        <ProfilePanel
+          icon={UserRound}
+          title="Personal information"
+          description="Your name and contact number as used on orders and invoices."
+          footer={
+            <>
+              <FooterHint>Changes apply to future orders only.</FooterHint>
+              <SaveButton pending={isPending}>Save changes</SaveButton>
+            </>
+          }
+        >
+          <fieldset disabled={isPending} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="firstName"
@@ -100,20 +107,16 @@ export function ProfileForm({
                 <FormItem>
                   <FormLabel>Mobile number</FormLabel>
                   <FormControl>
-                    <Input type="tel" {...field} />
+                    <Input type="tel" inputMode="tel" placeholder="98765 43210" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <Button type="submit" disabled={isPending}>
-              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
-              Save changes
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+          </fieldset>
+        </ProfilePanel>
+      </form>
+    </Form>
   );
 }

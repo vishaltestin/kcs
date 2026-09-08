@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -81,17 +80,17 @@ export function LoginForm() {
     // 3. Full-page navigation so server components re-render with the new
     //    session (navbar, wishlist, etc.).
     toast.success("Signed in!");
-    window.location.href = nextPath;
+    window.location.assign(nextPath);
   };
 
   return (
-    <Card className="border-none shadow-none">
-      <CardHeader className="px-0">
-        <CardTitle className="text-xl">Sign in</CardTitle>
+    <Card className="gap-0 rounded-3xl border-none py-0 shadow-[0_28px_56px_-32px_rgb(0_0_0/0.35)] ring-1 ring-foreground/[0.07]">
+      <CardHeader className="border-b px-6 py-5 md:px-8">
+        <CardTitle className="text-lg font-extrabold tracking-tight">Sign in</CardTitle>
         <CardDescription>Use your registered email address</CardDescription>
       </CardHeader>
 
-      <CardContent className="px-0">
+      <CardContent className="px-6 py-6 md:px-8">
         {formError && (
           <Alert variant="destructive" className="mb-4">
             {formError}
@@ -148,19 +147,20 @@ export function LoginForm() {
               )}
             />
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
-              Sign In
+            <Button type="submit" size="xl" className="mt-2 w-full" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="animate-spin" aria-hidden /> Signing in…
+                </>
+              ) : (
+                <>
+                  Sign In <ArrowRight aria-hidden />
+                </>
+              )}
             </Button>
           </form>
         </Form>
 
-        <p className="text-sm text-muted-foreground mt-6 text-center">
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-primary font-semibold hover:underline">
-            Sign up
-          </Link>
-        </p>
       </CardContent>
     </Card>
   );

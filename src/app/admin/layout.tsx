@@ -30,7 +30,7 @@ export default async function AdminLayout({
       <AdminAppSidebar />
       <SidebarInset>
         <AdminHeader userName={`${user.firstName} ${user.lastName}`} userEmail={user.email} />
-        <div className="flex-1 p-4 md:p-6">{children}</div>
+        <div className="flex-1 bg-surface/60 p-4 md:p-6 lg:p-8">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

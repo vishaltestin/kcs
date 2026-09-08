@@ -1,14 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Loader2 } from "lucide-react";
+import { MapPin, Truck } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
@@ -21,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { updateAddressAction } from "@/actions/profile";
 import { updateAddressSchema, type UpdateAddressInput } from "@/lib/validations/auth";
+import { FooterHint, ProfilePanel, SaveButton } from "./profile-panel";
 import type { ActionResult } from "@/types";
 
 type AddressUser = {
@@ -77,22 +76,30 @@ export function AddressForm({ user }: { user: AddressUser }) {
     formData.set("shippingCity", values.shippingCity ?? "");
     formData.set("shippingState", values.shippingState ?? "");
     formData.set("shippingPincode", values.shippingPincode ?? "");
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   return (
-    <Card className="max-w-3xl">
-      <CardHeader>
-        <CardTitle>Addresses</CardTitle>
-        <CardDescription>
-          Saved addresses are pre-filled at checkout for faster ordering.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <fieldset className="space-y-4">
-              <legend className="font-semibold text-sm mb-1">Billing address</legend>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} aria-busy={isPending}>
+        <ProfilePanel
+          icon={MapPin}
+          title="Addresses"
+          description="Saved addresses are pre-filled at checkout for faster ordering."
+          footer={
+            <>
+              <FooterHint>Free standard shipping on orders above ₹1,000.</FooterHint>
+              <SaveButton pending={isPending}>Save addresses</SaveButton>
+            </>
+          }
+        >
+          <fieldset disabled={isPending} className="space-y-6">
+            <div className="space-y-4">
+              <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                <MapPin className="size-3.5 text-primary" aria-hidden /> Billing address
+              </p>
               <FormField
                 control={form.control}
                 name="billingAddress"
@@ -106,7 +113,7 @@ export function AddressForm({ user }: { user: AddressUser }) {
                   </FormItem>
                 )}
               />
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="billingCity"
@@ -147,20 +154,25 @@ export function AddressForm({ user }: { user: AddressUser }) {
                   )}
                 />
               </div>
-            </fieldset>
+            </div>
 
-            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed bg-surface/60 px-4 py-3 text-sm font-medium transition-colors hover:bg-surface">
               <Checkbox
                 checked={sameAsBilling}
                 onCheckedChange={(checked) => setSameAsBilling(checked === true)}
                 aria-label="Shipping address same as billing"
               />
-              Shipping address is the same as billing
+              <span className="flex items-center gap-2">
+                <Truck className="size-4 text-muted-foreground" aria-hidden />
+                Shipping address is the same as billing
+              </span>
             </label>
 
             {!sameAsBilling && (
-              <fieldset className="space-y-4">
-                <legend className="font-semibold text-sm mb-1">Shipping address</legend>
+              <div className="space-y-4 animate-fade-up">
+                <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                  <Truck className="size-3.5 text-primary" aria-hidden /> Shipping address
+                </p>
                 <FormField
                   control={form.control}
                   name="shippingAddress"
@@ -174,7 +186,7 @@ export function AddressForm({ user }: { user: AddressUser }) {
                     </FormItem>
                   )}
                 />
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <FormField
                     control={form.control}
                     name="shippingCity"
@@ -215,16 +227,11 @@ export function AddressForm({ user }: { user: AddressUser }) {
                     )}
                   />
                 </div>
-              </fieldset>
+              </div>
             )}
-
-            <Button type="submit" disabled={isPending}>
-              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
-              Save addresses
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+          </fieldset>
+        </ProfilePanel>
+      </form>
+    </Form>
   );
 }

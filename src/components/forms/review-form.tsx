@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -44,13 +44,16 @@ export function ReviewForm({ productId }: { productId: string }) {
 
   useEffect(() => {
     if (!state) return;
-    if (state.ok) {
-      toast.success(state.message ?? "Review submitted!");
-      form.reset({ productId, rating: 5, title: "", comment: "", authorName: "" });
-      setRating(5);
-    } else {
-      toast.error(state.message);
-    }
+    const id = window.setTimeout(() => {
+      if (state.ok) {
+        toast.success(state.message ?? "Review submitted!");
+        form.reset({ productId, rating: 5, title: "", comment: "", authorName: "" });
+        setRating(5);
+      } else {
+        toast.error(state.message);
+      }
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [state, form, productId]);
 
   const onSubmit = (values: ReviewInput) => {
@@ -60,17 +63,19 @@ export function ReviewForm({ productId }: { productId: string }) {
     formData.set("title", values.title ?? "");
     formData.set("comment", values.comment);
     formData.set("authorName", values.authorName);
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-w-2xl">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="max-w-2xl space-y-5" aria-busy={isPending}>
         <input type="hidden" name="productId" value={productId} />
 
         <div className="space-y-2">
           <FormLabel>Your rating</FormLabel>
-          <div className="flex gap-1" role="radiogroup" aria-label="Rating">
+          <div className="flex items-center gap-1" role="radiogroup" aria-label="Rating">
             {[1, 2, 3, 4, 5].map((value) => (
               <button
                 key={value}
@@ -82,17 +87,20 @@ export function ReviewForm({ productId }: { productId: string }) {
                   setRating(value);
                   form.setValue("rating", value);
                 }}
-                className="p-1"
+                className="group/star rounded-md p-1 transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <Star
                   className={cn(
-                    "h-7 w-7 transition-colors",
-                    value <= rating ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground/40"
+                    "size-8 transition-colors",
+                    value <= rating ? "fill-brand-amber text-brand-amber" : "text-muted-foreground/30 group-hover/star:text-brand-amber/60"
                   )}
                   aria-hidden
                 />
               </button>
             ))}
+            <span className="ml-2 text-sm font-medium text-muted-foreground">
+              {rating > 0 ? ["", "Poor", "Fair", "Good", "Very good", "Excellent"][rating] : "Tap to rate"}
+            </span>
           </div>
           {form.formState.errors.rating && (
             <p className="text-sm text-destructive">{form.formState.errors.rating.message}</p>
@@ -141,9 +149,14 @@ export function ReviewForm({ productId }: { productId: string }) {
           )}
         />
 
-        <Button type="submit" disabled={isPending}>
-          {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
-          Submit Review
+        <Button type="submit" size="lg" disabled={isPending} className="min-w-44">
+          {isPending ? (
+            <>
+              <Loader2 className="animate-spin" aria-hidden /> Submitting…
+            </>
+          ) : (
+            "Submit Review"
+          )}
         </Button>
       </form>
     </Form>

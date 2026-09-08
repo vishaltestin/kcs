@@ -95,12 +95,20 @@ function Carousel({
 
   React.useEffect(() => {
     if (!api) return
-    onSelect(api)
+    // "init" fires once embla has measured, seeding the initial prev/next
+    // state without a synchronous setState in the effect body.
+    api.on("init", onSelect)
     api.on("reInit", onSelect)
     api.on("select", onSelect)
+    // If embla already initialised before this effect subscribed, sync once
+    // on the next tick.
+    const id = window.setTimeout(() => onSelect(api), 0)
 
     return () => {
-      api?.off("select", onSelect)
+      window.clearTimeout(id)
+      api.off("init", onSelect)
+      api.off("reInit", onSelect)
+      api.off("select", onSelect)
     }
   }, [api, onSelect])
 

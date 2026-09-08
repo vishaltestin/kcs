@@ -1,24 +1,10 @@
 "use client";
 
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ComposedChart,
-  Pie,
-  PieChart,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Label, Pie, PieChart, XAxis, YAxis } from "recharts";
 
 import {
   ChartConfig,
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
@@ -52,12 +38,12 @@ export function SalesTrendChart({ data }: { data: SalesTrendPoint[] }) {
   }));
 
   return (
-    <Card className="border-border/60 shadow-sm">
-      <CardHeader>
-        <CardTitle>Sales trend</CardTitle>
-        <CardDescription>Revenue and order volume over the last 30 days</CardDescription>
+    <Card className="gap-4 rounded-2xl border-none py-5 shadow-none ring-1 ring-foreground/[0.07]">
+      <CardHeader className="px-5">
+        <CardTitle className="text-[15px] font-bold tracking-tight">Sales trend</CardTitle>
+        <CardDescription className="text-[12.5px]">Revenue and order volume over the last 30 days</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-5">
         <ChartContainer config={trendConfig} className="aspect-auto h-[280px] w-full">
           <ComposedChart accessibilityLayer data={chartData} margin={{ left: 4, right: 4 }}>
             <defs>
@@ -147,33 +133,71 @@ export function OrdersStatusChart({ data }: { data: { status: string; count: num
     ...d,
     fill: STATUS_COLORS[d.status] ?? "var(--chart-3)",
   }));
+  const totalOrders = chartData.reduce((sum, d) => sum + d.count, 0);
 
   return (
-    <Card className="border-border/60 shadow-sm">
-      <CardHeader>
-        <CardTitle>Orders by status</CardTitle>
-        <CardDescription>Current pipeline across all orders</CardDescription>
+    <Card className="gap-4 rounded-2xl border-none py-5 shadow-none ring-1 ring-foreground/[0.07]">
+      <CardHeader className="px-5">
+        <CardTitle className="text-[15px] font-bold tracking-tight">Orders by status</CardTitle>
+        <CardDescription className="text-[12.5px]">Current pipeline across all orders</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-5">
         {chartData.length === 0 ? (
           <p className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
             No orders yet.
           </p>
         ) : (
-          <ChartContainer config={statusConfig} className="aspect-auto h-[220px] w-full">
-            <PieChart>
-              <ChartTooltip content={<ChartTooltipContent nameKey="status" hideLabel />} />
-              <Pie data={chartData} dataKey="count" nameKey="status" innerRadius={54} strokeWidth={4}>
-                {chartData.map((entry) => (
-                  <Cell key={entry.status} fill={entry.fill} />
-                ))}
-              </Pie>
-              <ChartLegend
-                content={<ChartLegendContent nameKey="status" />}
-                className="flex-wrap"
-              />
-            </PieChart>
-          </ChartContainer>
+          <div className="flex h-[220px] items-center gap-5">
+            <ChartContainer config={statusConfig} className="aspect-square h-[184px] shrink-0">
+              <PieChart>
+                <ChartTooltip content={<ChartTooltipContent nameKey="status" hideLabel />} />
+                <Pie
+                  data={chartData}
+                  dataKey="count"
+                  nameKey="status"
+                  innerRadius={58}
+                  outerRadius={84}
+                  paddingAngle={2}
+                  cornerRadius={4}
+                  strokeWidth={0}
+                >
+                  {chartData.map((entry) => (
+                    <Cell key={entry.status} fill={entry.fill} />
+                  ))}
+                  <Label
+                    content={({ viewBox }) => {
+                      if (!viewBox || !("cx" in viewBox) || !("cy" in viewBox)) return null;
+                      const cx = Number(viewBox.cx);
+                      const cy = Number(viewBox.cy);
+                      return (
+                        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle">
+                          <tspan x={cx} y={cy - 6} className="fill-foreground text-2xl font-extrabold tracking-tight">
+                            {totalOrders}
+                          </tspan>
+                          <tspan x={cx} y={cy + 13} className="fill-muted-foreground text-[10px] font-semibold uppercase tracking-[0.14em]">
+                            orders
+                          </tspan>
+                        </text>
+                      );
+                    }}
+                  />
+                </Pie>
+              </PieChart>
+            </ChartContainer>
+            <ul className="min-w-0 flex-1 space-y-2.5">
+              {chartData.map((entry) => (
+                <li key={entry.status} className="flex items-center justify-between gap-3 text-[12.5px]">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="size-2.5 shrink-0 rounded-full" style={{ background: entry.fill }} />
+                    <span className="truncate font-medium capitalize text-muted-foreground">
+                      {entry.status.toLowerCase()}
+                    </span>
+                  </span>
+                  <span className="font-semibold tabular-nums">{entry.count}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -188,12 +212,12 @@ const topProductsConfig = { units: { label: "Units sold" } } satisfies ChartConf
 
 export function TopProductsChart({ data }: { data: TopProductStat[] }) {
   return (
-    <Card className="border-border/60 shadow-sm">
-      <CardHeader>
-        <CardTitle>Best sellers</CardTitle>
-        <CardDescription>Top products by units sold</CardDescription>
+    <Card className="gap-4 rounded-2xl border-none py-5 shadow-none ring-1 ring-foreground/[0.07]">
+      <CardHeader className="px-5">
+        <CardTitle className="text-[15px] font-bold tracking-tight">Best sellers</CardTitle>
+        <CardDescription className="text-[12.5px]">Top products by units sold</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-5">
         {data.length === 0 ? (
           <p className="flex h-[240px] items-center justify-center text-sm text-muted-foreground">
             No sales recorded yet.
@@ -252,12 +276,12 @@ const categoryConfig = { products: { label: "Products" } } satisfies ChartConfig
 
 export function CategoryProductsChart({ data }: { data: CategoryStat[] }) {
   return (
-    <Card className="border-border/60 shadow-sm">
-      <CardHeader>
-        <CardTitle>Catalogue by category</CardTitle>
-        <CardDescription>Products listed under each top-level category</CardDescription>
+    <Card className="gap-4 rounded-2xl border-none py-5 shadow-none ring-1 ring-foreground/[0.07]">
+      <CardHeader className="px-5">
+        <CardTitle className="text-[15px] font-bold tracking-tight">Catalogue by category</CardTitle>
+        <CardDescription className="text-[12.5px]">Products listed under each top-level category</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-5">
         <ChartContainer config={categoryConfig} className="aspect-auto h-[240px] w-full">
           <BarChart accessibilityLayer data={data} margin={{ left: 4, right: 4 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -290,12 +314,12 @@ const usersConfig = { users: { label: "New users", color: "var(--chart-4)" } } s
 
 export function UserGrowthChart({ data }: { data: SignupPoint[] }) {
   return (
-    <Card className="border-border/60 shadow-sm">
-      <CardHeader>
-        <CardTitle>User growth</CardTitle>
-        <CardDescription>New signups per month</CardDescription>
+    <Card className="gap-4 rounded-2xl border-none py-5 shadow-none ring-1 ring-foreground/[0.07]">
+      <CardHeader className="px-5">
+        <CardTitle className="text-[15px] font-bold tracking-tight">User growth</CardTitle>
+        <CardDescription className="text-[12.5px]">New signups per month</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-5">
         <ChartContainer config={usersConfig} className="aspect-auto h-[220px] w-full">
           <AreaChart accessibilityLayer data={data} margin={{ left: 4, right: 4 }}>
             <defs>

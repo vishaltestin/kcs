@@ -34,12 +34,16 @@ export function WishlistButton({
         }
         aria-pressed={isWishlistedNow}
         className={cn(
-          "bg-white/90 hover:bg-white text-foreground rounded-full p-2 shadow-md transition-colors",
+          "grid size-9 place-items-center rounded-full bg-white/90 text-foreground shadow-[0_6px_16px_-6px_rgb(0_0_0/0.35)] ring-1 ring-black/5 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:bg-white active:scale-95",
+          isWishlistedNow && "bg-primary text-primary-foreground ring-primary/40 hover:bg-primary",
           className
         )}
       >
         <Heart
-          className={cn("h-4 w-4", isWishlistedNow && "text-primary fill-primary")}
+          className={cn(
+            "size-4 transition-transform duration-300",
+            isWishlistedNow && "scale-110 fill-current"
+          )}
           aria-hidden
         />
       </button>
@@ -50,12 +54,17 @@ export function WishlistButton({
     <Button
       type="button"
       variant="outline"
-      className={cn("w-full", isWishlistedNow && "border-primary text-primary", className)}
+      size="lg"
+      className={cn(
+        "w-full",
+        isWishlistedNow && "border-primary/40 bg-primary/[0.06] text-primary hover:bg-primary/10 hover:text-primary",
+        className
+      )}
       onClick={() => toggle(product)}
       aria-pressed={isWishlistedNow}
     >
-      <Heart className={cn("mr-2 h-4 w-4", isWishlistedNow && "fill-primary")} aria-hidden />
-      {isWishlistedNow ? "Remove from Wishlist" : "Add to Wishlist"}
+      <Heart className={cn("size-4", isWishlistedNow && "fill-current")} aria-hidden />
+      <span className="truncate">{isWishlistedNow ? "Saved to Ideas" : "Save to Ideas"}</span>
     </Button>
   );
 }

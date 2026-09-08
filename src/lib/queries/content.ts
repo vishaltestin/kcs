@@ -21,21 +21,23 @@ export async function getLatestBlogPosts(limit = 6): Promise<BlogCard[]> {
 }
 
 export async function getBlogPosts(page = 1, perPage = 9) {
-  const [total, posts] = await Promise.all([
-    db.blogPost.count({ where: { isPublished: true } }),
-    db.blogPost.findMany({
-      where: { isPublished: true },
-      orderBy: { publishedAt: "desc" },
-      skip: (page - 1) * perPage,
-      take: perPage,
-    }),
-  ]);
+  const total = await db.blogPost.count({ where: { isPublished: true } });
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  // Snap out-of-range pages to the last real page.
+  const currentPage = Math.min(Math.max(1, Math.floor(page) || 1), totalPages);
+
+  const posts = await db.blogPost.findMany({
+    where: { isPublished: true },
+    orderBy: { publishedAt: "desc" },
+    skip: (currentPage - 1) * perPage,
+    take: perPage,
+  });
 
   return {
     items: posts,
     total,
-    page,
-    totalPages: Math.max(1, Math.ceil(total / perPage)),
+    page: currentPage,
+    totalPages,
   };
 }
 

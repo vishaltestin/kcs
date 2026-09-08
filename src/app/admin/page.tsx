@@ -1,16 +1,19 @@
 import Link from "next/link";
 import {
   AlertCircle,
+  ArrowRight,
+  BellRing,
+  CheckCircle2,
   IndianRupee,
+  Mail,
   Package,
+  PackageSearch,
   ReceiptText,
-  TrendingUp,
+  Store,
   Users,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -19,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PageHeader, StatCard, StatusBadge } from "@/components/admin/ui";
+import { PageHeader, Panel, StatCard, StatusBadge } from "@/components/admin/ui";
 import {
   SalesTrendChart,
   OrdersStatusChart,
@@ -88,22 +91,55 @@ export default async function AdminDashboardPage() {
     },
   ].filter(Boolean) as { label: string; href: string }[];
 
+  const today = new Intl.DateTimeFormat("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(new Date());
+
   return (
     <div>
       <PageHeader
+        eyebrow={today}
         title="Dashboard"
         description="A snapshot of your store — sales, catalogue and leads."
         actions={
-          <Button asChild variant="outline">
-            <Link href="/" target="_blank">
-              View Store
-            </Link>
-          </Button>
+          <>
+            <Button asChild variant="outline">
+              <Link href="/" target="_blank">
+                <Store aria-hidden /> View Store
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/admin/products/new">
+                <Package aria-hidden /> Add product
+              </Link>
+            </Button>
+          </>
         }
       />
 
+      {/* Attention strip */}
+      {attention.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl bg-brand-charcoal px-4 py-3 text-white ring-1 ring-white/10">
+          <span className="mr-1 inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-brand-amber">
+            <BellRing className="size-4" aria-hidden /> Needs attention
+          </span>
+          {attention.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[12.5px] font-semibold transition-colors hover:bg-primary"
+            >
+              {item.label}
+              <ArrowRight className="size-3.5" aria-hidden />
+            </Link>
+          ))}
+        </div>
+      )}
+
       {/* KPIs */}
-      <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total Revenue"
           value={formatCurrency(stats.revenue)}
@@ -133,7 +169,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Sales trend + orders pipeline */}
-      <div className="grid grid-cols-1 gap-4 mb-6 xl:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <SalesTrendChart data={salesTrend} />
         </div>
@@ -141,7 +177,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Catalogue + growth */}
-      <div className="grid grid-cols-1 gap-4 mb-6 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <TopProductsChart data={topProducts} />
         <CategoryProductsChart data={categoryDistribution} />
         <UserGrowthChart data={userGrowth} />
@@ -149,147 +185,139 @@ export default async function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         {/* Recent orders */}
-        <Card className="xl:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Orders</CardTitle>
+        <Panel
+          className="xl:col-span-2"
+          icon={ReceiptText}
+          title="Recent orders"
+          description="Latest six orders across all statuses"
+          bodyClassName="p-0"
+          actions={
             <Button asChild variant="ghost" size="sm">
-              <Link href="/admin/orders">View all</Link>
+              <Link href="/admin/orders">
+                View all <ArrowRight aria-hidden />
+              </Link>
             </Button>
-          </CardHeader>
-          <CardContent>
-            {recentOrders.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">No orders yet.</p>
-            ) : (
-              <Table>
+          }
+        >
+          {recentOrders.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-primary/[0.08] text-primary">
+                <PackageSearch className="size-5" aria-hidden />
+              </span>
+              <p className="mt-3 text-sm font-semibold">No orders yet</p>
+              <p className="text-[12.5px] text-muted-foreground">New orders will show up here as they arrive.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table className="min-w-[560px]">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Order</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                  <TableRow className="bg-surface/70 hover:bg-surface/70">
+                    <TableHead className="pl-5 text-[11px] font-bold uppercase tracking-[0.12em]">Order</TableHead>
+                    <TableHead className="text-[11px] font-bold uppercase tracking-[0.12em]">Customer</TableHead>
+                    <TableHead className="text-[11px] font-bold uppercase tracking-[0.12em]">Date</TableHead>
+                    <TableHead className="text-[11px] font-bold uppercase tracking-[0.12em]">Status</TableHead>
+                    <TableHead className="pr-5 text-right text-[11px] font-bold uppercase tracking-[0.12em]">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {recentOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell>
+                    <TableRow key={order.id} className="group/row">
+                      <TableCell className="pl-5">
                         <Link
                           href={`/admin/orders/${order.id}`}
-                          className="font-semibold text-primary hover:underline"
+                          className="font-mono text-[13px] font-bold tracking-tight transition-colors group-hover/row:text-primary"
                         >
                           {order.orderNumber}
                         </Link>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-[11.5px] text-muted-foreground">
                           {order.items.length} item{order.items.length === 1 ? "" : "s"}
                         </p>
                       </TableCell>
                       <TableCell>
-                        <p className="text-sm font-medium">{order.customerName}</p>
-                        <p className="text-xs text-muted-foreground">{order.customerEmail}</p>
+                        <p className="text-[13px] font-semibold">{order.customerName}</p>
+                        <p className="text-[11.5px] text-muted-foreground">{order.customerEmail}</p>
                       </TableCell>
-                      <TableCell className="text-sm">{formatDate(order.createdAt)}</TableCell>
+                      <TableCell className="text-[13px] text-muted-foreground">{formatDate(order.createdAt)}</TableCell>
                       <TableCell>
                         <StatusBadge status={order.status} />
                       </TableCell>
-                      <TableCell className="text-right font-semibold">
+                      <TableCell className="pr-5 text-right text-[13.5px] font-extrabold tabular-nums">
                         {formatCurrency(order.total)}
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Attention + enquiries + low stock */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-amber-500" aria-hidden /> Needs Attention
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {attention.length === 0 ? (
-                <p className="text-sm text-muted-foreground">All caught up. Great job! 🎉</p>
-              ) : (
-                <ul className="space-y-2">
-                  {attention.map((item) => (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className="text-sm text-muted-foreground hover:text-primary flex items-start gap-2"
-                      >
-                        <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" aria-hidden />
-                        {item.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Latest Enquiries</CardTitle>
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/admin/enquiries">View all</Link>
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {recentEnquiries.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No enquiries yet.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {recentEnquiries.map((enquiry) => (
-                    <li key={enquiry.id} className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{enquiry.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {enquiry.productName ?? "General enquiry"}
-                          {enquiry.quantity ? ` · ${enquiry.quantity} units` : ""}
-                        </p>
-                      </div>
-                      <StatusBadge status={enquiry.status} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-
-          {lowStock.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-primary" aria-hidden /> Low Stock
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {lowStock.map((product) => (
-                    <li key={product.id} className="flex items-center justify-between gap-2">
-                      <Link
-                        href={`/product/${product.slug}`}
-                        className="text-sm hover:text-primary truncate"
-                      >
-                        {product.name}
-                      </Link>
-                      <Badge
-                        variant="secondary"
-                        className={product.stock < 50 ? "bg-red-100 text-red-800" : ""}
-                      >
-                        {product.stock} left
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+            </div>
           )}
+        </Panel>
+
+        {/* Enquiries + low stock */}
+        <div className="space-y-4">
+          <Panel
+            icon={Mail}
+            title="Latest enquiries"
+            bodyClassName="p-0"
+            actions={
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/admin/enquiries">
+                  View all <ArrowRight aria-hidden />
+                </Link>
+              </Button>
+            }
+          >
+            {recentEnquiries.length === 0 ? (
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">No enquiries yet.</p>
+            ) : (
+              <ul className="divide-y">
+                {recentEnquiries.map((enquiry) => (
+                  <li key={enquiry.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold">{enquiry.name}</p>
+                      <p className="truncate text-[11.5px] text-muted-foreground">
+                        {enquiry.productName ?? "General enquiry"}
+                        {enquiry.quantity ? ` · ${enquiry.quantity} units` : ""}
+                      </p>
+                    </div>
+                    <StatusBadge status={enquiry.status} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+
+          <Panel
+            icon={lowStock.length > 0 ? AlertCircle : CheckCircle2}
+            title="Stock watch"
+            description={lowStock.length > 0 ? "Products under 100 units" : "All products comfortably stocked"}
+            bodyClassName="p-0"
+          >
+            {lowStock.length === 0 ? (
+              <p className="px-5 py-6 text-center text-sm text-muted-foreground">Nothing to restock right now.</p>
+            ) : (
+              <ul className="divide-y">
+                {lowStock.map((product) => (
+                  <li key={product.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                    <Link
+                      href={`/product/${product.slug}`}
+                      className="truncate text-[13px] font-medium transition-colors hover:text-primary"
+                    >
+                      {product.name}
+                    </Link>
+                    <span
+                      className={
+                        product.stock < 50
+                          ? "shrink-0 rounded-full bg-primary/[0.08] px-2.5 py-1 text-[11px] font-bold text-primary ring-1 ring-primary/20"
+                          : "shrink-0 rounded-full bg-brand-amber/15 px-2.5 py-1 text-[11px] font-bold text-[#7a5200] ring-1 ring-brand-amber/30"
+                      }
+                    >
+                      {product.stock} left
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
         </div>
       </div>
     </div>

@@ -36,8 +36,8 @@ export function AdminHeader({ userName, userEmail }: { userName: string; userEma
   const segments = pathname.split("/").filter(Boolean);
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <SidebarTrigger className="-ml-1" aria-label="Toggle sidebar" />
+    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 border-b border-foreground/[0.06] bg-background/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/75 md:px-6">
+      <SidebarTrigger className="-ml-1 rounded-lg" aria-label="Toggle sidebar" />
       <Separator orientation="vertical" className="!h-4" />
 
       <div className="hidden sm:block min-w-0">
@@ -72,32 +72,33 @@ export function AdminHeader({ userName, userEmail }: { userName: string; userEma
         </Breadcrumb>
       </div>
 
-      <div className="flex items-center gap-3 ml-auto">
-        <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
+      <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
           <Link href="/" target="_blank">
             <Store aria-hidden /> View Store
           </Link>
         </Button>
 
-        <div className="flex items-center gap-2">
-          <Avatar className="h-9 w-9">
-            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+        <div className="flex items-center gap-2.5 rounded-full py-1 pr-1 pl-1 md:bg-surface md:pr-4 md:ring-1 md:ring-foreground/[0.06]">
+          <Avatar className="size-8">
+            <AvatarFallback className="bg-primary text-[11px] font-extrabold text-primary-foreground">
               {initials(userName)}
             </AvatarFallback>
           </Avatar>
           <div className="hidden md:block">
-            <p className="text-sm font-semibold leading-none">{userName}</p>
-            <p className="text-xs text-muted-foreground">{userEmail}</p>
+            <p className="text-[13px] font-bold leading-none">{userName}</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">{userEmail}</p>
           </div>
         </div>
 
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
           onClick={() => void logout("/")}
           aria-label="Sign out"
+          className="rounded-full text-muted-foreground hover:bg-primary/[0.08] hover:text-primary"
         >
-          <LogOut className="h-4 w-4" aria-hidden />
+          <LogOut className="size-4" aria-hidden />
         </Button>
       </div>
     </header>

@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { CheckCircle2, Eye, EyeOff, Loader2, Lock, Mail, Phone, User } from "lucide-react";
+import { ArrowRight, CheckCircle2, Eye, EyeOff, Loader2, Lock, Mail, Phone, User } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -53,12 +53,15 @@ export function SignupForm() {
 
   useEffect(() => {
     if (!state) return;
-    if (state.ok) {
-      toast.success(state.message ?? "Account created!");
-      if (state.data?.verifyUrl) setVerifyUrl(state.data.verifyUrl);
-    } else {
-      toast.error(state.message);
-    }
+    const id = window.setTimeout(() => {
+      if (state.ok) {
+        toast.success(state.message ?? "Account created!");
+        if (state.data?.verifyUrl) setVerifyUrl(state.data.verifyUrl);
+      } else {
+        toast.error(state.message);
+      }
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [state]);
 
   const onSubmit = (values: SignupInput) => {
@@ -69,17 +72,19 @@ export function SignupForm() {
     formData.set("email", values.email);
     formData.set("password", values.password);
     formData.set("passwordConfirmation", values.passwordConfirmation);
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   return (
-    <Card className="border-none shadow-none">
-      <CardHeader className="px-0">
-        <CardTitle className="text-xl">Sign up</CardTitle>
+    <Card className="gap-0 rounded-3xl border-none py-0 shadow-[0_28px_56px_-32px_rgb(0_0_0/0.35)] ring-1 ring-foreground/[0.07]">
+      <CardHeader className="border-b px-6 py-5 md:px-8">
+        <CardTitle className="text-lg font-extrabold tracking-tight">Sign up</CardTitle>
         <CardDescription>It takes less than a minute</CardDescription>
       </CardHeader>
 
-      <CardContent className="px-0">
+      <CardContent className="px-6 py-6 md:px-8">
         {state && !state.ok && (
           <Alert variant="destructive" className="mb-4">
             {state.message}
@@ -87,9 +92,9 @@ export function SignupForm() {
         )}
 
         {verifyUrl && (
-          <Alert className="mb-4 border-green-600 text-green-700">
+          <Alert className="mb-4 border-success/40 bg-success/[0.06] text-success">
             <CheckCircle2 className="h-4 w-4" aria-hidden />
-            <AlertDescription className="text-green-700">
+            <AlertDescription className="text-success">
               Account created! In production a verification email would be sent. In development you
               can verify directly:{" "}
               <a href={verifyUrl} className="font-semibold underline">
@@ -218,9 +223,16 @@ export function SignupForm() {
               )}
             />
 
-            <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
-              Create Account
+            <Button type="submit" size="xl" className="mt-2 w-full" disabled={isPending}>
+              {isPending ? (
+                <>
+                  <Loader2 className="animate-spin" aria-hidden /> Creating account…
+                </>
+              ) : (
+                <>
+                  Create Account <ArrowRight aria-hidden />
+                </>
+              )}
             </Button>
           </form>
         </Form>

@@ -35,55 +35,59 @@ export function PaginationControls({
   const prev = page > 1 ? page - 1 : null;
   const next = page < totalPages ? page + 1 : null;
 
+  const edge =
+    "inline-flex h-10 items-center gap-1.5 rounded-full border bg-card px-4 text-sm font-semibold transition-all";
+
   return (
-    <nav className="flex justify-center items-center gap-1 mt-8" aria-label="Pagination">
-      {prev ? (
-        <Link
-          href={buildHref(prev)}
-          className="flex h-9 w-9 items-center justify-center rounded-md border hover:bg-muted"
-          aria-label="Previous page"
-        >
-          <ChevronLeft className="h-4 w-4" aria-hidden />
-        </Link>
-      ) : (
-        <span className="flex h-9 w-9 items-center justify-center rounded-md border opacity-40" aria-hidden>
-          <ChevronLeft className="h-4 w-4" />
-        </span>
-      )}
-
-      {pages.map((p, index) =>
-        p === "…" ? (
-          <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground" aria-hidden>
-            …
-          </span>
-        ) : (
-          <Link
-            key={p}
-            href={buildHref(p)}
-            aria-current={p === page ? "page" : undefined}
-            className={cn(
-              "flex h-9 min-w-9 px-2 items-center justify-center rounded-md border text-sm",
-              p === page ? "bg-primary text-primary-foreground border-primary font-semibold" : "hover:bg-muted"
-            )}
-          >
-            {p}
+    <nav className="mt-10 flex flex-col items-center gap-3" aria-label="Pagination">
+      <div className="flex items-center gap-1.5">
+        {prev ? (
+          <Link href={buildHref(prev)} className={cn(edge, "hover:border-primary hover:text-primary")} aria-label="Previous page">
+            <ChevronLeft className="size-4" aria-hidden /> <span className="hidden sm:inline">Prev</span>
           </Link>
-        )
-      )}
+        ) : (
+          <span className={cn(edge, "cursor-not-allowed opacity-40")} aria-hidden>
+            <ChevronLeft className="size-4" /> <span className="hidden sm:inline">Prev</span>
+          </span>
+        )}
 
-      {next ? (
-        <Link
-          href={buildHref(next)}
-          className="flex h-9 w-9 items-center justify-center rounded-md border hover:bg-muted"
-          aria-label="Next page"
-        >
-          <ChevronRight className="h-4 w-4" aria-hidden />
-        </Link>
-      ) : (
-        <span className="flex h-9 w-9 items-center justify-center rounded-md border opacity-40" aria-hidden>
-          <ChevronRight className="h-4 w-4" />
-        </span>
-      )}
+        <div className="mx-1 flex items-center gap-1">
+          {pages.map((p, index) =>
+            p === "…" ? (
+              <span key={`ellipsis-${index}`} className="grid size-10 place-items-center text-muted-foreground" aria-hidden>
+                …
+              </span>
+            ) : (
+              <Link
+                key={p}
+                href={buildHref(p)}
+                aria-current={p === page ? "page" : undefined}
+                className={cn(
+                  "grid size-10 place-items-center rounded-full text-sm font-semibold transition-all tabular-nums",
+                  p === page
+                    ? "bg-primary text-primary-foreground shadow-[0_8px_18px_-8px_var(--primary)]"
+                    : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                )}
+              >
+                {p}
+              </Link>
+            )
+          )}
+        </div>
+
+        {next ? (
+          <Link href={buildHref(next)} className={cn(edge, "hover:border-primary hover:text-primary")} aria-label="Next page">
+            <span className="hidden sm:inline">Next</span> <ChevronRight className="size-4" aria-hidden />
+          </Link>
+        ) : (
+          <span className={cn(edge, "cursor-not-allowed opacity-40")} aria-hidden>
+            <span className="hidden sm:inline">Next</span> <ChevronRight className="size-4" />
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Page {page} of {totalPages}
+      </p>
     </nav>
   );
 }

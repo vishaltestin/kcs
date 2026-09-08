@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { bookMeetingAction } from "@/actions/meetings";
-import { meetingBookingSchema, type MeetingBookingInput } from "@/lib/validations/shop";
+import { meetingBookingSchema } from "@/lib/validations/shop";
 import { IMAGES, MEETING_TIME_SLOTS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -96,46 +96,79 @@ export function BookMeetingDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">
-            Explore Unique Corporate Gifting Solutions
-          </DialogTitle>
-          <DialogDescription>
-            Book a free consultation with our gifting experts — we help you plan hampers, joining
-            kits and branded merchandise for your team.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid md:grid-cols-2 gap-8 mt-2">
+      <DialogContent className="max-h-[92vh] gap-0 overflow-hidden p-0 sm:max-w-4xl">
+        <div className="grid md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           {/* Left: branding */}
-          <div className="space-y-4">
-            <div className="relative rounded-lg overflow-hidden h-56 md:h-64">
-              <Image
-                src={IMAGES.panIndia}
-                alt="Corporate gifting consultation"
-                fill
-                className="object-cover"
-              />
+          <aside className="relative hidden overflow-hidden bg-brand-charcoal text-white md:block">
+            <Image
+              src={IMAGES.panIndia}
+              alt=""
+              fill
+              sizes="420px"
+              className="object-cover opacity-60"
+            />
+            <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20" />
+            <div className="relative flex h-full flex-col p-8">
+              <p className="eyebrow text-brand-amber">Free consultation</p>
+              <h3 className="mt-2 text-2xl font-extrabold leading-tight tracking-tight">
+                Explore unique corporate gifting solutions.
+              </h3>
+              <p className="mt-3 text-sm text-white/75">
+                We help you plan hampers, joining kits and branded merchandise for your team.
+              </p>
+              <ul className="mt-auto space-y-3 pt-8 text-sm">
+                {[
+                  { icon: Users, text: "Dedicated gifting manager" },
+                  { icon: Video, text: "Video call or on-site meeting" },
+                  { icon: CheckCircle2, text: "Free samples and mock-ups" },
+                ].map((item) => (
+                  <li key={item.text} className="flex items-center gap-2.5">
+                    <span className="grid size-7 place-items-center rounded-full bg-white/10 ring-1 ring-white/15">
+                      <item.icon className="size-3.5 text-brand-amber" aria-hidden />
+                    </span>
+                    {item.text}
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              <li className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-primary shrink-0" aria-hidden /> Dedicated gifting
-                manager
-              </li>
-              <li className="flex items-center gap-2">
-                <Video className="h-4 w-4 text-primary shrink-0" aria-hidden /> Video call or
-                on-site meeting
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-primary shrink-0" aria-hidden /> Free samples
-                and mockups
-              </li>
-            </ul>
-          </div>
+          </aside>
 
           {/* Right: steps */}
-          <div>
+          <div className="max-h-[92vh] overflow-y-auto p-6 md:p-8">
+            <DialogHeader className="mb-5 text-left">
+              <DialogTitle className="text-xl font-extrabold tracking-tight md:text-2xl">
+                Book a Meeting
+              </DialogTitle>
+              <DialogDescription>
+                Pick a date and time — a gifting expert will confirm by email.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Progress */}
+            {step !== "done" && (
+              <ol className="mb-6 flex items-center gap-2" aria-label="Booking progress">
+                {(["calendar", "time", "details"] as const).map((key, i) => {
+                  const order = ["calendar", "time", "details", "confirmation"];
+                  const current = order.indexOf(step) >= i;
+                  return (
+                    <li key={key} className="flex flex-1 items-center gap-2">
+                      <span
+                        className={cn(
+                          "grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-bold transition-colors",
+                          current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {i + 1}
+                      </span>
+                      <span className={cn("hidden text-xs font-semibold sm:inline", current ? "text-foreground" : "text-muted-foreground")}>
+                        {["Date", "Time", "Details"][i]}
+                      </span>
+                      {i < 2 && <span className={cn("h-px flex-1", current && order.indexOf(step) > i ? "bg-primary" : "bg-border")} aria-hidden />}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
             {/* Step 1 — calendar */}
             {step === "calendar" && (
               <div className="space-y-4">
@@ -172,7 +205,7 @@ export function BookMeetingDialog({
                     month: "long",
                   })}
                 </p>
-                <div className="grid grid-cols-4 gap-2" role="listbox" aria-label="Available time slots">
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4" role="listbox" aria-label="Available time slots">
                   {MEETING_TIME_SLOTS.map((slot) => (
                     <button
                       key={slot}
@@ -184,8 +217,8 @@ export function BookMeetingDialog({
                         setStep("details");
                       }}
                       className={cn(
-                        "border rounded-md py-2 text-sm font-medium hover:border-primary hover:text-primary transition-colors",
-                        timeSlot === slot && "border-primary bg-primary/5 text-primary"
+                        "rounded-lg border py-2.5 text-sm font-semibold transition-all hover:border-primary hover:bg-primary/[0.05] hover:text-primary",
+                        timeSlot === slot && "border-primary bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
                       )}
                     >
                       {slot}
@@ -246,7 +279,7 @@ export function BookMeetingDialog({
 
                 {serverError && <p className="text-sm text-destructive">{serverError}</p>}
 
-                <Button type="submit" className="w-full" disabled={submitting}>
+                <Button type="submit" size="xl" className="w-full" disabled={submitting}>
                   {submitting ? "Booking…" : "Confirm Booking"}
                 </Button>
               </form>
@@ -254,9 +287,14 @@ export function BookMeetingDialog({
 
             {/* Step 4 — done */}
             {step === "done" && (
-              <div className="text-center py-10 space-y-4">
-                <CheckCircle2 className="mx-auto h-16 w-16 text-green-600" aria-hidden />
-                <h3 className="text-xl font-bold">Meeting booked!</h3>
+              <div className="space-y-4 py-8 text-center">
+                <span className="relative mx-auto grid size-24 place-items-center">
+                  <span aria-hidden className="animate-ring absolute inset-0 rounded-full border-2 border-success/40" />
+                  <span className="relative grid size-16 place-items-center rounded-full bg-success text-white">
+                    <CheckCircle2 className="size-8" aria-hidden />
+                  </span>
+                </span>
+                <h3 className="text-xl font-extrabold tracking-tight">Meeting booked!</h3>
                 <p className="text-sm text-muted-foreground">
                   {selectedDate?.toLocaleDateString("en-IN", {
                     weekday: "long",
@@ -314,8 +352,8 @@ function MiniCalendar({
     a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
   return (
-    <div className="border rounded-lg p-3">
-      <p className="text-center font-semibold mb-2">
+    <div className="rounded-2xl bg-card p-3 ring-1 ring-foreground/[0.07]">
+      <p className="mb-2 text-center text-sm font-bold">
         {monthStart.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
       </p>
       <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground mb-1" aria-hidden>
@@ -337,8 +375,9 @@ function MiniCalendar({
               aria-label={date.toLocaleDateString("en-IN", { dateStyle: "full" })}
               aria-pressed={isSelected}
               className={cn(
-                "h-9 rounded-md text-sm hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed",
-                isSelected && "bg-primary text-primary-foreground hover:bg-primary"
+                "h-9 rounded-lg text-sm font-medium transition-colors hover:bg-primary/[0.08] hover:text-primary disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-inherit",
+                sameDay(date, todayFloor) && !isSelected && "ring-1 ring-primary/40",
+                isSelected && "bg-primary text-primary-foreground shadow-[0_8px_16px_-8px_var(--primary)] hover:bg-primary hover:text-primary-foreground"
               )}
             >
               {date.getDate()}

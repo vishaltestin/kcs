@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { startTransition, useActionState, useEffect } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Loader2 } from "lucide-react";
+import { Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -43,57 +43,71 @@ export function ContactForm() {
     formData.set("phone", values.phone ?? "");
     formData.set("subject", values.subject ?? "");
     formData.set("message", values.message);
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4" noValidate>
-      <div className="grid gap-2">
-        <Label htmlFor="contact-name">Name *</Label>
-        <Input id="contact-name" placeholder="Your name" {...form.register("name")} />
-        {form.formState.errors.name && (
-          <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
-        )}
-      </div>
+    <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-5" noValidate aria-busy={isPending}>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-2">
+          <Label htmlFor="contact-name">Name *</Label>
+          <Input id="contact-name" placeholder="Your name" autoComplete="name" {...form.register("name")} />
+          {form.formState.errors.name && (
+            <p className="text-xs font-medium text-destructive">{form.formState.errors.name.message}</p>
+          )}
+        </div>
 
-      <div className="grid gap-2">
-        <Label htmlFor="contact-email">Email *</Label>
-        <Input id="contact-email" type="email" placeholder="Your email" {...form.register("email")} />
-        {form.formState.errors.email && (
-          <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
-        )}
-      </div>
+        <div className="grid gap-2">
+          <Label htmlFor="contact-email">Email *</Label>
+          <Input id="contact-email" type="email" placeholder="you@company.com" autoComplete="email" {...form.register("email")} />
+          {form.formState.errors.email && (
+            <p className="text-xs font-medium text-destructive">{form.formState.errors.email.message}</p>
+          )}
+        </div>
 
-      <div className="grid gap-2">
-        <Label htmlFor="contact-phone">Phone</Label>
-        <Input id="contact-phone" type="tel" placeholder="9876543210" {...form.register("phone")} />
-        {form.formState.errors.phone && (
-          <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>
-        )}
-      </div>
+        <div className="grid gap-2">
+          <Label htmlFor="contact-phone">Phone</Label>
+          <Input id="contact-phone" type="tel" placeholder="9876543210" autoComplete="tel" {...form.register("phone")} />
+          {form.formState.errors.phone && (
+            <p className="text-xs font-medium text-destructive">{form.formState.errors.phone.message}</p>
+          )}
+        </div>
 
-      <div className="grid gap-2">
-        <Label htmlFor="contact-subject">Subject</Label>
-        <Input id="contact-subject" placeholder="What is this about?" {...form.register("subject")} />
+        <div className="grid gap-2">
+          <Label htmlFor="contact-subject">Subject</Label>
+          <Input id="contact-subject" placeholder="e.g. Diwali hampers for 200 employees" {...form.register("subject")} />
+        </div>
       </div>
 
       <div className="grid gap-2">
         <Label htmlFor="contact-message">Message *</Label>
         <Textarea
           id="contact-message"
-          placeholder="Tell us about your requirement…"
+          placeholder="Tell us about your requirement — occasion, quantity, budget per piece and timeline…"
           className="min-h-[150px]"
           {...form.register("message")}
         />
         {form.formState.errors.message && (
-          <p className="text-sm text-destructive">{form.formState.errors.message.message}</p>
+          <p className="text-xs font-medium text-destructive">{form.formState.errors.message.message}</p>
         )}
       </div>
 
-      <Button type="submit" disabled={isPending} className="justify-self-start">
-        {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
-        Submit
-      </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button type="submit" size="lg" disabled={isPending} className="min-w-40">
+          {isPending ? (
+            <>
+              <Loader2 className="animate-spin" aria-hidden /> Sending…
+            </>
+          ) : (
+            <>
+              Send message <Send aria-hidden />
+            </>
+          )}
+        </Button>
+        <p className="text-xs text-muted-foreground">We reply within one business day.</p>
+      </div>
     </form>
   );
 }
