@@ -104,11 +104,26 @@ export function ProductsTable({
         header: ({ column }) => <SortButton column={column} label="Price (from)" />,
         cell: ({ row }) => {
           const lowest = row.original.prices[0];
-          if (!lowest) return <span className="text-muted-foreground">—</span>;
+          const mode = row.original.pricingMode;
+          if (mode === "ENQUIRY" || !lowest) {
+            return (
+              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                Enquiry only
+              </span>
+            );
+          }
           return (
             <div className="whitespace-nowrap">
+              {row.original.hasVariants && <span className="text-xs text-muted-foreground">from </span>}
               <span className="font-semibold">{formatCurrency(lowest.price)}</span>
-              <span className="text-xs text-muted-foreground"> @{lowest.minQuantity}+</span>
+              <span className="text-xs text-muted-foreground">
+                {mode === "SINGLE" ? " · single unit" : ` @${lowest.minQuantity}+`}
+              </span>
+              {row.original.hasVariants && (
+                <span className="ml-1.5 rounded-md bg-primary/[0.08] px-1.5 py-0.5 text-[10.5px] font-semibold text-primary">
+                  {row.original.variantCount} variant{row.original.variantCount === 1 ? "" : "s"}
+                </span>
+              )}
             </div>
           );
         },
@@ -120,9 +135,10 @@ export function ProductsTable({
       cell: ({ row }) => (
         <Badge
           variant="secondary"
-          className={row.original.stock < 50 ? "bg-red-100 text-red-800" : ""}
+          className={row.original.stock === 0 ? "" : row.original.stock < 50 ? "bg-red-100 text-red-800" : ""}
+          title={row.original.stock === 0 ? "Not tracked" : undefined}
         >
-          {row.original.stock}
+          {row.original.stock === 0 ? "∞" : row.original.stock}
         </Badge>
       ),
     }),

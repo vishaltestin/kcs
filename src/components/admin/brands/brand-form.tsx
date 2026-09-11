@@ -27,6 +27,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { NumberField } from "@/components/admin/number-field";
 import { ImagePicker } from "@/components/admin/image-picker";
 import { createBrandAction, updateBrandAction } from "@/actions/admin/brands";
 import { brandSchema } from "@/lib/validations/admin";
@@ -144,12 +145,7 @@ export function BrandForm({ mode, brand }: { mode: "create" | "edit"; brand?: Br
                 <FormItem>
                   <FormLabel>Sort order</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      min={0}
-                      {...field}
-                      onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                    />
+                    <NumberField field={field} integer min={0} placeholder="0" />
                   </FormControl>
                   <FormDescription>Lower numbers appear first.</FormDescription>
                   <FormMessage />

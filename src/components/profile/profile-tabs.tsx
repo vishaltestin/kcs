@@ -8,12 +8,15 @@ import {
   ArrowRight,
   Building2,
   ChevronRight,
+  ExternalLink,
+  FileText,
   LogOut,
   MapPin,
   Package,
   Shield,
   ShoppingBag,
   Sparkles,
+  Truck,
   User,
 } from "lucide-react";
 
@@ -53,6 +56,12 @@ type OrderSummary = {
   total: number;
   itemCount: number;
   createdAt: string;
+  invoiceNumber: string | null;
+  hasGst: boolean;
+  courierName: string | null;
+  trackingNumber: string | null;
+  trackingUrl: string | null;
+  expectedAt: string | null;
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -225,7 +234,7 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
                       <li key={order.id} className="group/order">
                         <Link
                           href={`/order-success/${order.orderNumber}`}
-                          className="flex flex-wrap items-center gap-x-5 gap-y-2 px-5 py-4 transition-colors hover:bg-surface/70 sm:px-6"
+                          className="flex flex-wrap items-center gap-x-5 gap-y-2 px-5 pt-4 pb-2 transition-colors hover:bg-surface/70 sm:px-6"
                         >
                           <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface text-muted-foreground ring-1 ring-foreground/[0.06] transition-colors group-hover/order:bg-primary/[0.08] group-hover/order:text-primary">
                             <Package className="size-5" aria-hidden />
@@ -235,6 +244,7 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
                             <p className="mt-0.5 text-[12.5px] text-muted-foreground">
                               {formatDate(order.createdAt)} · {order.itemCount} item
                               {order.itemCount === 1 ? "" : "s"}
+                              {order.invoiceNumber ? ` · Inv ${order.invoiceNumber}` : ""}
                             </p>
                           </div>
                           <span
@@ -253,6 +263,43 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
                             aria-hidden
                           />
                         </Link>
+                        {/* Secondary row: tracking + invoice shortcuts */}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 pb-3.5 pl-[5.25rem] text-[12px] sm:px-6 sm:pl-[5.5rem]">
+                          {order.courierName ? (
+                            <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                              <Truck className="size-3.5 text-primary" aria-hidden />
+                              {order.courierName}
+                              {order.trackingNumber && (
+                                <span className="font-mono font-semibold text-foreground">{order.trackingNumber}</span>
+                              )}
+                              {order.expectedAt && order.status === "SHIPPED" && <span>· ETA {formatDate(order.expectedAt)}</span>}
+                            </span>
+                          ) : order.status !== "CANCELLED" && order.status !== "DELIVERED" ? (
+                            <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                              <Truck className="size-3.5" aria-hidden /> Tracking appears once dispatched
+                            </span>
+                          ) : null}
+                          {order.trackingUrl && (
+                            <a
+                              href={order.trackingUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                            >
+                              Track <ExternalLink className="size-3" aria-hidden />
+                            </a>
+                          )}
+                          {order.status !== "CANCELLED" && (
+                            <a
+                              href={`/api/orders/${order.orderNumber}/invoice`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-auto inline-flex items-center gap-1 font-semibold text-foreground hover:text-primary"
+                            >
+                              <FileText className="size-3.5" aria-hidden /> {order.hasGst ? "Tax invoice" : "Invoice"} PDF
+                            </a>
+                          )}
+                        </div>
                       </li>
                     ))}
                   </ul>

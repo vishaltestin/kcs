@@ -52,9 +52,28 @@ export default async function CategoryListingPage() {
           <p className="py-16 text-center text-muted-foreground">Categories coming soon.</p>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-              {regular.map((category, i) => (
-                <CategoryTile key={category.id} category={category} featured={i === 0} />
+            {/* Jump list — every parent, in order */}
+            <nav aria-label="Jump to category" className="mb-8 flex flex-wrap gap-2">
+              {regular.map((category) => (
+                <a
+                  key={category.id}
+                  href={`#cat-${category.slug}`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-card px-3.5 py-1.5 text-[13px] font-medium ring-1 ring-foreground/[0.08] transition-colors hover:bg-primary hover:text-primary-foreground hover:ring-primary"
+                >
+                  {category.title}
+                  {category.children.length > 0 && (
+                    <span className="rounded-full bg-foreground/[0.06] px-1.5 text-[11px] font-semibold tabular-nums group-hover:bg-white/20">
+                      {category.children.length}
+                    </span>
+                  )}
+                </a>
+              ))}
+            </nav>
+
+            {/* Tree: one branch per parent category with its children */}
+            <div className="space-y-4">
+              {regular.map((category) => (
+                <CategoryBranch key={category.id} category={category} />
               ))}
             </div>
 
@@ -159,5 +178,101 @@ function CategoryTile({
         )}
       </div>
     </Link>
+  );
+}
+
+/**
+ * A parent category with its sub-categories drawn as a simple tree:
+ * image tile on the left, a vertical guide line and one leaf per child.
+ */
+function CategoryBranch({ category }: { category: Awaited<ReturnType<typeof getCategoryTree>>[number] }) {
+  const children = category.children;
+
+  return (
+    <section
+      id={`cat-${category.slug}`}
+      className="scroll-mt-28 overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07]"
+    >
+      <div className="grid md:grid-cols-[18rem_minmax(0,1fr)]">
+        {/* Parent */}
+        <Link
+          href={`/category/${category.slug}`}
+          className="group relative flex min-h-44 flex-col justify-end overflow-hidden bg-brand-charcoal p-5 text-white md:min-h-full"
+        >
+          {category.image ? (
+            <Image
+              src={category.image}
+              alt=""
+              fill
+              sizes="(max-width: 768px) 100vw, 288px"
+              className="object-cover opacity-70 transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.05]"
+            />
+          ) : (
+            <div aria-hidden className="dot-grid absolute inset-0 opacity-40" />
+          )}
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
+          <div className="relative">
+            <p className="eyebrow text-brand-amber">Category</p>
+            <h2 className="mt-1 text-xl font-extrabold tracking-tight">{category.title}</h2>
+            <p className="mt-1 text-xs text-white/70">
+              {children.length > 0
+                ? `${children.length} sub-categor${children.length === 1 ? "y" : "ies"}`
+                : "Browse the collection"}
+            </p>
+            <span className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
+              View all
+              <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </span>
+          </div>
+        </Link>
+
+        {/* Children */}
+        <div className="p-5 md:p-6">
+          {children.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No sub-categories — everything lives under {category.title}.</p>
+          ) : (
+            <ul className="relative ml-2 grid gap-1 border-l-2 border-dashed border-border pl-5 sm:grid-cols-2 sm:gap-x-6 xl:grid-cols-3">
+              {children.map((child) => (
+                <li
+                  key={child.id}
+                  // Dashed connector from the trunk — only for items in the first
+                  // grid column (odd items at 2 cols, 3n+1 at 3 cols).
+                  className="relative before:absolute before:top-1/2 before:-left-5 before:block before:h-px before:w-4 before:border-t-2 before:border-dashed before:border-border sm:nth-[2n]:before:hidden xl:nth-[3n+1]:before:block xl:nth-[3n+2]:before:hidden xl:nth-[3n]:before:hidden"
+                >
+                  <Link
+                    href={`/category/${child.slug}`}
+                    className="group/leaf flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-surface"
+                  >
+                    <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-foreground/[0.06]">
+                      {child.image ? (
+                        <Image src={child.image} alt="" fill sizes="40px" className="object-cover" />
+                      ) : (
+                        <span className="grid size-full place-items-center text-[11px] font-bold text-muted-foreground">
+                          {child.title.charAt(0)}
+                        </span>
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-semibold transition-colors group-hover/leaf:text-primary">
+                        {child.title}
+                      </span>
+                      {child.children.length > 0 && (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {child.children.map((c) => c.title).join(" · ")}
+                        </span>
+                      )}
+                    </span>
+                    <ChevronRight
+                      className="size-4 shrink-0 text-muted-foreground/50 transition-transform group-hover/leaf:translate-x-0.5 group-hover/leaf:text-primary"
+                      aria-hidden
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

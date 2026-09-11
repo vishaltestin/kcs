@@ -14,9 +14,10 @@ import { ProductGallery } from "@/components/shop/product-gallery";
 import { ProductActions } from "@/components/shop/product-actions";
 import { BulkInquiryTable } from "@/components/shop/bulk-inquiry-table";
 import { ProductSpecifications } from "@/components/shop/product-specifications";
+import { formatGrams } from "@/lib/shipping";
 import { ReviewForm } from "@/components/forms/review-form";
 import { ReviewCard } from "@/components/shop/review-card";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 type Params = Promise<{ slug: string }>;
 
@@ -74,7 +75,10 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
     ),
   ]);
 
-  const baseTier = product.prices[0];
+  const isEnquiry = product.pricingMode === "ENQUIRY";
+  const isBulk = product.pricingMode === "BULK";
+  const hasVariants = product.options.length > 0 && product.variants.length > 0;
+  const baseTier = isEnquiry ? undefined : product.prices[0];
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -148,15 +152,18 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
             </span>
           </div>
 
-          {/* Price block */}
+          {/* Price block (variant products render theirs inside ProductActions) */}
+          {!hasVariants && (
           <div className="relative overflow-hidden rounded-2xl bg-surface p-5 ring-1 ring-foreground/[0.06]">
             <div aria-hidden className="pointer-events-none absolute -top-10 -right-10 size-32 rounded-full bg-primary/[0.07] blur-2xl" />
-            <p className="eyebrow text-muted-foreground">Starting at</p>
+            <p className="eyebrow text-muted-foreground">
+              {isEnquiry ? "Pricing" : isBulk ? "Starting at" : "Price"}
+            </p>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <p className="text-4xl font-extrabold tracking-tight tabular-nums">
+              <p className={cn("font-extrabold tracking-tight tabular-nums", baseTier ? "text-4xl" : "text-2xl md:text-3xl")}>
                 {baseTier ? formatCurrency(baseTier.price) : "Price on request"}
               </p>
-              {baseTier && (
+              {baseTier && isBulk && (
                 <span className="text-sm font-medium text-muted-foreground">/ piece</span>
               )}
               {baseTier && baseTier.price < baseTier.mrp && (
@@ -170,21 +177,29 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
                 </>
               )}
             </div>
-            {baseTier && (
+            {baseTier ? (
               <p className="mt-2 text-sm text-muted-foreground">
                 {baseTier.price < baseTier.mrp && (
                   <>
-                    You save <strong className="font-semibold text-success">{formatCurrency(baseTier.mrp - baseTier.price)}</strong> per piece ·{" "}
+                    You save <strong className="font-semibold text-success">{formatCurrency(baseTier.mrp - baseTier.price)}</strong>
+                    {isBulk ? " per piece" : ""} ·{" "}
                   </>
                 )}
-                Slabs get cheaper from {baseTier.minQuantity}+ pcs
+                {isBulk
+                  ? `Slabs get cheaper from ${baseTier.minQuantity}+ pcs`
+                  : "Inclusive of all taxes · order from a single piece"}
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Quoted per brief — quantity, branding and delivery decide the final price.
               </p>
             )}
           </div>
+          )}
 
           {product.introtext && <p className="leading-relaxed text-muted-foreground">{product.introtext}</p>}
 
-          <BulkInquiryTable prices={product.prices} />
+          {isBulk && !hasVariants && <BulkInquiryTable prices={product.prices} />}
 
           <ProductActions product={product} />
 
@@ -225,9 +240,24 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
         </div>
       </div>
 
-      {/* Specifications */}
+      {/* Specifications (+ derived shipping/tax rows) */}
       <div className="mt-14">
-        <ProductSpecifications specs={product.specs} description={product.description} />
+        <ProductSpecifications
+          specs={[
+            ...product.specs,
+            ...(product.options.length > 0
+              ? product.options.map((o, i) => ({ id: -100 - i, label: `Available ${o.name.toLowerCase()}s`, value: o.values.join(", ") }))
+              : []),
+            ...(product.weightGrams > 0
+              ? [{ id: -1, label: "Packed weight", value: formatGrams(product.weightGrams) }]
+              : []),
+            ...(product.dimensionsCm
+              ? [{ id: -2, label: "Package dimensions", value: `${product.dimensionsCm.length} × ${product.dimensionsCm.width} × ${product.dimensionsCm.height} cm` }]
+              : []),
+            ...(product.hsnCode ? [{ id: -3, label: "HSN code", value: `${product.hsnCode} · GST ${product.gstRate}% (included)` }] : []),
+          ]}
+          description={product.description}
+        />
       </div>
 
       {/* Reviews */}

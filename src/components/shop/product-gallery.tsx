@@ -70,7 +70,8 @@ export function ProductGallery({
             src={safeImages[currentImage]}
             alt={`${name} — image ${currentImage + 1}`}
             fill
-            sizes="(max-width: 768px) 100vw, 50vw"
+            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 640px"
+            quality={90}
             priority
             className="animate-fade-up object-contain p-4 transition-transform duration-300 ease-out"
             style={
@@ -170,6 +171,7 @@ export function ProductGallery({
               alt={`${name} — image ${currentImage + 1}`}
               fill
               sizes="96vw"
+              quality={90}
               className="object-contain"
             />
             <button

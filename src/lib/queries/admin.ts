@@ -102,6 +102,11 @@ const adminProductInclude = {
   prices: { orderBy: { minQuantity: "asc" as const } },
   specs: true,
   images: { orderBy: { sortOrder: "asc" as const } },
+  options: { orderBy: { sortOrder: "asc" as const } },
+  variants: {
+    orderBy: { sortOrder: "asc" as const },
+    include: { prices: { orderBy: { minQuantity: "asc" as const } } },
+  },
 } satisfies Prisma.ProductInclude;
 
 type AdminProductRow = Prisma.ProductGetPayload<{ include: typeof adminProductInclude }>;
@@ -122,12 +127,18 @@ export type AdminProduct = {
   video: string | null;
   delivery: string | null;
   stock: number;
+  pricingMode: "SINGLE" | "BULK" | "ENQUIRY";
   basePrice: number;
   baseMrp: number;
   isActive: boolean;
   isNew: boolean;
   isFeatured: boolean;
   isBestSeller: boolean;
+  hasVariants: boolean;
+  variantCount: number;
+  hsnCode: string | null;
+  gstRate: number;
+  weightGrams: number;
   createdAt: Date;
   updatedAt: Date;
   brand: { name: string } | null;
@@ -150,12 +161,18 @@ function toAdminProduct(p: AdminProductRow): AdminProduct {
     video: p.video,
     delivery: p.delivery,
     stock: p.stock,
+    pricingMode: p.pricingMode,
     basePrice: Number(p.basePrice),
     baseMrp: Number(p.baseMrp),
     isActive: p.isActive,
     isNew: p.isNew,
     isFeatured: p.isFeatured,
     isBestSeller: p.isBestSeller,
+    hasVariants: p.hasVariants,
+    variantCount: p.variants.length,
+    hsnCode: p.hsnCode,
+    gstRate: Number(p.gstRate),
+    weightGrams: p.weightGrams,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     brand: p.brand,
@@ -238,6 +255,7 @@ export async function getAdminProductForEdit(id: string) {
     video: p.video,
     delivery: p.delivery,
     stock: p.stock,
+    pricingMode: row.pricingMode,
     isActive: p.isActive,
     isNew: p.isNew,
     isFeatured: p.isFeatured,
@@ -250,6 +268,33 @@ export async function getAdminProductForEdit(id: string) {
     images: p.images.map((i) => i.url),
     prices: p.prices.map(({ minQuantity, price, mrp }) => ({ minQuantity, price, mrp })),
     specs: p.specs.map(({ label, value }) => ({ label, value })),
+    hsnCode: row.hsnCode ?? "",
+    gstRate: Number(row.gstRate),
+    weightGrams: row.weightGrams,
+    lengthCm: Number(row.lengthCm) || null,
+    widthCm: Number(row.widthCm) || null,
+    heightCm: Number(row.heightCm) || null,
+    hasVariants: row.hasVariants,
+    options: row.options.map((o) => ({
+      name: o.name,
+      values: Array.isArray(o.values) ? (o.values as unknown[]).map(String) : [],
+    })),
+    variants: row.variants.map((v) => ({
+      id: v.id,
+      attributes: (v.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)
+        ? (v.attributes as Record<string, unknown>)
+        : {}) as Record<string, string>,
+      label: v.label,
+      sku: v.sku ?? "",
+      image: v.image ?? "",
+      stock: v.stock,
+      isActive: v.isActive,
+      prices: v.prices.map(({ minQuantity, price, mrp }) => ({ minQuantity, price: Number(price), mrp: Number(mrp) })),
+      weightGrams: v.weightGrams,
+      lengthCm: v.lengthCm === null ? null : Number(v.lengthCm),
+      widthCm: v.widthCm === null ? null : Number(v.widthCm),
+      heightCm: v.heightCm === null ? null : Number(v.heightCm),
+    })),
   };
 }
 

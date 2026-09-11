@@ -35,6 +35,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/shared/empty-state";
 import { placeOrderAction } from "@/actions/orders";
+import { useShippingEstimate } from "@/components/shop/use-shipping-estimate";
+import { formatGrams } from "@/lib/shipping";
+import { INDIAN_STATES } from "@/lib/india";
 import { checkoutFormSchema, type CheckoutFormValues } from "@/lib/validations/shop";
 import { useCartStore } from "@/store/cart";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -56,8 +59,6 @@ type CheckoutDefaults = Pick<
   | "shippingState"
   | "shippingPincode"
 >;
-
-const FREE_SHIPPING_THRESHOLD = 1000;
 
 export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
   const router = useRouter();
@@ -109,7 +110,12 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
   }, [state, resetCart, router]);
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : 100;
+  // Live weight/zone-based shipping for the destination state being typed.
+  const billingState = form.watch("billingState") ?? "";
+  const shippingState = form.watch("shippingState") ?? "";
+  const destinationState = sameAsBilling ? billingState : shippingState || billingState;
+  const { estimate, loading: shippingLoading } = useShippingEstimate(items, destinationState, subtotal);
+  const shipping = estimate?.amount ?? 0;
   const total = subtotal + shipping;
   const pieces = items.reduce((sum, item) => sum + item.qty, 0);
   const busy = isPending || isRedirecting;
@@ -136,7 +142,9 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
     formData.set("notes", values.notes ?? "");
     formData.set(
       "items",
-      JSON.stringify(items.map((item) => ({ productId: item.id, quantity: item.qty })))
+      JSON.stringify(
+        items.map((item) => ({ productId: item.productId, variantId: item.variantId, quantity: item.qty }))
+      )
     );
     // Dispatching inside a transition keeps `isPending` accurate and stops
     // React from treating the action as a blocking (full-page) update.
@@ -169,6 +177,11 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
         className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start"
         aria-busy={busy}
       >
+        <datalist id="kcs-states">
+          {INDIAN_STATES.map((st) => (
+            <option key={st} value={st} />
+          ))}
+        </datalist>
         <fieldset disabled={busy} className="min-w-0 space-y-5 disabled:opacity-90">
           {/* Contact */}
           <Section step={1} icon={Building2} title="Contact & Company" hint="Who should we reach for confirmation and invoicing?">
@@ -277,7 +290,7 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                   <FormItem>
                     <FormLabel>State *</FormLabel>
                     <FormControl>
-                      <Input autoComplete="address-level1" {...field} />
+                      <Input autoComplete="address-level1" list="kcs-states" placeholder="e.g. Delhi" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -356,7 +369,7 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                     <FormItem>
                       <FormLabel>State</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value ?? ""} />
+                        <Input list="kcs-states" placeholder="e.g. Maharashtra" {...field} value={field.value ?? ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -423,6 +436,7 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-1 text-[13px] font-semibold">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
+                      {item.variantLabel && <span className="font-semibold text-foreground">{item.variantLabel} · </span>}
                       {item.qty} × {formatCurrency(item.price)}
                     </p>
                   </div>
@@ -440,15 +454,32 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Shipping</span>
-                <span className={cn("font-medium tabular-nums", shipping === 0 ? "text-success" : "text-foreground")}>
-                  {shipping === 0 ? "Free" : formatCurrency(shipping)}
+                <span className={cn("font-medium tabular-nums", estimate?.free ? "text-success" : "text-foreground")}>
+                  {shippingLoading ? (
+                    <Loader2 className="size-4 animate-spin" aria-label="Calculating shipping" />
+                  ) : !estimate ? (
+                    "—"
+                  ) : estimate.free ? (
+                    "Free"
+                  ) : (
+                    formatCurrency(estimate.amount)
+                  )}
                 </span>
               </div>
+              {estimate && (
+                <p className="-mt-1 text-[11px] text-muted-foreground">
+                  {estimate.free && estimate.reason === "free-threshold"
+                    ? `Free shipping on orders above ${formatCurrency(estimate.freeShippingThreshold)}`
+                    : `${destinationState.trim() ? estimate.zoneName : "Enter your state for the exact rate"}${estimate.etaDays && destinationState.trim() ? ` · ${estimate.etaDays} working days` : ""}${estimate.chargeableWeight > 0 ? ` · ${formatGrams(estimate.chargeableWeight)}` : ""}`}
+                </p>
+              )}
               <div className="flex items-baseline justify-between border-t pt-3">
                 <span className="text-base font-extrabold tracking-tight">Total</span>
                 <span className="text-xl font-extrabold tracking-tight tabular-nums">{formatCurrency(total)}</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">Inclusive of all taxes · GST invoice on request</p>
+              <p className="text-[11px] text-muted-foreground">
+                Inclusive of GST · tax invoice generated with your order{form.watch("gstNo") ? " (B2B, with your GSTIN)" : ""}
+              </p>
             </div>
 
             <div className="px-5 pt-4 pb-5">
@@ -472,7 +503,8 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                 </li>
                 <li className="flex items-start gap-2">
                   <Truck className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
-                  Free standard shipping on orders above {formatCurrency(FREE_SHIPPING_THRESHOLD)}.
+                  Shipping is calculated from packed weight and destination
+                  {estimate ? `; free above ${formatCurrency(estimate.freeShippingThreshold)}.` : "."}
                 </li>
               </ul>
 

@@ -68,6 +68,12 @@ export default async function ProfilePage() {
               total: Number(order.total),
               itemCount: order.items.length,
               createdAt: order.createdAt.toISOString(),
+              invoiceNumber: order.invoiceNumber,
+              hasGst: !!order.gstNo,
+              courierName: order.courierName,
+              trackingNumber: order.trackingNumber,
+              trackingUrl: order.trackingUrl,
+              expectedAt: order.expectedAt ? order.expectedAt.toISOString() : null,
             }))}
           />
         </Suspense>

@@ -11,6 +11,7 @@ const COMPANY_LINKS = [
   { label: "Why Choose Us", href: "/why-us" },
   { label: "Blog", href: "/blog" },
   { label: "Contact Us", href: "/contact-us" },
+  { label: "FAQ", href: "/faq" },
 ];
 
 const SHOP_LINKS = [

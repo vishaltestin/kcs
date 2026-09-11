@@ -28,6 +28,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { NumberField } from "@/components/admin/number-field";
 import {
   Select,
   SelectContent,
@@ -213,12 +214,7 @@ export function CategoryForm({
                 <FormItem>
                   <FormLabel>Sort order</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      min={0}
-                      {...field}
-                      onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                    />
+                    <NumberField field={field} integer min={0} placeholder="0" />
                   </FormControl>
                   <FormDescription>Lower numbers appear first.</FormDescription>
                   <FormMessage />

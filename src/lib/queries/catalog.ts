@@ -10,6 +10,7 @@ import type {
   ProductWithRelations,
 } from "@/types";
 import { PRICE_FILTER_OPTIONS } from "@/lib/constants";
+import { priceRange, variantLabel, type StorefrontVariant } from "@/lib/variants";
 
 /**
  * Server-side catalog queries. Every storefront page fetches its data here
@@ -23,18 +24,83 @@ const productInclude = {
   specs: true,
   categories: { include: { category: true } },
   reviews: { where: { isApproved: true }, select: { rating: true } },
+  options: true,
+  variants: { include: { prices: true } },
 } satisfies Prisma.ProductInclude;
 
 // ---------------------------------------------------------------------------
 // Mappers
 // ---------------------------------------------------------------------------
 
+function toStorefrontVariants(p: ProductWithRelations): StorefrontVariant[] {
+  const axes = toOptionAxes(p);
+  return [...p.variants]
+    .filter((v) => v.isActive)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((v) => {
+      const tiers = [...v.prices].sort((a, b) => a.minQuantity - b.minQuantity);
+      const base = tiers[0];
+      const attributes = (v.attributes ?? {}) as Record<string, string>;
+      return {
+        id: v.id,
+        attributes,
+        label: v.label || variantLabel(attributes, axes),
+        sku: v.sku,
+        image: v.image,
+        stock: v.stock,
+        price: base ? Number(base.price) : Number(v.basePrice) > 0 ? Number(v.basePrice) : null,
+        mrp: base ? Number(base.mrp) : Number(v.baseMrp) > 0 ? Number(v.baseMrp) : null,
+        minQuantity: p.pricingMode === "SINGLE" ? 1 : (base?.minQuantity ?? 1),
+        prices: tiers.map((t) => ({ minQuantity: t.minQuantity, price: Number(t.price), mrp: Number(t.mrp) })),
+      };
+    });
+}
+
+function toOptionAxes(p: ProductWithRelations): { name: string; values: string[] }[] {
+  return [...p.options]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((o) => ({ name: o.name, values: Array.isArray(o.values) ? (o.values as string[]) : [] }))
+    .filter((o) => o.values.length > 0);
+}
+
 export function toProductListItem(p: ProductWithRelations): ProductListItem {
   const sorted = [...p.prices].sort((a, b) => a.minQuantity - b.minQuantity);
   const base = sorted[0];
-  const hasBasePrice = Number(p.basePrice) > 0;
+  const variants = p.hasVariants ? toStorefrontVariants(p) : [];
+  const range = variants.length > 0 && p.pricingMode !== "ENQUIRY" ? priceRange(variants) : null;
+  const isEnquiry =
+    p.pricingMode === "ENQUIRY" || (variants.length === 0 && !base && Number(p.basePrice) <= 0);
+  const hasBasePrice = !isEnquiry && Number(p.basePrice) > 0;
+
+  if (range) {
+    // Variant products: card price is the cheapest variant; stock is the sum.
+    const cheapest = variants.find((v) => v.price === range.min);
+    return {
+      pricingMode: p.pricingMode,
+      variantCount: variants.length,
+      priceRange: range.min === range.max ? null : range,
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      image: p.image,
+      introtext: p.introtext,
+      brand: p.brand?.name ?? null,
+      brandId: p.brandId,
+      isNew: p.isNew,
+      isFeatured: p.isFeatured,
+      isBestSeller: p.isBestSeller,
+      isActive: p.isActive,
+      stock: variants.reduce((sum, v) => sum + v.stock, 0),
+      price: range.min,
+      mrpPrice: cheapest?.mrp ?? null,
+      minQuantity: p.pricingMode === "SINGLE" ? 1 : (cheapest?.minQuantity ?? 1),
+    };
+  }
 
   return {
+    pricingMode: isEnquiry ? "ENQUIRY" : p.pricingMode,
+    variantCount: variants.length,
+    priceRange: null,
     id: p.id,
     name: p.name,
     slug: p.slug,
@@ -47,9 +113,9 @@ export function toProductListItem(p: ProductWithRelations): ProductListItem {
     isBestSeller: p.isBestSeller,
     isActive: p.isActive,
     stock: p.stock,
-    price: hasBasePrice ? Number(p.basePrice) : base ? Number(base.price) : null,
-    mrpPrice: hasBasePrice ? Number(p.baseMrp) : base ? Number(base.mrp) : null,
-    minQuantity: base?.minQuantity ?? 1,
+    price: isEnquiry ? null : hasBasePrice ? Number(p.basePrice) : base ? Number(base.price) : null,
+    mrpPrice: isEnquiry ? null : hasBasePrice ? Number(p.baseMrp) : base ? Number(base.mrp) : null,
+    minQuantity: isEnquiry ? 1 : p.pricingMode === "SINGLE" ? 1 : (base?.minQuantity ?? 1),
   };
 }
 
@@ -82,6 +148,15 @@ export function toProductDetail(p: ProductWithRelations): ProductDetail {
       mrp: Number(tier.mrp),
     })),
     specs: p.specs.map((s) => ({ id: s.id, label: s.label, value: s.value })),
+    hsnCode: p.hsnCode,
+    gstRate: Number(p.gstRate),
+    weightGrams: p.weightGrams,
+    dimensionsCm:
+      Number(p.lengthCm) > 0 && Number(p.widthCm) > 0 && Number(p.heightCm) > 0
+        ? { length: Number(p.lengthCm), width: Number(p.widthCm), height: Number(p.heightCm) }
+        : null,
+    options: p.hasVariants ? toOptionAxes(p) : [],
+    variants: p.hasVariants ? toStorefrontVariants(p) : [],
     rating:
       ratings.length > 0
         ? {
@@ -329,36 +404,90 @@ export async function getProductReviews(productId: string) {
 }
 
 /** Lightweight suggestion search for the navbar (server action friendly). */
-export async function searchSuggestions(query: string, limit = 8) {
-  const q = query.trim();
-  if (q.length < 2) return [];
+export type SearchSuggestions = {
+  products: {
+    id: string;
+    name: string;
+    slug: string;
+    image: string;
+    brand: string;
+    category: string;
+    price: number | null;
+    pricingMode: "SINGLE" | "BULK" | "ENQUIRY";
+  }[];
+  categories: { id: number; title: string; slug: string; image: string | null; parent: string | null; count: number }[];
+  brands: { id: number; name: string; slug: string | null; count: number }[];
+};
 
-  const products = await db.product.findMany({
-    where: {
-      isActive: true,
-      OR: [
-        { name: { contains: q } },
-        { brand: { name: { contains: q } } },
-        { categories: { some: { category: { title: { contains: q } } } } },
-      ],
-    },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      image: true,
-      brand: { select: { name: true } },
-      categories: { take: 1, select: { category: { select: { title: true } } } },
-    },
-    take: limit,
-  });
+/** Products, categories and brands matching `query` — powers the header search panel. */
+export async function searchSuggestions(query: string, limit = 6): Promise<SearchSuggestions> {
+  const q = query.trim().slice(0, 100);
+  if (q.length < 2) return { products: [], categories: [], brands: [] };
 
-  return products.map((p) => ({
-    id: p.id,
-    name: p.name,
-    slug: p.slug,
-    image: p.image,
-    brand: p.brand?.name ?? "Unbranded",
-    category: p.categories[0]?.category.title ?? "Uncategorised",
-  }));
+  const [products, categories, brands] = await Promise.all([
+    db.product.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { name: { contains: q } },
+          { sku: { equals: q } },
+          { brand: { name: { contains: q } } },
+          { categories: { some: { category: { title: { contains: q } } } } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        image: true,
+        basePrice: true,
+        pricingMode: true,
+        brand: { select: { name: true } },
+        categories: { take: 1, select: { category: { select: { title: true } } } },
+      },
+      orderBy: [{ isBestSeller: "desc" }, { isFeatured: "desc" }, { createdAt: "desc" }],
+      take: limit,
+    }),
+    db.category.findMany({
+      where: { title: { contains: q } },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        image: true,
+        parent: { select: { title: true } },
+        _count: { select: { products: true } },
+      },
+      orderBy: [{ parentId: "asc" }, { sortOrder: "asc" }],
+      take: 5,
+    }),
+    db.brand.findMany({
+      where: { name: { contains: q } },
+      select: { id: true, name: true, slug: true, _count: { select: { products: true } } },
+      orderBy: { sortOrder: "asc" },
+      take: 4,
+    }),
+  ]);
+
+  return {
+    products: products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      image: p.image,
+      brand: p.brand?.name ?? "KCS G-Mart",
+      category: p.categories[0]?.category.title ?? "Corporate gifts",
+      price: p.pricingMode === "ENQUIRY" || Number(p.basePrice) <= 0 ? null : Number(p.basePrice),
+      pricingMode: p.pricingMode,
+    })),
+    categories: categories.map((c) => ({
+      id: c.id,
+      title: c.title,
+      slug: c.slug,
+      image: c.image,
+      parent: c.parent?.title ?? null,
+      count: c._count.products,
+    })),
+    brands: brands.map((b) => ({ id: b.id, name: b.name, slug: b.slug, count: b._count.products })),
+  };
 }

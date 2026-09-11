@@ -13,6 +13,7 @@ import {
   Gift,
   Heart,
   LayoutDashboard,
+  LayoutGrid,
   Loader2,
   LogOut,
   Package,
@@ -51,15 +52,11 @@ import { BookMeetingDialog } from "@/components/book-a-meeting/book-meeting-dial
 import { IMAGES, SITE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { CategoryNode } from "@/types";
+import type { SearchSuggestions } from "@/lib/queries/catalog";
+import { formatCurrency } from "@/lib/utils";
 
-type SearchSuggestion = {
-  id: string;
-  name: string;
-  slug: string;
-  image: string;
-  brand: string;
-  category: string;
-};
+type SearchSuggestion = SearchSuggestions;
+const EMPTY_SUGGESTIONS: SearchSuggestions = { products: [], categories: [], brands: [] };
 
 type NavbarUser = {
   firstName: string;
@@ -81,17 +78,24 @@ export function NavbarClient({
   productCategories,
   specialCategories,
   user,
+  freeShippingThreshold = 0,
 }: {
   productCategories: CategoryNode[];
   specialCategories: CategoryNode[];
   user: NavbarUser;
+  /** From store settings; 0 hides the free-shipping promise. */
+  freeShippingThreshold?: number;
 }) {
   const router = useRouter();
+  const shippingPromise =
+    freeShippingThreshold > 0
+      ? `Free standard shipping over ₹${freeShippingThreshold.toLocaleString("en-IN")}`
+      : "Zone-wise shipping, calculated at checkout";
   const pathname = usePathname();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<SearchSuggestion>(EMPTY_SUGGESTIONS);
   const [isSearching, setIsSearching] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [isLoggingOut, startLogoutTransition] = useTransition();
@@ -110,7 +114,7 @@ export function NavbarClient({
     const timer = setTimeout(
       async () => {
         if (query.length < 2) {
-          setSuggestions([]);
+          setSuggestions(EMPTY_SUGGESTIONS);
           setIsSearching(false);
           return;
         }
@@ -144,9 +148,21 @@ export function NavbarClient({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Shadow under the sticky nav row once the page has scrolled
+  // Condensed sticky state: once the logo/search band has scrolled away the
+  // nav row gains a shadow and slides in a compact logo, mini search and cart.
+  // Hysteresis (on at 160, off at 120) avoids flicker around the threshold.
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 140);
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      setScrolled((prev) => (prev ? window.scrollY > 120 : window.scrollY > 160));
+    };
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        window.requestAnimationFrame(update);
+      }
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -192,14 +208,17 @@ export function NavbarClient({
   const showPanel = showSuggestions && (searchQuery.trim().length >= 2 || searchQuery.trim().length === 0);
 
   return (
-    <nav className="w-full bg-background" aria-label="Main navigation">
+    // `contents` removes the <nav> box from layout so the sticky rows inside
+    // stick to the viewport (a sticky element only sticks within its parent —
+    // with a normal block parent it scrolled away with the header).
+    <nav className="contents" aria-label="Main navigation">
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       <div className="w-full bg-brand-ink text-white/80">
         <div className="flex h-10 items-center justify-between px-4 md:px-10 xl:px-20">
           <div className="hidden items-center gap-5 md:flex">
             <Link href="/product" className="flex items-center gap-1.5 text-[12px] font-medium transition-colors hover:text-white">
               <Truck className="size-3.5 text-brand-amber" aria-hidden />
-              Free standard shipping over ₹1,000
+              {shippingPromise}
             </Link>
             <span className="h-3 w-px bg-white/15" aria-hidden />
             <Link href="/category/curated-gift-hampers" className="flex items-center gap-1.5 text-[12px] font-medium transition-colors hover:text-white">
@@ -216,7 +235,7 @@ export function NavbarClient({
           {/* Mobile ticker */}
           <div className="marquee flex-1 md:hidden" aria-hidden>
             <span className="marquee-inner text-[11px] font-medium">
-              <span>Free standard shipping over ₹1,000</span>
+              <span>{shippingPromise}</span>
               <span>·</span>
               <span>100% customised hampers</span>
               <span>·</span>
@@ -224,7 +243,7 @@ export function NavbarClient({
               <span>·</span>
               <span>Pan-India delivery</span>
               <span>·</span>
-              <span>Free standard shipping over ₹1,000</span>
+              <span>{shippingPromise}</span>
               <span>·</span>
               <span>100% customised hampers</span>
               <span>·</span>
@@ -243,7 +262,7 @@ export function NavbarClient({
                 </Link>
               </li>
               <li>
-                <Link href="/#faq" className="transition-colors hover:text-white">
+                <Link href="/faq" className="transition-colors hover:text-white">
                   FAQ
                 </Link>
               </li>
@@ -337,9 +356,14 @@ export function NavbarClient({
         </div>
       </div>
 
-      {/* ── Mobile brand row ───────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-4 pt-3 md:hidden">
-        <Logo size={64} />
+      {/* ── Mobile brand row (sticky) ──────────────────────────────────── */}
+      <div
+        className={cn(
+          "sticky top-0 z-40 flex items-center justify-between bg-background/95 px-4 py-2.5 backdrop-blur-md transition-shadow duration-300 md:hidden",
+          scrolled && "shadow-[0_10px_24px_-16px_rgb(0_0_0/0.35)]"
+        )}
+      >
+        <Logo size={56} />
         <div className="flex items-center gap-2">
           <Link
             href="/wishlist"
@@ -364,7 +388,7 @@ export function NavbarClient({
         </div>
 
         {/* Search */}
-        <div ref={searchRef} className="relative flex flex-1 items-center md:max-w-2xl">
+        <div ref={searchRef} className="relative z-50 flex flex-1 items-center md:max-w-2xl">
           <form
             onSubmit={handleSearch}
             role="search"
@@ -446,64 +470,160 @@ export function NavbarClient({
                 </div>
               ) : (
                 <div className="p-3" role="listbox" aria-label="Search suggestions">
-                  <div className="mb-2 flex items-center justify-between px-2 pt-1">
-                    <h3 className="eyebrow text-muted-foreground">
-                      Products {suggestions.length > 0 && `· ${suggestions.length}`}
-                    </h3>
-                    <span className="text-[11px] text-muted-foreground">Enter ↵ for all results</span>
-                  </div>
-
-                  {suggestions.length === 0 && !isSearching ? (
-                    <div className="px-2 py-6 text-center">
-                      <span className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-muted">
-                        <Search className="size-5 text-muted-foreground" aria-hidden />
-                      </span>
-                      <h4 className="text-sm font-semibold">No matches for &quot;{searchQuery}&quot;</h4>
-                      <p className="mt-1 text-xs text-muted-foreground">Try a broader term or browse categories.</p>
-                      <button
-                        onClick={() => handleSearch()}
-                        className="mt-3 text-sm font-semibold text-primary hover:underline"
-                      >
-                        Search the full catalogue
-                      </button>
-                    </div>
-                  ) : (
-                    <ul className="grid gap-0.5">
-                      {suggestions.map((product) => (
-                        <li key={product.id}>
+                  {(() => {
+                    const total =
+                      suggestions.products.length + suggestions.categories.length + suggestions.brands.length;
+                    if (total === 0 && !isSearching) {
+                      return (
+                        <div className="px-2 py-6 text-center">
+                          <span className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-muted">
+                            <Search className="size-5 text-muted-foreground" aria-hidden />
+                          </span>
+                          <h4 className="text-sm font-semibold">No matches for &quot;{searchQuery}&quot;</h4>
+                          <p className="mt-1 text-xs text-muted-foreground">Try a broader term or browse categories.</p>
                           <button
-                            type="button"
-                            role="option"
-                            aria-selected={false}
-                            onClick={() => handleSuggestionClick(product.slug)}
-                            className="group/sugg flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-muted"
+                            onClick={() => handleSearch()}
+                            className="mt-3 text-sm font-semibold text-primary hover:underline"
                           >
-                            <span className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-foreground/5">
-                              <Image src={product.image} alt="" fill sizes="48px" className="object-cover" />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-semibold transition-colors group-hover/sugg:text-primary">
-                                {product.name}
-                              </span>
-                              <span className="block truncate text-xs text-muted-foreground">
-                                {product.brand} · {product.category}
-                              </span>
-                            </span>
-                            <ChevronRight className="size-4 text-muted-foreground/50 transition-transform group-hover/sugg:translate-x-0.5 group-hover/sugg:text-primary" aria-hidden />
+                            Search the full catalogue
                           </button>
-                        </li>
-                      ))}
-                      <li className="mt-1 border-t pt-1">
-                        <button
-                          onClick={() => handleSearch()}
-                          className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/[0.06]"
-                        >
-                          See all results for &quot;{searchQuery}&quot;
-                          <ArrowRight className="size-4" aria-hidden />
-                        </button>
-                      </li>
-                    </ul>
-                  )}
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_15rem]">
+                        {/* Products */}
+                        <div className="min-w-0">
+                          <div className="mb-1.5 flex items-center justify-between px-2 pt-1">
+                            <h3 className="eyebrow text-muted-foreground">
+                              Products{suggestions.products.length > 0 && ` · ${suggestions.products.length}`}
+                            </h3>
+                            <span className="hidden text-[11px] text-muted-foreground sm:inline">Enter ↵ for all results</span>
+                          </div>
+                          {suggestions.products.length === 0 ? (
+                            <p className="px-2 py-4 text-xs text-muted-foreground">
+                              No products named &quot;{searchQuery}&quot; — try a category on the right.
+                            </p>
+                          ) : (
+                            <ul className="flex flex-col gap-0.5">
+                              {suggestions.products.map((product) => (
+                                <li key={product.id}>
+                                  <button
+                                    type="button"
+                                    role="option"
+                                    aria-selected={false}
+                                    onClick={() => handleSuggestionClick(product.slug)}
+                                    className="group/sugg flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-muted"
+                                  >
+                                    <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-foreground/5">
+                                      <Image src={product.image} alt="" fill sizes="44px" className="object-cover" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block truncate text-sm font-semibold transition-colors group-hover/sugg:text-primary">
+                                        {product.name}
+                                      </span>
+                                      <span className="block truncate text-xs text-muted-foreground">
+                                        {product.brand} · {product.category}
+                                      </span>
+                                    </span>
+                                    <span className="shrink-0 text-right text-[13px] font-bold tabular-nums">
+                                      {product.price ? (
+                                        <>
+                                          {formatCurrency(product.price)}
+                                          {product.pricingMode === "BULK" && (
+                                            <span className="block text-[10px] font-medium text-muted-foreground">from / pc</span>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <span className="text-[11px] font-semibold text-muted-foreground">On request</span>
+                                      )}
+                                    </span>
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          <div className="mt-1 border-t pt-1">
+                            <button
+                              onClick={() => handleSearch()}
+                              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/[0.06]"
+                            >
+                              See all results for &quot;{searchQuery}&quot;
+                              <ArrowRight className="size-4" aria-hidden />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Categories + brands */}
+                        {(suggestions.categories.length > 0 || suggestions.brands.length > 0) && (
+                          <div className="min-w-0 rounded-xl bg-surface p-2 md:border-l md:border-border/70 md:bg-transparent md:pl-3">
+                            {suggestions.categories.length > 0 && (
+                              <>
+                                <h3 className="eyebrow px-2 pt-1 pb-1.5 text-muted-foreground">Categories</h3>
+                                <ul className="flex flex-col gap-0.5">
+                                  {suggestions.categories.map((category) => (
+                                    <li key={category.id}>
+                                      <button
+                                        type="button"
+                                        role="option"
+                                        aria-selected={false}
+                                        onClick={() => {
+                                          setShowSuggestions(false);
+                                          router.push(`/category/${category.slug}`);
+                                        }}
+                                        className="group/cat flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted"
+                                      >
+                                        <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-md bg-primary/[0.08] text-primary">
+                                          {category.image ? (
+                                            <span className="relative size-full">
+                                              <Image src={category.image} alt="" fill sizes="32px" className="object-cover" />
+                                            </span>
+                                          ) : (
+                                            <LayoutGrid className="size-4" aria-hidden />
+                                          )}
+                                        </span>
+                                        <span className="min-w-0 flex-1">
+                                          <span className="block truncate text-[13px] font-semibold transition-colors group-hover/cat:text-primary">
+                                            {category.title}
+                                          </span>
+                                          <span className="block truncate text-[11px] text-muted-foreground">
+                                            {category.parent ? `${category.parent} · ` : ""}
+                                            {category.count} {category.count === 1 ? "product" : "products"}
+                                          </span>
+                                        </span>
+                                        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/50" aria-hidden />
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </>
+                            )}
+                            {suggestions.brands.length > 0 && (
+                              <>
+                                <h3 className="eyebrow px-2 pt-3 pb-1.5 text-muted-foreground">Brands</h3>
+                                <div className="flex flex-wrap gap-1.5 px-2 pb-1">
+                                  {suggestions.brands.map((brand) => (
+                                    <button
+                                      key={brand.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setShowSuggestions(false);
+                                        router.push(`/product?brands=${brand.id}`);
+                                      }}
+                                      className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[12px] font-semibold transition-colors hover:border-primary/40 hover:bg-primary/[0.06] hover:text-primary"
+                                    >
+                                      {brand.name}
+                                      <span className="text-[10px] font-medium text-muted-foreground">{brand.count}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -557,8 +677,24 @@ export function NavbarClient({
         )}
       >
         <div className="flex h-14 items-center justify-between px-5 xl:px-20">
+          {/* Compact logo — slides in once the big header has scrolled away */}
+          <div
+            aria-hidden={!scrolled}
+            className={cn(
+              "shrink-0 overflow-hidden transition-[width,margin,opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              scrolled ? "mr-6 w-10 translate-x-0 opacity-100 2xl:w-36" : "mr-0 w-0 -translate-x-3 opacity-0"
+            )}
+          >
+            <Link href="/" className="flex w-max items-center gap-2.5 whitespace-nowrap" tabIndex={scrolled ? 0 : -1} aria-label="KCS G-Mart home">
+              <Image src={IMAGES.logo} alt="" width={40} height={40} className="size-10 shrink-0 object-contain" />
+              <span className="hidden text-[15px] font-extrabold tracking-tight 2xl:inline">
+                KCS <span className="text-primary">G-Mart</span>
+              </span>
+            </Link>
+          </div>
+
           <NavigationMenu viewport={false}>
-            <NavigationMenuList className="flex gap-7">
+            <NavigationMenuList className="flex gap-7 whitespace-nowrap">
               <NavigationMenuItem>
                 <Link
                   href="/"
@@ -611,11 +747,39 @@ export function NavbarClient({
             </NavigationMenuList>
           </NavigationMenu>
 
-          <div className="ml-4 flex items-center gap-5">
-            <Link href="/contact-us" className="underline-animation text-[14px] font-bold">
-              Quick Quotation
-            </Link>
-            <Button onClick={() => setBookingOpen(true)} className="h-10 rounded-lg px-5">
+          <div className="ml-4 flex items-center gap-4">
+            {/* Mini search + cart — appear in the condensed state */}
+            <div
+              aria-hidden={!scrolled}
+              className={cn(
+                "flex items-center gap-2 transition-[opacity,transform,max-width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                scrolled ? "max-w-[22rem] translate-y-0 opacity-100" : "pointer-events-none max-w-0 translate-y-2 overflow-hidden opacity-0"
+              )}
+            >
+              <button
+                type="button"
+                tabIndex={scrolled ? 0 : -1}
+                onClick={() => {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                  setTimeout(() => inputRef.current?.focus(), 350);
+                }}
+                className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface text-[13px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground min-[1400px]:w-44 min-[1400px]:justify-start min-[1400px]:px-3"
+                aria-label="Search products"
+              >
+                <Search className="size-4 shrink-0" aria-hidden />
+                <span className="hidden truncate min-[1400px]:inline">Search gifts…</span>
+                <kbd className="ml-auto hidden h-5 items-center rounded border border-border bg-background px-1 font-sans text-[10px] font-semibold min-[1400px]:inline-flex">
+                  /
+                </kbd>
+              </button>
+              <CartSidebar compact />
+            </div>
+            {!scrolled && (
+              <Link href="/contact-us" className="underline-animation text-[14px] font-bold whitespace-nowrap">
+                Quick Quotation
+              </Link>
+            )}
+            <Button onClick={() => setBookingOpen(true)} className="h-10 shrink-0 rounded-lg px-5">
               <CalendarDays aria-hidden /> Book a Meeting
             </Button>
           </div>

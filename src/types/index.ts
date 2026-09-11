@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
+import type { StorefrontVariant } from "@/lib/variants";
+
 /**
  * Shared application types. Most entities are derived from the Prisma schema
  * so the client/server boundary stays type-safe.
@@ -14,6 +16,10 @@ export type ProductPriceTier = {
 /** Serialisable product shape passed to client components. */
 export type ProductListItem = {
   id: string;
+  /** Number of active variants (0 = simple product). */
+  variantCount: number;
+  /** Set when variant prices differ — cards show "from ₹min". */
+  priceRange: { min: number; max: number } | null;
   name: string;
   slug: string;
   image: string;
@@ -28,10 +34,22 @@ export type ProductListItem = {
   price: number | null;
   mrpPrice: number | null;
   minQuantity: number;
+  /** SINGLE = flat price from 1 pc · BULK = tiered slabs · ENQUIRY = quote only */
+  pricingMode: PricingMode;
 };
+
+export type PricingMode = "SINGLE" | "BULK" | "ENQUIRY";
 
 export type ProductDetail = ProductListItem & {
   sku: string | null;
+  /** Tax + shipping data (listed prices are GST-inclusive). */
+  hsnCode: string | null;
+  gstRate: number;
+  weightGrams: number;
+  dimensionsCm: { length: number; width: number; height: number } | null;
+  /** Colour / size axes; empty when the product has no variants. */
+  options: { name: string; values: string[] }[];
+  variants: StorefrontVariant[];
   description: string | null;
   video: string | null;
   delivery: string | null;
@@ -71,7 +89,11 @@ export type ActionResult<T = undefined> =
 
 /** Cart item stored in the client-side zustand store. */
 export type CartItem = {
+  /** Cart line key: productId or `${productId}:${variantId}`. */
   id: string;
+  productId: string;
+  variantId: string | null;
+  variantLabel: string | null;
   slug: string;
   name: string;
   image: string;
@@ -79,6 +101,9 @@ export type CartItem = {
   mrp: number;
   qty: number;
   minQuantity: number;
+  /** Per-unit shipping data used for the live estimate in cart/checkout. */
+  weightGrams: number;
+  dimensionsCm: { length: number; width: number; height: number } | null;
 };
 
 export type WishlistItem = {
@@ -108,6 +133,8 @@ export type ProductWithRelations = Prisma.ProductGetPayload<{
     specs: true;
     categories: { include: { category: true } };
     reviews: { where: { isApproved: true }; select: { rating: true } };
+    options: true;
+    variants: { include: { prices: true } };
   };
 }>;
 

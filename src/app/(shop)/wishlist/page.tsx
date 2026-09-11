@@ -19,7 +19,9 @@ export default function WishlistPage() {
 
   const moveToCart = (item: (typeof items)[number]) => {
     addProduct({
-      id: item.id,
+      productId: item.id,
+      variantId: null,
+      variantLabel: null,
       slug: item.slug,
       name: item.name,
       image: item.image,
@@ -27,6 +29,8 @@ export default function WishlistPage() {
       mrp: item.price,
       qty: 1,
       minQuantity: 1,
+      weightGrams: 0,
+      dimensionsCm: null,
     });
     removeFromWishlist(item.id);
     toast.success("Moved to cart", { description: item.name });
@@ -35,7 +39,9 @@ export default function WishlistPage() {
   const moveAll = () => {
     items.forEach((item) =>
       addProduct({
-        id: item.id,
+        productId: item.id,
+        variantId: null,
+        variantLabel: null,
         slug: item.slug,
         name: item.name,
         image: item.image,
@@ -43,6 +49,8 @@ export default function WishlistPage() {
         mrp: item.price,
         qty: 1,
         minQuantity: 1,
+        weightGrams: 0,
+        dimensionsCm: null,
       })
     );
     clearAll();

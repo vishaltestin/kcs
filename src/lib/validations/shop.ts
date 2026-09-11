@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { MEETING_TIME_SLOTS } from "@/lib/constants";
+import { GSTIN_REGEX } from "@/lib/tax";
 
 // ---------------------------------------------------------------------------
 // Orders / checkout
@@ -14,7 +15,13 @@ export const checkoutSchema = z.object({
     .trim()
     .regex(/^(\+91[\s-]?)?[6-9]\d{9}$/, "Please enter a valid 10-digit mobile number."),
   companyName: z.string().trim().max(160).optional().or(z.literal("")),
-  gstNo: z.string().trim().max(15).optional().or(z.literal("")),
+  gstNo: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((v) => v === "" || GSTIN_REGEX.test(v), "Enter a valid 15-character GSTIN (e.g. 07ABCDE1234F1Z5).")
+    .optional()
+    .or(z.literal("")),
 
   billingAddress: z.string().trim().min(5, "Billing address is required."),
   billingCity: z.string().trim().min(2, "City is required."),
@@ -34,6 +41,7 @@ export const checkoutSchema = z.object({
     .array(
       z.object({
         productId: z.string().min(1),
+        variantId: z.string().min(1).nullable().optional(),
         quantity: z.number().int().min(1).max(10000),
       })
     )

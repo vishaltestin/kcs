@@ -1,42 +1,91 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import Link from "next/link";
-import { ArrowRight, Check, MessageCircle, Minus, PhoneCall, Plus, ShoppingCart } from "lucide-react";
+import Image from "next/image";
+import {
+  ArrowRight,
+  Check,
+  MessageCircle,
+  MessageSquareQuote,
+  Minus,
+  PackageCheck,
+  PhoneCall,
+  Plus,
+  Scale,
+  ShoppingCart,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { useCartStore } from "@/store/cart";
+import { Badge } from "@/components/ui/badge";
+import { useCartStore, cartLineId } from "@/store/cart";
 import { WishlistButton } from "@/components/shop/wishlist-button";
 import { BulkEnquiryDialog } from "@/components/shop/bulk-enquiry-dialog";
-import { formatCurrency } from "@/lib/utils";
-import type { ProductDetail } from "@/types";
+import { BulkInquiryTable } from "@/components/shop/bulk-inquiry-table";
+import { VariantSelector } from "@/components/shop/variant-selector";
+import { cn, formatCurrency } from "@/lib/utils";
+import { formatGrams } from "@/lib/shipping";
+import { findVariant, type VariantAttributes } from "@/lib/variants";
+import type { ProductDetail, ProductPriceTier } from "@/types";
 
+/**
+ * PDP purchase panel: variant picker (colour / size), quantity, tiered price
+ * and add-to-cart. For variant products the price block, slab table, stock
+ * and SKU all follow the selected variant.
+ */
 export function ProductActions({ product }: { product: ProductDetail }) {
   const addProduct = useCartStore((state) => state.addProduct);
   const items = useCartStore((state) => state.items);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
 
-  const minQty = product.minQuantity || 1;
+  const hasVariants = product.options.length > 0 && product.variants.length > 0;
+  const [selection, setSelection] = useState<VariantAttributes>(() => {
+    // Pre-select when there's exactly one variant (or a single value per axis).
+    if (product.options.length > 0 && product.options.every((o) => o.values.length === 1)) {
+      return Object.fromEntries(product.options.map((o) => [o.name, o.values[0]]));
+    }
+    return {};
+  });
+  const variant = hasVariants ? findVariant(product.variants, selection, product.options) : undefined;
+  const needsSelection = hasVariants && !variant;
+
+  // Effective price tiers: variant's when selected, else the product's.
+  const tiers: ProductPriceTier[] = useMemo(() => {
+    const source = variant ? variant.prices : hasVariants ? [] : product.prices;
+    return [...source].sort((a, b) => a.minQuantity - b.minQuantity);
+  }, [variant, hasVariants, product.prices]);
+
+  const minQty = product.pricingMode === "SINGLE" ? 1 : (tiers[0]?.minQuantity ?? product.minQuantity ?? 1);
   const [qty, setQty] = useState(minQty);
   const [enquiryOpen, setEnquiryOpen] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
 
-  const inCart = items.find((item) => item.id === product.id);
+  const lineId = cartLineId(product.id, variant?.id ?? null);
+  const inCart = items.find((item) => item.id === lineId);
 
-  // Unit price for the selected quantity (tiered bulk pricing).
-  const sortedTiers = [...product.prices].sort((a, b) => b.minQuantity - a.minQuantity);
-  const applicableTier = sortedTiers.find((t) => qty >= t.minQuantity) ?? product.prices[0];
-  const nextTier = [...product.prices]
-    .sort((a, b) => a.minQuantity - b.minQuantity)
-    .find((t) => t.minQuantity > qty);
-  const unitPrice = applicableTier?.price ?? product.price ?? 0;
-  // No tier and no base price → quote-only product; the cart must not accept it.
-  const isQuoteOnly = !(unitPrice > 0);
-  // Display-safe quantity (input may be mid-edit) so the button never shows "₹NaN".
-  const displayQty = Number.isFinite(qty) && qty > 0 ? qty : minQty;
+  const displayQty = Number.isFinite(qty) && qty > 0 ? Math.max(qty, minQty) : minQty;
+  const sortedDesc = [...tiers].sort((a, b) => b.minQuantity - a.minQuantity);
+  const applicableTier = sortedDesc.find((t) => displayQty >= t.minQuantity) ?? tiers[0];
+  const nextTier = tiers.find((t) => t.minQuantity > displayQty);
+  const unitPrice = applicableTier?.price ?? (variant ? (variant.price ?? 0) : (product.price ?? 0));
+  const unitMrp = applicableTier?.mrp ?? (variant ? (variant.mrp ?? 0) : (product.mrpPrice ?? 0));
+  const isQuoteOnly = product.pricingMode === "ENQUIRY" || (!needsSelection && !(unitPrice > 0));
+  const isBulk = product.pricingMode === "BULK" && minQty > 1;
+  const stock = variant ? variant.stock : product.stock;
+  const outOfStock = !needsSelection && !isQuoteOnly && stock <= 0;
   const lineTotal = unitPrice * displayQty;
+  const weightGrams = product.weightGrams;
+  const lineWeight = weightGrams > 0 ? weightGrams * displayQty : 0;
+
+  const onSelectionChange = (next: VariantAttributes) => {
+    setSelection(next);
+    const v = findVariant(product.variants, next, product.options);
+    const vTiers = v ? [...v.prices].sort((a, b) => a.minQuantity - b.minQuantity) : [];
+    const nextMin = product.pricingMode === "SINGLE" ? 1 : (vTiers[0]?.minQuantity ?? 1);
+    setQty((q) => Math.max(nextMin, Number.isFinite(q) ? q : nextMin));
+  };
 
   const handleAddToCart = () => {
     if (isQuoteOnly) {
@@ -45,36 +94,123 @@ export function ProductActions({ product }: { product: ProductDetail }) {
       });
       return;
     }
-    // The qty input can transiently hold 0 / NaN while the user is typing —
-    // never let that reach the cart.
+    if (needsSelection) {
+      const missing = product.options.filter((o) => !selection[o.name]).map((o) => o.name.toLowerCase());
+      toast.info(`Choose a ${missing.join(" and ")}`, { description: "Pick your options to add this product." });
+      return;
+    }
+    if (outOfStock) {
+      toast.error("Out of stock", { description: "This option is currently unavailable — try another or enquire." });
+      return;
+    }
     const safeQty = Number.isFinite(qty) && qty >= minQty ? Math.floor(qty) : minQty;
     if (safeQty !== qty) setQty(safeQty);
-    const tier = sortedTiers.find((t) => safeQty >= t.minQuantity) ?? product.prices[0];
+    const tier = sortedDesc.find((t) => safeQty >= t.minQuantity) ?? tiers[0];
     addProduct({
-      id: product.id,
+      productId: product.id,
+      variantId: variant?.id ?? null,
+      variantLabel: variant?.label ?? null,
       slug: product.slug,
       name: product.name,
-      image: product.image,
-      price: tier?.price ?? product.price ?? 0,
-      mrp: tier?.mrp ?? product.mrpPrice ?? 0,
+      image: variant?.image || product.image,
+      price: tier?.price ?? unitPrice,
+      mrp: tier?.mrp ?? unitMrp,
       qty: safeQty,
       minQuantity: minQty,
+      weightGrams: product.weightGrams,
+      dimensionsCm: product.dimensionsCm,
     });
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1800);
     toast.success("Added to cart", {
-      description: `${safeQty} × ${product.name}`,
+      description: `${safeQty} × ${product.name}${variant ? ` (${variant.label})` : ""}`,
     });
   };
 
   const setQuantity = (value: number) => setQty(Math.max(minQty, Math.floor(value) || minQty));
 
   const whatsappHref = `https://wa.me/917838152753?text=${encodeURIComponent(
-    `Hi! I'm interested in "${product.name}" (https://kcsgmart.in/product/${product.slug}) for corporate gifting. Quantity: ${inCart?.qty ?? qty} pcs.`
+    `Hi! I'm interested in "${product.name}"${variant ? ` (${variant.label})` : ""} (https://kcsgmart.in/product/${product.slug}) for corporate gifting. Quantity: ${inCart?.qty ?? displayQty} pcs.`
   )}`;
+
+  const discount = unitMrp > unitPrice && unitMrp > 0 ? Math.round(((unitMrp - unitPrice) / unitMrp) * 100) : 0;
 
   return (
     <div className="space-y-4">
+      {/* Variant-aware price block */}
+      {hasVariants && (
+        <div className="relative overflow-hidden rounded-2xl bg-surface p-5 ring-1 ring-foreground/[0.06]">
+          <div aria-hidden className="pointer-events-none absolute -top-10 -right-10 size-32 rounded-full bg-primary/[0.07] blur-2xl" />
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="eyebrow text-muted-foreground">
+                {isQuoteOnly ? "Pricing" : needsSelection ? "Price" : isBulk ? "Starting at" : "Price"}
+              </p>
+              <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                {isQuoteOnly ? (
+                  <p className="text-2xl font-extrabold tracking-tight md:text-3xl">Price on request</p>
+                ) : needsSelection ? (
+                  <p className="text-3xl font-extrabold tracking-tight tabular-nums">
+                    {product.priceRange
+                      ? `${formatCurrency(product.priceRange.min)} – ${formatCurrency(product.priceRange.max)}`
+                      : formatCurrency(product.price ?? 0)}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-4xl font-extrabold tracking-tight tabular-nums">{formatCurrency(tiers[0]?.price ?? unitPrice)}</p>
+                    {isBulk && <span className="text-sm font-medium text-muted-foreground">/ piece</span>}
+                    {unitMrp > unitPrice && (
+                      <>
+                        <p className="text-base text-muted-foreground tabular-nums line-through">{formatCurrency(tiers[0]?.mrp ?? unitMrp)}</p>
+                        <Badge className="rounded-md bg-primary px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase">
+                          {discount}% off
+                        </Badge>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {needsSelection
+                  ? "Select your options to see the exact price and stock."
+                  : isBulk
+                    ? `Slabs get cheaper from ${minQty}+ pcs · inclusive of all taxes`
+                    : "Inclusive of all taxes · order from a single piece"}
+              </p>
+            </div>
+            {variant && (
+              <div className="flex items-center gap-3 rounded-xl bg-background/80 p-2 pr-3 ring-1 ring-foreground/[0.06]">
+                {variant.image && (
+                  <span className="relative size-12 overflow-hidden rounded-lg bg-muted">
+                    <Image src={variant.image} alt="" fill sizes="48px" className="object-cover" />
+                  </span>
+                )}
+                <div className="text-xs">
+                  <p className="font-bold">{variant.label}</p>
+                  <p className="text-muted-foreground">
+                    {variant.sku ? `SKU ${variant.sku} · ` : ""}
+                    {variant.stock > 0 ? <span className="text-success">{variant.stock} in stock</span> : <span className="text-destructive">Out of stock</span>}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {hasVariants && (
+        <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/[0.07] sm:p-5">
+          <VariantSelector
+            options={product.options}
+            variants={product.variants}
+            selection={selection}
+            onChange={onSelectionChange}
+          />
+        </div>
+      )}
+
+      {hasVariants && isBulk && variant && tiers.length > 1 && <BulkInquiryTable prices={tiers} />}
+
       {inCart ? (
         <div className="rounded-2xl bg-success/[0.07] p-4 ring-1 ring-success/20">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -83,7 +219,7 @@ export function ProductActions({ product }: { product: ProductDetail }) {
                 <Check className="size-4" aria-hidden />
               </span>
               <div>
-                <p className="text-sm font-bold">In your cart</p>
+                <p className="text-sm font-bold">In your cart{inCart.variantLabel ? ` · ${inCart.variantLabel}` : ""}</p>
                 <p className="text-xs text-muted-foreground">
                   {inCart.qty} pcs · {formatCurrency(inCart.price * inCart.qty)}
                 </p>
@@ -93,7 +229,7 @@ export function ProductActions({ product }: { product: ProductDetail }) {
               <div className="flex h-10 items-center rounded-lg border bg-background">
                 <button
                   className="grid size-10 place-items-center rounded-l-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
-                  onClick={() => updateQuantity(product.id, inCart.qty - 1)}
+                  onClick={() => updateQuantity(inCart.id, inCart.qty - 1)}
                   disabled={inCart.qty <= inCart.minQuantity}
                   aria-label="Decrease quantity"
                 >
@@ -104,7 +240,7 @@ export function ProductActions({ product }: { product: ProductDetail }) {
                 </span>
                 <button
                   className="grid size-10 place-items-center rounded-r-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  onClick={() => updateQuantity(product.id, inCart.qty + 1)}
+                  onClick={() => updateQuantity(inCart.id, inCart.qty + 1)}
                   aria-label="Increase quantity"
                 >
                   <Plus className="size-4" aria-hidden />
@@ -114,6 +250,28 @@ export function ProductActions({ product }: { product: ProductDetail }) {
                 <Link href="/cart">
                   View cart <ArrowRight aria-hidden />
                 </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : isQuoteOnly ? (
+        <div className="relative overflow-hidden rounded-2xl bg-brand-charcoal p-5 text-white ring-1 ring-white/10">
+          <div aria-hidden className="dot-grid pointer-events-none absolute inset-0 opacity-40" />
+          <div className="relative">
+            <p className="eyebrow text-brand-amber">Quoted on request</p>
+            <h3 className="mt-1.5 text-lg font-extrabold tracking-tight">Tell us your quantity &amp; branding</h3>
+            <p className="mt-1.5 max-w-md text-sm text-white/70">
+              Pricing for this product depends on quantity, customisation and delivery location. Share your brief and a
+              gifting manager will send a quote within a few hours.
+            </p>
+            <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
+              <Button size="xl" className="flex-1" onClick={() => setEnquiryOpen(true)}>
+                <MessageSquareQuote aria-hidden /> Request a quote
+              </Button>
+              <Button asChild size="xl" variant="glass">
+                <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle aria-hidden /> WhatsApp us
+                </a>
               </Button>
             </div>
           </div>
@@ -151,15 +309,22 @@ export function ProductActions({ product }: { product: ProductDetail }) {
                 <Plus className="size-4" aria-hidden />
               </button>
             </div>
-            <Button size="xl" className="flex-1" onClick={handleAddToCart} disabled={isQuoteOnly}>
+            <Button
+              size="xl"
+              className={cn("flex-1", outOfStock && "bg-muted text-muted-foreground hover:bg-muted")}
+              onClick={handleAddToCart}
+              aria-disabled={outOfStock}
+            >
               {justAdded ? (
                 <>
                   <Check aria-hidden /> Added
                 </>
-              ) : isQuoteOnly ? (
+              ) : needsSelection ? (
                 <>
-                  <ShoppingCart aria-hidden /> Price on request
+                  <ShoppingCart aria-hidden /> Select options
                 </>
+              ) : outOfStock ? (
+                <>Out of stock</>
               ) : (
                 <>
                   <ShoppingCart aria-hidden /> Add to Cart · {formatCurrency(lineTotal)}
@@ -170,8 +335,20 @@ export function ProductActions({ product }: { product: ProductDetail }) {
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>
-              MOQ <strong className="text-foreground">{minQty}</strong> · Unit price at {displayQty} pcs:{" "}
-              <strong className="text-foreground">{formatCurrency(unitPrice)}</strong>
+              {isBulk && (
+                <>
+                  MOQ <strong className="text-foreground">{minQty}</strong> ·{" "}
+                </>
+              )}
+              {needsSelection ? (
+                "Unit price depends on the selected option"
+              ) : (
+                <>
+                  Unit price{isBulk ? ` at ${displayQty} pcs` : ""}:{" "}
+                  <strong className="text-foreground">{formatCurrency(unitPrice)}</strong>
+                  {!isBulk && stock > 0 && <span className="text-success"> · In stock</span>}
+                </>
+              )}
             </span>
             {nextTier && nextTier.price < unitPrice && (
               <button
@@ -182,6 +359,23 @@ export function ProductActions({ product }: { product: ProductDetail }) {
               </button>
             )}
           </div>
+
+          {(lineWeight > 0 || product.dimensionsCm) && (
+            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <Scale className="size-3.5" aria-hidden />
+                {weightGrams > 0 ? `${formatGrams(weightGrams)} each` : "Weight on request"}
+                {lineWeight > 0 && displayQty > 1 ? ` · ${formatGrams(lineWeight)} total` : ""}
+              </span>
+              {product.dimensionsCm && (
+                <span className="inline-flex items-center gap-1">
+                  <PackageCheck className="size-3.5" aria-hidden />
+                  {product.dimensionsCm.length} × {product.dimensionsCm.width} × {product.dimensionsCm.height} cm
+                </span>
+              )}
+              <span>· Shipping calculated at checkout by weight &amp; destination</span>
+            </p>
+          )}
         </div>
       )}
 
@@ -202,21 +396,23 @@ export function ProductActions({ product }: { product: ProductDetail }) {
         </Button>
       </div>
 
-      <Button
-        asChild
-        size="lg"
-        className="w-full bg-[#25D366] text-white hover:bg-[#1ebe5b] focus-visible:ring-[#25D366]/40"
-      >
-        <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
-          <MessageCircle aria-hidden /> Enquire on WhatsApp
-        </a>
-      </Button>
+      {!isQuoteOnly && (
+        <Button
+          asChild
+          size="lg"
+          className="w-full bg-[#25D366] text-white hover:bg-[#1ebe5b] focus-visible:ring-[#25D366]/40"
+        >
+          <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
+            <MessageCircle aria-hidden /> Enquire on WhatsApp
+          </a>
+        </Button>
+      )}
 
       <BulkEnquiryDialog
         open={enquiryOpen}
         onOpenChange={setEnquiryOpen}
         productId={product.id}
-        productName={product.name}
+        productName={variant ? `${product.name} (${variant.label})` : product.name}
       />
     </div>
   );

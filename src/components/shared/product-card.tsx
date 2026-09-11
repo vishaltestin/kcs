@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Check, Eye, Layers, ShoppingBag } from "lucide-react";
+import { Check, Eye, Layers, MessageSquareQuote, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -30,7 +30,7 @@ export function ProductCard({
   priority?: boolean;
 }) {
   const addProduct = useCartStore((state) => state.addProduct);
-  const cartItem = useCartStore((state) => state.items.find((item) => item.id === product.id));
+  const cartItem = useCartStore((state) => state.items.find((item) => item.productId === product.id));
   const [added, setAdded] = useState(false);
 
   const discount =
@@ -42,15 +42,28 @@ export function ProductCard({
       ? product.mrpPrice - product.price
       : null;
 
+  const isEnquiry = product.pricingMode === "ENQUIRY" || !product.price;
+  const isBulk = product.pricingMode === "BULK" && product.minQuantity > 1;
+
+  const hasVariants = product.variantCount > 0;
+
   const handleQuickAdd = () => {
-    if (!product.price) {
-      toast.info("Bulk enquiry", {
-        description: "This product is quoted on request — open it to enquire.",
+    if (isEnquiry || !product.price) {
+      toast.info("Quoted on request", {
+        description: "Open the product to request a quote for this item.",
+      });
+      return;
+    }
+    if (hasVariants) {
+      toast.info("Choose a variant", {
+        description: "Open the product to pick a colour / size before adding.",
       });
       return;
     }
     addProduct({
-      id: product.id,
+      productId: product.id,
+      variantId: null,
+      variantLabel: null,
       slug: product.slug,
       name: product.name,
       image: product.image,
@@ -58,6 +71,8 @@ export function ProductCard({
       mrp: product.mrpPrice ?? product.price,
       qty: product.minQuantity || 1,
       minQuantity: product.minQuantity || 1,
+      weightGrams: 0,
+      dimensionsCm: null,
     });
     setAdded(true);
     toast.success("Added to cart", { description: `${product.minQuantity} × ${product.name}` });
@@ -85,7 +100,8 @@ export function ProductCard({
             alt={product.name}
             fill
             priority={priority}
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1400px) 25vw, 320px"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1400px) 25vw, 340px"
+            quality={85}
             className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/product:scale-[1.06]"
           />
           {/* soft studio vignette so white-background product shots don't look pasted on */}
@@ -151,10 +167,18 @@ export function ProductCard({
                 <>
                   <ShoppingBag className="size-4" aria-hidden /> In cart · {cartItem.qty}
                 </>
+              ) : isEnquiry ? (
+                <>
+                  <MessageSquareQuote className="size-4" aria-hidden /> Request a quote
+                </>
+              ) : hasVariants ? (
+                <>
+                  <ShoppingBag className="size-4" aria-hidden /> Choose options
+                </>
               ) : (
                 <>
                   <ShoppingBag className="size-4" aria-hidden />
-                  Quick add{product.minQuantity > 1 ? ` · ${product.minQuantity} pcs` : ""}
+                  Quick add{isBulk ? ` · ${product.minQuantity} pcs` : ""}
                 </>
               )}
             </button>
@@ -175,9 +199,14 @@ export function ProductCard({
           <span className="truncate text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
             {product.brand ?? "KCS G-Mart"}
           </span>
-          {product.minQuantity > 1 && (
+          {isBulk && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10.5px] font-semibold text-muted-foreground">
               <Layers className="size-3" aria-hidden /> MOQ {product.minQuantity}
+            </span>
+          )}
+          {isEnquiry && (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-amber/15 px-2 py-0.5 text-[10.5px] font-semibold text-amber-800">
+              Quote only
             </span>
           )}
         </div>
@@ -191,14 +220,21 @@ export function ProductCard({
 
         <div className="mt-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <p className="text-[1.05rem] font-extrabold tracking-tight text-foreground sm:text-[1.15rem]">
-            {product.price ? formatCurrency(product.price) : "Price on request"}
+            {!isEnquiry && product.price ? (
+              <>
+                {product.priceRange && <span className="mr-1 text-[11px] font-semibold text-muted-foreground">from</span>}
+                {formatCurrency(product.price)}
+              </>
+            ) : (
+              "Price on request"
+            )}
           </p>
           {product.mrpPrice && product.price && product.mrpPrice > product.price && (
             <p className="text-[13px] text-muted-foreground line-through decoration-muted-foreground/60">
               {formatCurrency(product.mrpPrice)}
             </p>
           )}
-          {product.price && product.minQuantity > 1 && (
+          {!isEnquiry && product.price && isBulk && (
             <span className="text-[11px] text-muted-foreground">/ pc</span>
           )}
         </div>
@@ -209,7 +245,15 @@ export function ProductCard({
               You save {formatCurrency(savings)}
             </span>
           ) : (
-            <span className="text-[12px] text-muted-foreground">Tiered bulk pricing</span>
+            <span className="text-[12px] text-muted-foreground">
+              {isEnquiry
+                ? "Custom quote in hours"
+                : hasVariants
+                  ? `${product.variantCount} variants`
+                  : isBulk
+                    ? "Tiered bulk pricing"
+                    : "Ready to ship"}
+            </span>
           )}
           <Link
             href={`/product/${product.slug}`}

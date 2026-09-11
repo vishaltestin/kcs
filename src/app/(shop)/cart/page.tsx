@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -18,20 +19,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useCartStore } from "@/store/cart";
+import { useShippingEstimate } from "@/components/shop/use-shipping-estimate";
+import { ShippingEstimateRow } from "@/components/shop/shipping-estimate-row";
 import { SITE } from "@/lib/constants";
-import { cn, formatCurrency } from "@/lib/utils";
-
-const FREE_SHIPPING_THRESHOLD = 1000;
+import { formatCurrency } from "@/lib/utils";
 
 export default function CartPage() {
   const { items, removeProduct, updateQuantity, reset } = useCartStore();
+  const [destination, setDestination] = useState("");
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const shipping = subtotal > 0 ? (subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : 100) : 0;
+  const { estimate, loading } = useShippingEstimate(items, destination, subtotal);
+  const shipping = estimate?.amount ?? 0;
   const total = subtotal + shipping;
   const pieces = items.reduce((sum, item) => sum + item.qty, 0);
-  const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal);
-  const progress = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100);
+  const threshold = estimate?.freeShippingThreshold ?? 1000;
+  const remaining = Math.max(0, threshold - subtotal);
 
   return (
     <div className="bg-surface/60">
@@ -109,8 +112,17 @@ export default function CartPage() {
                           <p className="mt-1 text-sm text-muted-foreground">
                             <span className="font-semibold text-foreground tabular-nums">{formatCurrency(item.price)}</span> / pc
                           </p>
-                          <p className="mt-1 inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                            MOQ {item.minQuantity}
+                          <p className="mt-1 flex flex-wrap items-center gap-1.5">
+                            {item.variantLabel && (
+                              <span className="inline-flex items-center rounded-md bg-primary/[0.08] px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+                                {item.variantLabel}
+                              </span>
+                            )}
+                            {item.minQuantity > 1 && (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                                MOQ {item.minQuantity}
+                              </span>
+                            )}
                           </p>
                         </div>
                       </div>
@@ -204,48 +216,32 @@ export default function CartPage() {
                 </div>
 
                 <div className="space-y-4 px-5 py-5">
-                  <div>
-                    <div className="mb-2 flex items-center gap-2 text-xs font-medium">
-                      <Truck className="size-4 text-primary" aria-hidden />
-                      {remaining > 0 ? (
-                        <span>
-                          Add <strong className="text-foreground">{formatCurrency(remaining)}</strong> more for free shipping
-                        </span>
-                      ) : (
-                        <span className="font-semibold text-success">Free shipping unlocked 🎉</span>
-                      )}
-                    </div>
-                    <div
-                      className="h-1.5 overflow-hidden rounded-full bg-foreground/10"
-                      role="progressbar"
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={Math.round(progress)}
-                    >
-                      <div
-                        className={cn("h-full rounded-full transition-all duration-500", remaining > 0 ? "bg-primary" : "bg-success")}
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                  </div>
+                  {remaining > 0 && (
+                    <p className="flex items-center gap-2 rounded-lg bg-surface px-3 py-2 text-xs text-muted-foreground">
+                      <Truck className="size-4 shrink-0 text-primary" aria-hidden />
+                      <span>
+                        Add <strong className="text-foreground">{formatCurrency(remaining)}</strong> more for free shipping
+                      </span>
+                    </p>
+                  )}
 
                   <dl className="space-y-2 text-sm">
                     <div className="flex justify-between text-muted-foreground">
                       <dt>Subtotal</dt>
                       <dd className="font-medium text-foreground tabular-nums">{formatCurrency(subtotal)}</dd>
                     </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <dt>Shipping</dt>
-                      <dd className={cn("font-medium tabular-nums", shipping === 0 ? "text-success" : "text-foreground")}>
-                        {shipping === 0 ? "Free" : formatCurrency(shipping)}
-                      </dd>
-                    </div>
+                    <ShippingEstimateRow
+                      estimate={estimate}
+                      loading={loading}
+                      destination={destination}
+                      onDestinationChange={setDestination}
+                    />
                     <div className="flex items-baseline justify-between border-t pt-3">
-                      <dt className="text-base font-extrabold tracking-tight">Total</dt>
+                      <dt className="text-base font-extrabold tracking-tight">{destination.trim() ? "Total" : "Estimated total"}</dt>
                       <dd className="text-2xl font-extrabold tracking-tight tabular-nums">{formatCurrency(total)}</dd>
                     </div>
                   </dl>
-                  <p className="text-[11px] text-muted-foreground">Inclusive of all taxes · GST invoice available</p>
+                  <p className="text-[11px] text-muted-foreground">Inclusive of all taxes · GST invoice with every order</p>
 
                   <Button asChild className="w-full" size="xl">
                     <Link href="/checkout">

@@ -10,7 +10,9 @@ import {
   enquiryStatusSchema,
   orderStatusSchema,
   roleSchema,
+  shipmentSchema,
 } from "@/lib/validations/admin";
+import { buildTrackingUrl } from "@/lib/couriers";
 import type { ActionResult } from "@/types";
 
 /**
@@ -36,7 +38,11 @@ export async function updateOrderStatusAction(
   try {
     await db.order.update({
       where: { id: orderId },
-      data: { status: parsed.data },
+      data: {
+        status: parsed.data,
+        ...(parsed.data === "SHIPPED" && !existing.shippedAt ? { shippedAt: new Date() } : {}),
+        ...(parsed.data === "DELIVERED" ? { deliveredAt: existing.deliveredAt ?? new Date() } : {}),
+      },
     });
   } catch (error) {
     if (isRecordNotFound(error))
@@ -48,7 +54,59 @@ export async function updateOrderStatusAction(
   }
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath(`/order-success/${existing.orderNumber}`);
+  revalidatePath("/profile");
   return { ok: true, message: `Order marked ${parsed.data.toLowerCase()}.` };
+}
+
+/**
+ * Record courier / tracking details for an order. Marks the order SHIPPED
+ * (unless it is already delivered) and stamps `shippedAt`.
+ */
+export async function updateShipmentAction(
+  orderId: string,
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  await assertAdmin();
+
+  const parsed = shipmentSchema.safeParse({
+    courierName: String(formData.get("courierName") ?? "").trim(),
+    trackingNumber: String(formData.get("trackingNumber") ?? "").trim(),
+    trackingUrl: String(formData.get("trackingUrl") ?? "").trim(),
+    expectedAt: String(formData.get("expectedAt") ?? "").trim(),
+    shipmentNote: String(formData.get("shipmentNote") ?? "").trim(),
+    markShipped: formData.get("markShipped") === "true",
+  });
+  if (!parsed.success) {
+    return { ok: false, message: "Please fix the highlighted fields.", fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+
+  const existing = await db.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, orderNumber: true, shippedAt: true } });
+  if (!existing) return { ok: false, message: "Order not found." };
+  if (existing.status === "CANCELLED") return { ok: false, message: "Cancelled orders can't be shipped." };
+
+  const d = parsed.data;
+  const trackingUrl = buildTrackingUrl(d.courierName, d.trackingNumber, d.trackingUrl);
+  const becomesShipped = d.markShipped && existing.status !== "DELIVERED";
+
+  await db.order.update({
+    where: { id: orderId },
+    data: {
+      courierName: d.courierName || null,
+      trackingNumber: d.trackingNumber || null,
+      trackingUrl,
+      expectedAt: d.expectedAt ? new Date(d.expectedAt) : null,
+      shipmentNote: d.shipmentNote || null,
+      ...(becomesShipped ? { status: "SHIPPED", shippedAt: existing.shippedAt ?? new Date() } : {}),
+    },
+  });
+
+  revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath(`/order-success/${existing.orderNumber}`);
+  revalidatePath("/profile");
+  return { ok: true, message: becomesShipped ? "Shipment saved — order marked shipped." : "Shipment details saved." };
 }
 
 // ---------------------------------------------------------------------------
@@ -345,6 +403,7 @@ export async function listPublicImagesAction(prefix = ""): Promise<string[]> {
   const path = await import("node:path");
 
   const root = path.join(process.cwd(), "public", "images");
+  const uploadsRoot = path.join(process.cwd(), "public", "uploads");
   const results: string[] = [];
 
   async function walk(dir: string) {
@@ -365,11 +424,26 @@ export async function listPublicImagesAction(prefix = ""): Promise<string[]> {
           .join("/");
         if (prefix && !rel.toLowerCase().includes(prefix.toLowerCase()))
           continue;
-        results.push(rel);
+        results.push(`/${rel}`);
       }
     }
   }
 
   await walk(root);
-  return results.sort();
+
+  // Previously uploaded files (served through /api/uploads/…), newest first.
+  const uploaded: string[] = [];
+  try {
+    const entries = await readdir(uploadsRoot, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !/\.(jpg|jpeg|png|webp|avif|gif)$/i.test(entry.name)) continue;
+      if (prefix && !entry.name.toLowerCase().includes(prefix.toLowerCase())) continue;
+      uploaded.push(`/api/uploads/${entry.name}`);
+    }
+  } catch {
+    // no uploads yet
+  }
+  uploaded.sort().reverse();
+
+  return [...uploaded, ...results.sort()];
 }

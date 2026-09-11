@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Minus, Plus, ShieldCheck, ShoppingBag, Trash2, Truck } from "lucide-react";
+import { ArrowRight, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,17 +15,12 @@ import {
   SheetClose,
 } from "@/components/ui/sheet";
 import { useCartStore } from "@/store/cart";
-import { cn, formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 
-const FREE_SHIPPING_THRESHOLD = 1000;
 
 export function CartSidebar({ compact = false }: { compact?: boolean }) {
   const { items, removeProduct, updateQuantity, reset } = useCartStore();
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : 100;
-  const total = subtotal + shipping;
-  const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal);
-  const progress = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100);
   const pieces = items.reduce((sum, item) => sum + item.qty, 0);
 
   return (
@@ -74,15 +69,12 @@ export function CartSidebar({ compact = false }: { compact?: boolean }) {
 
       <SheetContent className="flex h-full w-full flex-col gap-0 p-0 sm:max-w-md">
         {/* Header */}
-        <SheetHeader className="flex-shrink-0 border-b px-6 py-5">
-          <SheetTitle className="flex items-center justify-between text-lg font-bold">
-            <span className="flex items-center gap-2.5">
-              <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
-                <ShoppingBag className="size-4.5" aria-hidden />
-              </span>
+        <SheetHeader className="flex-shrink-0 border-b px-6 py-4">
+          <SheetTitle className="flex items-baseline justify-between pr-8 text-lg font-bold tracking-tight">
+            <span>
               Your Cart
               {items.length > 0 && (
-                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                <span className="ml-2 text-sm font-medium text-muted-foreground">
                   {items.length} {items.length === 1 ? "item" : "items"} · {pieces} pcs
                 </span>
               )}
@@ -90,10 +82,10 @@ export function CartSidebar({ compact = false }: { compact?: boolean }) {
             {items.length > 0 && (
               <button
                 onClick={reset}
-                className="mr-8 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-destructive"
+                className="text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-destructive hover:underline"
                 aria-label="Clear cart"
               >
-                <Trash2 className="size-3.5" aria-hidden /> Clear
+                Clear
               </button>
             )}
           </SheetTitle>
@@ -125,12 +117,9 @@ export function CartSidebar({ compact = false }: { compact?: boolean }) {
               </SheetClose>
             </div>
           ) : (
-            <ul className="flex flex-col gap-4">
+            <ul className="divide-y divide-border/70">
               {items.map((product) => (
-                <li
-                  key={product.id}
-                  className="group/item flex gap-4 rounded-2xl border border-border/70 bg-card p-3 transition-colors hover:border-border"
-                >
+                <li key={product.id} className="group/item flex gap-4 py-4 first:pt-0 last:pb-0">
                   <SheetClose asChild>
                     <Link
                       href={`/product/${product.slug}`}
@@ -166,7 +155,13 @@ export function CartSidebar({ compact = false }: { compact?: boolean }) {
                       </button>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {formatCurrency(product.price)} / pc · MOQ {product.minQuantity}
+                      {product.variantLabel && (
+                        <span className="mr-1.5 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-foreground">
+                          {product.variantLabel}
+                        </span>
+                      )}
+                      {formatCurrency(product.price)} / pc
+                      {product.minQuantity > 1 ? ` · min ${product.minQuantity}` : ""}
                     </p>
 
                     <div className="mt-auto flex items-center justify-between gap-2 pt-2">
@@ -203,33 +198,7 @@ export function CartSidebar({ compact = false }: { compact?: boolean }) {
 
         {/* Footer */}
         {items.length > 0 && (
-          <div className="flex-shrink-0 space-y-4 border-t bg-surface px-6 py-5">
-            {/* Free shipping progress */}
-            <div>
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium">
-                <Truck className="size-4 text-primary" aria-hidden />
-                {remaining > 0 ? (
-                  <span>
-                    Add <strong className="text-foreground">{formatCurrency(remaining)}</strong> more for free shipping
-                  </span>
-                ) : (
-                  <span className="font-semibold text-success">You&apos;ve unlocked free shipping 🎉</span>
-                )}
-              </div>
-              <div
-                className="h-1.5 overflow-hidden rounded-full bg-foreground/10"
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.round(progress)}
-              >
-                <div
-                  className={cn("h-full rounded-full transition-all duration-500", remaining > 0 ? "bg-primary" : "bg-success")}
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
-
+          <div className="flex-shrink-0 space-y-4 border-t px-6 py-5">
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
@@ -237,34 +206,28 @@ export function CartSidebar({ compact = false }: { compact?: boolean }) {
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Shipping</span>
-                <span className={cn("font-medium tabular-nums", shipping === 0 ? "text-success" : "text-foreground")}>
-                  {shipping === 0 ? "Free" : formatCurrency(shipping)}
-                </span>
+                <span className="text-xs font-medium text-muted-foreground">By weight &amp; destination · at checkout</span>
               </div>
               <div className="flex justify-between border-t pt-2 text-base font-extrabold tracking-tight">
-                <span>Total</span>
-                <span className="tabular-nums">{formatCurrency(total)}</span>
+                <span>Subtotal</span>
+                <span className="tabular-nums">{formatCurrency(subtotal)}</span>
               </div>
             </div>
 
-            <div className="grid gap-2.5">
+            <div className="grid gap-2">
               <SheetClose asChild>
                 <Button size="lg" asChild className="w-full">
                   <Link href="/checkout">
-                    Proceed to Checkout <ArrowRight aria-hidden />
+                    Checkout <ArrowRight aria-hidden />
                   </Link>
                 </Button>
               </SheetClose>
               <SheetClose asChild>
-                <Button variant="ghost" asChild className="w-full">
-                  <Link href="/cart">View full cart</Link>
+                <Button variant="outline" asChild className="w-full">
+                  <Link href="/cart">View cart</Link>
                 </Button>
               </SheetClose>
             </div>
-
-            <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-              <ShieldCheck className="size-3.5" aria-hidden /> Secure checkout · GST invoice on request
-            </p>
           </div>
         )}
       </SheetContent>

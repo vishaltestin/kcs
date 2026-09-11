@@ -82,6 +82,7 @@ export function BlogTile({ post, className }: { post: BlogCard & { author?: stri
           src={post.image}
           fill
           sizes="(max-width: 768px) 90vw, 33vw"
+          quality={85}
           alt={post.title}
           className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/post:scale-105"
         />
@@ -193,6 +194,7 @@ export function BannerCarousel({ images, alt }: { images: string[]; alt: string 
                 src={image}
                 fill
                 sizes="(max-width: 768px) 100vw, 50vw"
+                quality={85}
                 className={cn(
                   "object-cover transition-transform duration-[6000ms] ease-linear",
                   current === index ? "scale-[1.06]" : "scale-100"

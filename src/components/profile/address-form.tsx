@@ -90,7 +90,7 @@ export function AddressForm({ user }: { user: AddressUser }) {
           description="Saved addresses are pre-filled at checkout for faster ordering."
           footer={
             <>
-              <FooterHint>Free standard shipping on orders above ₹1,000.</FooterHint>
+              <FooterHint>Shipping is calculated per zone and weight at checkout.</FooterHint>
               <SaveButton pending={isPending}>Save addresses</SaveButton>
             </>
           }

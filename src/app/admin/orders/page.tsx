@@ -22,6 +22,10 @@ export default async function AdminOrdersPage() {
     total: Number(order.total),
     status: order.status,
     createdAt: order.createdAt,
+    invoiceNumber: order.invoiceNumber,
+    hasGst: !!order.gstNo,
+    courierName: order.courierName,
+    trackingNumber: order.trackingNumber,
   }));
 
   return (

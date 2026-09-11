@@ -39,6 +39,7 @@ const PAGES = [
   { title: "Why Us", href: "/why-us" },
   { title: "Blog", href: "/blog" },
   { title: "Contact Us", href: "/contact-us" },
+  { title: "FAQ", href: "/faq" },
 ];
 
 export function MobileNav({

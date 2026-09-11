@@ -19,6 +19,7 @@ const LABELS: Record<string, string> = {
   categories: "Categories",
   brands: "Brands",
   orders: "Orders",
+  shipping: "Shipping & Tax",
   enquiries: "Bulk Enquiries",
   meetings: "Meeting Bookings",
   blogs: "Blog Posts",
@@ -51,6 +52,9 @@ export function AdminHeader({ userName, userEmail }: { userName: string; userEma
             {segments.slice(1).map((segment, index) => {
               const isLast = index === segments.length - 2;
               const label = LABELS[segment] ?? segment;
+              // Record ids (e.g. /admin/products/<id>/edit) have no index page
+              // of their own — show them as text instead of a 404-ing link.
+              const isRecordId = !LABELS[segment] && /^[a-z0-9]{20,}$/i.test(segment);
               return (
                 <Fragment key={`${segment}-${index}`}>
                   {/* Separator must be a sibling of BreadcrumbItem — both render
@@ -59,6 +63,10 @@ export function AdminHeader({ userName, userEmail }: { userName: string; userEma
                   <BreadcrumbItem>
                     {isLast ? (
                       <BreadcrumbPage>{label}</BreadcrumbPage>
+                    ) : isRecordId ? (
+                      <span className="max-w-32 truncate font-mono text-xs text-muted-foreground" title={segment}>
+                        {segment.slice(0, 8)}…
+                      </span>
                     ) : (
                       <BreadcrumbLink asChild>
                         <Link href={`/${segments.slice(0, index + 2).join("/")}`}>{label}</Link>

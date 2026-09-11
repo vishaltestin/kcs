@@ -6,7 +6,11 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 import { useFieldArray, useForm } from "react-hook-form";
-import { ArrowLeft, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Layers, Loader2, MessageSquareQuote, Plus, Save, Tag, Trash2 } from "lucide-react";
+import { VariantsEditor } from "@/components/admin/products/variants-editor";
+import { formatGrams, volumetricGrams } from "@/lib/shipping";
+import { splitInclusive } from "@/lib/tax";
+import type { OptionAxis, VariantInput } from "@/lib/variants";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -37,10 +41,11 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { ImagePicker } from "@/components/admin/image-picker";
+import { GalleryUploader, ImagePicker } from "@/components/admin/image-picker";
+import { NumberField } from "@/components/admin/number-field";
 import { SeoFields } from "@/components/admin/seo/seo-fields";
 import { createProductAction, updateProductAction } from "@/actions/admin/products";
-import { productSchema } from "@/lib/validations/admin";
+import { productSchema, type PricingModeValue } from "@/lib/validations/admin";
 import { slugify } from "@/lib/utils";
 
 export type ProductFormValues = z.infer<typeof productSchema>;
@@ -60,6 +65,7 @@ export interface ProductFormProduct {
   video: string | null;
   delivery: string | null;
   stock: number;
+  pricingMode: PricingModeValue;
   isActive: boolean;
   isNew: boolean;
   isFeatured: boolean;
@@ -72,7 +78,49 @@ export interface ProductFormProduct {
   metaDescription: string | null;
   metaKeywords: string | null;
   ogImage: string | null;
+  hsnCode?: string | null;
+  gstRate?: number;
+  weightGrams?: number;
+  lengthCm?: number | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
+  hasVariants?: boolean;
+  options?: OptionAxis[];
+  variants?: VariantInput[];
 }
+
+const GST_RATES = [0, 5, 12, 18, 28] as const;
+
+/** A blank tier — cast because RHF holds `undefined` for untouched number inputs. */
+function emptyTier(minQuantity: number) {
+  return { minQuantity, price: undefined, mrp: undefined } as unknown as ProductFormValues["prices"][number];
+}
+
+const PRICING_MODE_OPTIONS: {
+  value: PricingModeValue;
+  label: string;
+  description: string;
+  icon: typeof Tag;
+}[] = [
+  {
+    value: "SINGLE",
+    label: "Single unit price",
+    description: "One flat price, order from 1 piece. No slab table on the storefront.",
+    icon: Tag,
+  },
+  {
+    value: "BULK",
+    label: "Bulk pricing tiers",
+    description: "Minimum order quantity with slabs that get cheaper as quantity grows.",
+    icon: Layers,
+  },
+  {
+    value: "ENQUIRY",
+    label: "Enquiry only",
+    description: "No public price — the buy button becomes “Request a quote”.",
+    icon: MessageSquareQuote,
+  },
+];
 
 export function ProductForm({
   mode,
@@ -104,18 +152,28 @@ export function ProductForm({
       video: product?.video ?? "",
       delivery: product?.delivery ?? "",
       stock: product?.stock ?? 0,
+      pricingMode: product?.pricingMode ?? "BULK",
       isActive: product?.isActive ?? true,
       isNew: product?.isNew ?? false,
       isFeatured: product?.isFeatured ?? false,
       isBestSeller: product?.isBestSeller ?? false,
-      prices: product?.prices?.length
-        ? product.prices
-        : [{ minQuantity: 10, price: NaN, mrp: NaN }],
+      // Empty price boxes start as `undefined` (never NaN) so React doesn't
+      // warn and zod reports "Price is required." instead of "NaN".
+      prices: product?.prices?.length ? product.prices : [emptyTier(10)],
       specs: product?.specs ?? [],
       metaTitle: product?.metaTitle ?? "",
       metaDescription: product?.metaDescription ?? "",
       metaKeywords: product?.metaKeywords ?? "",
       ogImage: product?.ogImage ?? "",
+      hsnCode: product?.hsnCode ?? "",
+      gstRate: product?.gstRate ?? 18,
+      weightGrams: product?.weightGrams ?? 0,
+      lengthCm: product?.lengthCm ?? null,
+      widthCm: product?.widthCm ?? null,
+      heightCm: product?.heightCm ?? null,
+      hasVariants: product?.hasVariants ?? false,
+      options: product?.options ?? [],
+      variants: product?.variants ?? [],
     },
   });
 
@@ -132,14 +190,18 @@ export function ProductForm({
   // `images` is a primitive string array, which useFieldArray does not
   // accept (RHF v7.87 restricts it to object arrays) — manage it manually.
   const galleryImages = form.watch("images");
-  const addGalleryImage = () =>
-    form.setValue("images", [...form.getValues("images"), ""], { shouldDirty: true });
-  const removeGalleryImage = (index: number) =>
-    form.setValue(
-      "images",
-      form.getValues("images").filter((_, i) => i !== index),
-      { shouldDirty: true }
-    );
+  const setGalleryImages = (paths: string[]) =>
+    form.setValue("images", paths, { shouldDirty: true, shouldValidate: true });
+  const pricingMode = form.watch("pricingMode");
+  const hasVariants = form.watch("hasVariants");
+  const weightGrams = form.watch("weightGrams");
+  const lengthCm = form.watch("lengthCm");
+  const widthCm = form.watch("widthCm");
+  const heightCm = form.watch("heightCm");
+  const gstRate = form.watch("gstRate");
+  const firstPrice = form.watch("prices.0.price");
+  const volumetric = volumetricGrams(Number(lengthCm) || 0, Number(widthCm) || 0, Number(heightCm) || 0, 5000);
+  const chargeable = Math.max(Number(weightGrams) || 0, volumetric);
 
   // Auto-generate the slug from the name until the user edits it manually.
   const nameValue = form.watch("name");
@@ -176,8 +238,42 @@ export function ProductForm({
     formData.set("video", values.video ?? "");
     formData.set("delivery", values.delivery ?? "");
     formData.set("stock", String(values.stock));
-    formData.set("prices", JSON.stringify(values.prices));
+    formData.set("pricingMode", values.pricingMode);
+    formData.set(
+      "prices",
+      JSON.stringify(
+        values.pricingMode === "ENQUIRY"
+          ? []
+          : values.pricingMode === "SINGLE"
+            ? values.prices.slice(0, 1).map((t) => ({ ...t, minQuantity: 1 }))
+            : values.prices
+      )
+    );
     formData.set("specs", JSON.stringify(values.specs));
+    formData.set("hsnCode", values.hsnCode ?? "");
+    formData.set("gstRate", String(values.gstRate ?? 18));
+    formData.set("weightGrams", String(values.weightGrams ?? 0));
+    formData.set("lengthCm", values.lengthCm == null ? "" : String(values.lengthCm));
+    formData.set("widthCm", values.widthCm == null ? "" : String(values.widthCm));
+    formData.set("heightCm", values.heightCm == null ? "" : String(values.heightCm));
+    formData.set("hasVariants", values.hasVariants ? "true" : "false");
+    formData.set("options", JSON.stringify(values.hasVariants ? values.options : []));
+    formData.set(
+      "variants",
+      JSON.stringify(
+        values.hasVariants
+          ? values.variants.map((v) => ({
+              ...v,
+              prices:
+                values.pricingMode === "ENQUIRY"
+                  ? []
+                  : values.pricingMode === "SINGLE"
+                    ? v.prices.slice(0, 1).map((t) => ({ ...t, minQuantity: 1 }))
+                    : v.prices,
+            }))
+          : [],
+      ),
+    );
     if (values.isActive) formData.set("isActive", "true");
     if (values.isNew) formData.set("isNew", "true");
     if (values.isFeatured) formData.set("isFeatured", "true");
@@ -300,15 +396,13 @@ export function ProductForm({
               name="stock"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Stock *</FormLabel>
+                  <FormLabel>Stock {hasVariants ? "" : "*"}</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      min={0}
-                      {...field}
-                      onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                    />
+                    <NumberField field={field} integer min={0} placeholder="0" disabled={hasVariants} />
                   </FormControl>
+                  <FormDescription>
+                    {hasVariants ? "Tracked per variant — the total is calculated on save." : "0 = not tracked (always purchasable)."}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -386,9 +480,12 @@ export function ProductForm({
         <Card>
           <CardHeader>
             <CardTitle>Images</CardTitle>
-            <CardDescription>Main image plus optional gallery images.</CardDescription>
+            <CardDescription>
+              Uploads are auto-rotated, resized to 1600 px and converted to WebP so pages stay fast and sharp.
+              Use square or 4:5 images of at least 1000 px for best results.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <FormField
               control={form.control}
               name="image"
@@ -398,48 +495,34 @@ export function ProductForm({
                     value={imageValue}
                     onChange={(path) => field.onChange(path)}
                     label="Main image *"
+                    hint="Shown on cards, search and as the first gallery slide"
                   />
                   <FormMessage />
                 </FormItem>
               )}
             />
             <Separator />
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Additional gallery images</p>
-              {galleryImages.map((url, index) => (
-                <div key={`gallery-${index}`} className="flex items-center gap-2">
-                  <FormField
-                    control={form.control}
-                    name={`images.${index}`}
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormControl>
-                          <Input placeholder="/images/…" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+            <FormField
+              control={form.control}
+              name="images"
+              render={() => (
+                <FormItem>
+                  <GalleryUploader
+                    value={galleryImages.filter(Boolean)}
+                    onChange={setGalleryImages}
+                    onMakeMain={(path) => {
+                      const current = form.getValues("image");
+                      form.setValue("image", path, { shouldDirty: true, shouldValidate: true });
+                      // Keep the old main image in the gallery so nothing is lost.
+                      const rest = galleryImages.filter((p) => p && p !== path);
+                      setGalleryImages(current && !rest.includes(current) ? [current, ...rest] : rest);
+                      toast.success("Main image updated");
+                    }}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => removeGalleryImage(index)}
-                    aria-label="Remove gallery image"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </Button>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addGalleryImage}
-              >
-                <Plus aria-hidden /> Add image
-              </Button>
-            </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
 
@@ -495,36 +578,91 @@ export function ProductForm({
         {/* Pricing */}
         <Card>
           <CardHeader>
-            <CardTitle>Bulk pricing tiers *</CardTitle>
-            <CardDescription>
-              e.g. 10+ @ ₹749, 50+ @ ₹689 — the storefront shows a bulk pricing table.
-            </CardDescription>
+            <CardTitle>Pricing *</CardTitle>
+            <CardDescription>Choose how this product is sold, then enter the price(s).</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {tierFields.map((tierField, index) => (
-              <div
-                key={tierField.id}
-                className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-start"
-              >
+          <CardContent className="space-y-5">
+            <FormField
+              control={form.control}
+              name="pricingMode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="sr-only">Pricing mode</FormLabel>
+                  <FormControl>
+                    <div role="radiogroup" aria-label="Pricing mode" className="grid gap-2.5 sm:grid-cols-3">
+                      {PRICING_MODE_OPTIONS.map((option) => {
+                        const selected = field.value === option.value;
+                        const Icon = option.icon;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() => {
+                              field.onChange(option.value);
+                              const current = form.getValues("prices");
+                              if (option.value === "SINGLE") {
+                                const first = current[0] ?? emptyTier(1);
+                                form.setValue("prices", [{ ...first, minQuantity: 1 }], { shouldDirty: true });
+                              } else if (option.value === "BULK" && current.length === 0) {
+                                form.setValue("prices", [emptyTier(10)], { shouldDirty: true });
+                              } else if (option.value === "BULK" && current.length === 1 && current[0].minQuantity === 1) {
+                                form.setValue("prices", [{ ...current[0], minQuantity: 10 }], { shouldDirty: true });
+                              }
+                              form.clearErrors("prices");
+                            }}
+                            className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all ${
+                              selected
+                                ? "border-primary bg-primary/[0.05] ring-2 ring-primary/20"
+                                : "border-border hover:border-primary/40 hover:bg-muted/40"
+                            }`}
+                          >
+                            <span
+                              className={`grid size-9 shrink-0 place-items-center rounded-lg ${
+                                selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              <Icon className="size-4" aria-hidden />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-sm font-semibold">{option.label}</span>
+                              <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
+                                {option.description}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {pricingMode === "ENQUIRY" ? (
+              <p className="rounded-xl border border-dashed bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                No price will be shown. Customers see <strong className="text-foreground">Price on request</strong>{" "}
+                and a <strong className="text-foreground">Request a quote</strong> button that opens the bulk-enquiry
+                form. The product can&apos;t be added to the cart.
+              </p>
+            ) : hasVariants ? (
+              <p className="rounded-xl border border-dashed bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                Prices are entered <strong className="text-foreground">per variant</strong> in the Variants section
+                below. The product card shows a “from” price based on the cheapest active variant.
+                {pricingMode === "BULK" && " Use “Copy to all variants” to share one tier table."}
+              </p>
+            ) : pricingMode === "SINGLE" ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name={`prices.${index}.minQuantity`}
+                  name="prices.0.price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className={index === 0 ? "" : "sm:invisible"}>
-                        Min qty
-                      </FormLabel>
+                      <FormLabel>Selling price ₹ *</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          placeholder="Min qty"
-                          value={Number.isNaN(field.value) ? "" : field.value}
-                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                          onBlur={field.onBlur}
-                          name={field.name}
-                          ref={field.ref}
-                        />
+                        <NumberField field={field} min={0.01} placeholder="e.g. 749" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -532,71 +670,233 @@ export function ProductForm({
                 />
                 <FormField
                   control={form.control}
-                  name={`prices.${index}.price`}
+                  name="prices.0.mrp"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className={index === 0 ? "" : "sm:invisible"}>Price ₹</FormLabel>
+                      <FormLabel>MRP ₹ *</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          min={0.01}
-                          step="0.01"
-                          placeholder="Price ₹"
-                          value={Number.isNaN(field.value) ? "" : field.value}
-                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                          onBlur={field.onBlur}
-                          name={field.name}
-                          ref={field.ref}
-                        />
+                        <NumberField field={field} min={0.01} placeholder="e.g. 999" />
                       </FormControl>
+                      <FormDescription>Shown struck-through when higher than the selling price.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name={`prices.${index}.mrp`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className={index === 0 ? "" : "sm:invisible"}>MRP ₹</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={0.01}
-                          step="0.01"
-                          placeholder="MRP ₹"
-                          value={Number.isNaN(field.value) ? "" : field.value}
-                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                          onBlur={field.onBlur}
-                          name={field.name}
-                          ref={field.ref}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {form.formState.errors.prices?.root?.message && (
+                  <p className="text-sm text-destructive sm:col-span-2">{form.formState.errors.prices.root.message}</p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  e.g. 10+ @ ₹749, 50+ @ ₹689, 100+ @ ₹649 — the lowest tier sets the minimum order quantity.
+                </p>
+                {tierFields.map((tierField, index) => (
+                  <div
+                    key={tierField.id}
+                    className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-start"
+                  >
+                    <FormField
+                      control={form.control}
+                      name={`prices.${index}.minQuantity`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className={index === 0 ? "" : "sm:invisible"}>Min qty</FormLabel>
+                          <FormControl>
+                            <NumberField field={field} integer min={1} placeholder="Min qty" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`prices.${index}.price`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className={index === 0 ? "" : "sm:invisible"}>Price ₹</FormLabel>
+                          <FormControl>
+                            <NumberField field={field} min={0.01} placeholder="Price ₹" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`prices.${index}.mrp`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className={index === 0 ? "" : "sm:invisible"}>MRP ₹</FormLabel>
+                          <FormControl>
+                            <NumberField field={field} min={0.01} placeholder="MRP ₹" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="sm:mt-7"
+                      disabled={tierFields.length === 1}
+                      onClick={() => removeTier(index)}
+                      aria-label={`Remove tier ${index + 1}`}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </div>
+                ))}
+                {form.formState.errors.prices?.root?.message && (
+                  <p className="text-sm text-destructive">{form.formState.errors.prices.root.message}</p>
+                )}
+                {typeof form.formState.errors.prices?.message === "string" && (
+                  <p className="text-sm text-destructive">{form.formState.errors.prices.message}</p>
+                )}
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
-                  className="sm:mt-7"
-                  disabled={tierFields.length === 1}
-                  onClick={() => removeTier(index)}
-                  aria-label={`Remove tier ${index + 1}`}
+                  size="sm"
+                  onClick={() => {
+                    const last = form.getValues("prices").at(-1);
+                    const nextMin = last && Number.isFinite(last.minQuantity) ? last.minQuantity * 5 : 10;
+                    appendTier(emptyTier(nextMin));
+                  }}
                 >
-                  <Trash2 className="h-4 w-4" aria-hidden />
+                  <Plus aria-hidden /> Add tier
                 </Button>
               </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => appendTier({ minQuantity: 10, price: NaN, mrp: NaN })}
-            >
-              <Plus aria-hidden /> Add tier
-            </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Tax & shipping */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Tax &amp; shipping</CardTitle>
+            <CardDescription>
+              Prices are GST-inclusive. HSN and rate print on the invoice; weight and box size drive the shipping
+              rate card (chargeable weight = greater of actual and volumetric L×W×H ÷ 5000).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="hsnCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>HSN code</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="6109" inputMode="numeric" maxLength={8} className="font-mono" />
+                    </FormControl>
+                    <FormDescription>4, 6 or 8 digits — e.g. 6109 (T-shirts), 4202 (bags), 9608 (pens).</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="gstRate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>GST rate *</FormLabel>
+                    <FormControl>
+                      <div role="radiogroup" aria-label="GST rate" className="flex flex-wrap gap-1.5">
+                        {GST_RATES.map((rate) => {
+                          const selected = Number(field.value) === rate;
+                          return (
+                            <button
+                              key={rate}
+                              type="button"
+                              role="radio"
+                              aria-checked={selected}
+                              onClick={() => field.onChange(rate)}
+                              className={`h-9 min-w-[3.25rem] rounded-lg border px-3 text-sm font-semibold tabular-nums transition-all ${
+                                selected
+                                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                                  : "border-border bg-background hover:border-primary/40"
+                              }`}
+                            >
+                              {rate}%
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      {Number.isFinite(firstPrice) && firstPrice > 0 && !hasVariants
+                        ? `₹${firstPrice} includes ₹${splitInclusive(firstPrice, Number(gstRate) || 0).tax.toFixed(2)} GST.`
+                        : "Intra-state orders split this into CGST + SGST; inter-state charge IGST."}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="weightGrams"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Weight per unit (g) *</FormLabel>
+                    <FormControl>
+                      <NumberField field={field} integer min={0} placeholder="e.g. 250" />
+                    </FormControl>
+                    <FormDescription>Packed weight of one piece. 0 falls back to 500 g.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.4fr)]">
+              {(
+                [
+                  ["lengthCm", "Length (cm)"],
+                  ["widthCm", "Width (cm)"],
+                  ["heightCm", "Height (cm)"],
+                ] as const
+              ).map(([name, label]) => (
+                <FormField
+                  key={name}
+                  control={form.control}
+                  name={name}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{label}</FormLabel>
+                      <FormControl>
+                        <NumberField field={{ ...field, value: field.value ?? undefined } as typeof field} min={0} placeholder="—" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ))}
+              <div className="rounded-xl bg-surface p-3.5 text-xs ring-1 ring-foreground/[0.06] sm:self-end">
+                <p className="eyebrow text-muted-foreground">Chargeable weight</p>
+                <p className="mt-1 text-lg font-extrabold tabular-nums tracking-tight">
+                  {chargeable > 0 ? formatGrams(chargeable) : "—"}
+                </p>
+                <p className="text-muted-foreground">
+                  Actual {formatGrams(Number(weightGrams) || 0)}
+                  {volumetric > 0 ? ` · volumetric ${formatGrams(volumetric)}` : " · add dimensions for volumetric"}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Variants */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Variants</CardTitle>
+            <CardDescription>
+              Colour and size options with independent stock, SKU, images and pricing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <VariantsEditor form={form} pricingMode={pricingMode} productWeightGrams={Number(weightGrams) || undefined} />
           </CardContent>
         </Card>
 

@@ -1,4 +1,5 @@
 import { getCategoryMenus } from "@/lib/queries/catalog";
+import { getStoreSettings } from "@/lib/queries/shipping";
 
 import { NavbarClient } from "./navbar-client";
 
@@ -15,13 +16,18 @@ export type NavbarUser = {
  * layout (shared with the wishlist provider, avoiding a duplicate query).
  */
 export async function Navbar({ user }: { user: NavbarUser | null }) {
-  const menus = await getCategoryMenus();
+  const [menus, settings] = await Promise.all([
+    getCategoryMenus(),
+    getStoreSettings().catch(() => null),
+  ]);
+  const freeShippingThreshold = settings ? Number(settings.freeShippingThreshold) : 0;
 
   return (
     <NavbarClient
       productCategories={menus.productCategories}
       specialCategories={menus.specialCategories}
       user={user}
+      freeShippingThreshold={freeShippingThreshold}
     />
   );
 }

@@ -6,6 +6,9 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 import { parseDatabaseUrl } from "../src/lib/db-url";
+import { DEFAULT_ZONES, quoteShipping, type ShippingConfig } from "../src/lib/shipping";
+import { splitInclusive, summariseTax } from "../src/lib/tax";
+import { combinations, variantLabel, type OptionAxis } from "../src/lib/variants";
 
 function requireDatabaseUrl(): string {
   const url = process.env.DATABASE_URL;
@@ -377,9 +380,73 @@ type ProductSeed = {
   description: string;
   stock: number;
   flags?: ("new" | "featured" | "bestseller")[];
+  /** Defaults to BULK. SINGLE = one tier at qty 1; ENQUIRY = no tiers, quote only. */
+  pricingMode?: "SINGLE" | "BULK" | "ENQUIRY";
   tiers: { minQuantity: number; price: number; mrp: number }[];
   specs: { label: string; value: string }[];
+  /** Tax & logistics — defaults are filled in by `logistics()` from the category. */
+  hsnCode?: string;
+  gstRate?: number;
+  weightGrams?: number;
+  dims?: [number, number, number];
+  /** Option axes → one variant per combination (apparel). */
+  options?: OptionAxis[];
+  /** Per-variant overrides keyed by attribute label ("Red / L"). */
+  variantOverrides?: Record<string, { sku?: string; stock?: number; priceDelta?: number; image?: string; isActive?: boolean }>;
 };
+
+/**
+ * Category-driven defaults for HSN / GST / packed weight / box size so every
+ * seeded product prices shipping and prints a proper tax invoice.
+ */
+const LOGISTICS: Record<string, { hsn: string; gst: number; grams: number; dims: [number, number, number] }> = {
+  "tshirts-polos": { hsn: "6109", gst: 5, grams: 220, dims: [30, 25, 3] },
+  "jackets-hoodies": { hsn: "6101", gst: 12, grams: 650, dims: [40, 30, 8] },
+  uniforms: { hsn: "6105", gst: 5, grams: 260, dims: [32, 26, 3] },
+  "backpacks-haversacks": { hsn: "4202", gst: 18, grams: 900, dims: [48, 32, 18] },
+  "laptop-bags": { hsn: "4202", gst: 18, grams: 800, dims: [42, 32, 10] },
+  "trolley-suitcases": { hsn: "4202", gst: 18, grams: 2600, dims: [55, 38, 22] },
+  "bags-luggage": { hsn: "4202", gst: 18, grams: 700, dims: [45, 30, 20] },
+  "earpods-audio": { hsn: "8518", gst: 18, grams: 120, dims: [10, 8, 4] },
+  "smart-watches": { hsn: "8517", gst: 18, grams: 140, dims: [12, 10, 7] },
+  "power-banks-chargers": { hsn: "8507", gst: 18, grams: 380, dims: [16, 9, 4] },
+  "bluetooth-speakers": { hsn: "8518", gst: 18, grams: 900, dims: [22, 12, 12] },
+  "electronics-tech": { hsn: "8517", gst: 18, grams: 400, dims: [18, 14, 8] },
+  "Bottles & Sippers": { hsn: "9617", gst: 18, grams: 320, dims: [27, 8, 8] },
+  "mugs-cups": { hsn: "6912", gst: 12, grams: 400, dims: [12, 12, 11] },
+  drinkwares: { hsn: "9617", gst: 18, grams: 350, dims: [26, 9, 9] },
+  "notebooks-notepads": { hsn: "4820", gst: 12, grams: 350, dims: [22, 15, 2] },
+  "desktop-essentials": { hsn: "8304", gst: 18, grams: 450, dims: [25, 18, 8] },
+  "office-stationery": { hsn: "4820", gst: 12, grams: 300, dims: [24, 16, 4] },
+  "electric-kettles": { hsn: "8516", gst: 18, grams: 1100, dims: [24, 20, 22] },
+  "Cookware & Utensils": { hsn: "7323", gst: 12, grams: 1500, dims: [35, 30, 15] },
+  "kitchenware-appliances": { hsn: "8516", gst: 18, grams: 1200, dims: [30, 25, 20] },
+  "dry-fruit-packs": { hsn: "0802", gst: 12, grams: 800, dims: [28, 20, 8] },
+  "chocolates-dry-fruits": { hsn: "1806", gst: 18, grams: 700, dims: [30, 22, 7] },
+  "festive-gift-hampers": { hsn: "1806", gst: 18, grams: 1800, dims: [40, 30, 15] },
+  "gourmet-hampers": { hsn: "2106", gst: 18, grams: 1600, dims: [38, 28, 14] },
+  "curated-gift-hampers": { hsn: "1806", gst: 18, grams: 1500, dims: [38, 28, 14] },
+  "diwali-gift-hampers": { hsn: "1806", gst: 18, grams: 1800, dims: [40, 30, 15] },
+  "tech-gift-sets": { hsn: "8507", gst: 18, grams: 750, dims: [28, 22, 8] },
+  "combo-gift-sets": { hsn: "4202", gst: 18, grams: 900, dims: [32, 24, 10] },
+  "onboarding-joining-kits": { hsn: "4202", gst: 18, grams: 1400, dims: [42, 32, 12] },
+  "fitness-wellness": { hsn: "9019", gst: 18, grams: 900, dims: [30, 20, 12] },
+  "personal-lifestyle": { hsn: "4202", gst: 18, grams: 600, dims: [30, 22, 10] },
+  "work-from-home": { hsn: "8471", gst: 18, grams: 1200, dims: [40, 30, 12] },
+  "sustainable-gifts": { hsn: "4602", gst: 12, grams: 700, dims: [30, 22, 10] },
+};
+
+function logistics(seed: ProductSeed) {
+  const match = seed.categories.map((c) => LOGISTICS[c]).find(Boolean) ?? { hsn: "9505", gst: 18, grams: 500, dims: [25, 20, 10] as [number, number, number] };
+  return {
+    hsnCode: seed.hsnCode ?? match.hsn,
+    gstRate: seed.gstRate ?? match.gst,
+    weightGrams: seed.weightGrams ?? match.grams,
+    dims: seed.dims ?? match.dims,
+  };
+}
+
+const APPAREL_SIZES = ["S", "M", "L", "XL", "XXL"];
 
 const P: ProductSeed[] = [
   {
@@ -405,6 +472,17 @@ const P: ProductSeed[] = [
       { label: "Colours", value: "Black, Navy, White, Grey Melange" },
       { label: "Branding", value: "Embroidery / Heat Transfer" },
     ],
+    options: [
+      { name: "Colour", values: ["Black", "Navy", "White", "Grey Melange"] },
+      { name: "Size", values: APPAREL_SIZES },
+    ],
+    variantOverrides: {
+      "White / S": { stock: 0 },
+      "Grey Melange / XXL": { isActive: false },
+      "Black / XXL": { priceDelta: 30 },
+      "Navy / XXL": { priceDelta: 30 },
+      "White / XXL": { priceDelta: 30 },
+    },
   },
   {
     name: "Puma Cotton Polo T-Shirt",
@@ -429,6 +507,17 @@ const P: ProductSeed[] = [
       { label: "Colours", value: "Navy, Black, White, Maroon" },
       { label: "Branding", value: "Left chest embroidery" },
     ],
+    options: [
+      { name: "Colour", values: ["Black", "White", "Royal Blue", "Maroon"] },
+      { name: "Size", values: APPAREL_SIZES },
+    ],
+    variantOverrides: {
+      "Maroon / S": { stock: 0 },
+      "Black / XXL": { priceDelta: 40 },
+      "White / XXL": { priceDelta: 40 },
+      "Royal Blue / XXL": { priceDelta: 40 },
+      "Maroon / XXL": { priceDelta: 40 },
+    },
   },
   {
     name: "Amazon Echo Dot (5th Gen)",
@@ -603,11 +692,8 @@ const P: ProductSeed[] = [
       "The Borosil Trek keeps drinks cold or hot for a full day in a rugged 304 stainless steel body. The leak-proof cap survives being tossed into any bag.\n\nLaser engraving of your logo creates a premium, permanent finish.",
     stock: 900,
     flags: ["featured", "bestseller"],
-    tiers: [
-      { minQuantity: 25, price: 899, mrp: 1450 },
-      { minQuantity: 100, price: 799, mrp: 1450 },
-      { minQuantity: 250, price: 719, mrp: 1450 },
-    ],
+    pricingMode: "SINGLE",
+    tiers: [{ minQuantity: 1, price: 899, mrp: 1450 }],
     specs: [
       { label: "Capacity", value: "950 ml" },
       { label: "Material", value: "304 Stainless Steel" },
@@ -693,10 +779,8 @@ const P: ProductSeed[] = [
       "A luxurious hamper combining artisanal sweets, roasted nuts, a brass tealight holder and a hand-written greeting card. Beautifully finished with organza and a branded tag.\n\nVolume discounts available for 100+ units.",
     stock: 180,
     flags: ["new"],
-    tiers: [
-      { minQuantity: 10, price: 2999, mrp: 4299 },
-      { minQuantity: 50, price: 2749, mrp: 4299 },
-    ],
+    pricingMode: "ENQUIRY",
+    tiers: [],
     specs: [
       { label: "Contents", value: "Sweets, nuts, brass decor" },
       { label: "Lead Time", value: "5-7 working days" },
@@ -1189,6 +1273,10 @@ const P: ProductSeed[] = [
       { minQuantity: 100, price: 719, mrp: 1199 },
     ],
     specs: [{ label: "Sizes", value: "S – 5XL" }],
+    options: [
+      { name: "Colour", values: ["Navy", "Black", "Sky Blue"] },
+      { name: "Size", values: APPAREL_SIZES },
+    ],
   },
   {
     name: "Jacket & Hoodie Combo",
@@ -1205,6 +1293,15 @@ const P: ProductSeed[] = [
       { minQuantity: 100, price: 2599, mrp: 4198 },
     ],
     specs: [{ label: "Colours", value: "Black, Navy, Olive" }],
+    options: [
+      { name: "Colour", values: ["Black", "Navy", "Olive"] },
+      { name: "Size", values: ["S", "M", "L", "XL", "XXL"] },
+    ],
+    variantOverrides: {
+      "Black / XXL": { priceDelta: 60 },
+      "Navy / XXL": { priceDelta: 60 },
+      "Olive / XXL": { priceDelta: 60 },
+    },
   },
   {
     name: "Smart Home Starter Kit",
@@ -1325,6 +1422,12 @@ async function main() {
       prisma.orderItem.deleteMany(),
       prisma.order.deleteMany(),
       prisma.review.deleteMany(),
+      prisma.variantPrice.deleteMany(),
+      prisma.productVariant.deleteMany(),
+      prisma.productOption.deleteMany(),
+      prisma.shippingRate.deleteMany(),
+      prisma.shippingZone.deleteMany(),
+      prisma.storeSetting.deleteMany(),
       prisma.productCategory.deleteMany(),
       prisma.productSpec.deleteMany(),
       prisma.productPrice.deleteMany(),
@@ -1433,27 +1536,98 @@ async function main() {
   }
   console.log(`  ✓ ${brandIds.size} brands`);
 
+  // Store settings + shipping zones (rate card)
+  await prisma.storeSetting.create({
+    data: {
+      id: 1,
+      freeShippingThreshold: 1000,
+      volumetricDivisor: 5000,
+      sellerName: "KCS G-Mart",
+      sellerGstin: "07AAACK1234A1Z5",
+      sellerPan: "AAACK1234A",
+      sellerAddress: "Plot 12, Okhla Industrial Area Phase II, New Delhi 110020",
+      sellerStateCode: "07",
+      sellerEmail: "accounts@kcsgmart.in",
+      sellerPhone: "+91 98110 00000",
+      invoicePrefix: "KCS/INV",
+      invoiceCounter: 0,
+      extraPer500g: Object.fromEntries(DEFAULT_ZONES.map((z) => [z.code, z.extraPer500g])),
+    },
+  });
+  for (const [i, zone] of DEFAULT_ZONES.entries()) {
+    await prisma.shippingZone.create({
+      data: {
+        code: zone.code,
+        name: zone.name,
+        states: zone.states,
+        etaDays: zone.etaDays,
+        sortOrder: i,
+        rates: { create: zone.rates.map((r) => ({ uptoGrams: r.uptoGrams, price: r.price })) },
+      },
+    });
+  }
+  const shippingConfig: ShippingConfig = { zones: DEFAULT_ZONES, freeShippingThreshold: 1000, volumetricDivisor: 5000 };
+  console.log(`  ✓ store settings + ${DEFAULT_ZONES.length} shipping zones`);
+
   // Products
   const productIds: string[] = [];
+  /** productIndex → variants (for demo orders). */
+  const productVariants = new Map<number, { id: string; label: string; sku: string; price: number; weightGrams: number }[]>();
+  let variantTotal = 0;
   for (const [index, seed] of P.entries()) {
+    const sortedTiers = seed.tiers.slice().sort((a, b) => a.minQuantity - b.minQuantity);
+    const lg = logistics(seed);
+    const hasVariants = !!seed.options?.length && (seed.pricingMode ?? "BULK") !== "ENQUIRY";
+    const combos = hasVariants ? combinations(seed.options!) : [];
+    const skuBase = `KCS-${String(1000 + index)}`;
+    const variantRows = combos.map((attrs, vi) => {
+      const label = variantLabel(attrs, seed.options);
+      const override = seed.variantOverrides?.[label] ?? {};
+      const delta = override.priceDelta ?? 0;
+      const prices = sortedTiers.map((t) => ({ minQuantity: t.minQuantity, price: t.price + delta, mrp: t.mrp + delta }));
+      const stock = override.stock ?? Math.max(20, Math.round(seed.stock / Math.max(1, combos.length)) + ((vi * 37) % 60));
+      const sku =
+        override.sku ??
+        `${skuBase}-${Object.values(attrs)
+          .map((v) => v.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 4))
+          .join("-")}`;
+      return {
+        attributes: attrs,
+        label,
+        sku,
+        image: override.image ?? null,
+        stock,
+        isActive: override.isActive ?? true,
+        sortOrder: vi,
+        basePrice: prices[0]?.price ?? 0,
+        baseMrp: prices[0]?.mrp ?? 0,
+        // XXL pieces are a touch heavier — demonstrates per-variant weight.
+        weightGrams: attrs.Size === "XXL" ? Math.round(lg.weightGrams * 1.15) : null,
+        prices,
+      };
+    });
     const created = await prisma.product.create({
       data: {
         name: seed.name,
         slug: seed.slug,
-        sku: `KCS-${String(1000 + index)}`,
+        sku: skuBase,
         brandId: brandIds.get(seed.brand) ?? null,
         introtext: seed.introtext,
         description: seed.description,
         image: seed.image,
         delivery:
-          "Dispatch in 3–5 working days. Pan-India delivery. Free shipping above ₹1,000.",
-        stock: seed.stock,
-        basePrice: seed.tiers
-          .slice()
-          .sort((a, b) => a.minQuantity - b.minQuantity)[0].price,
-        baseMrp: seed.tiers
-          .slice()
-          .sort((a, b) => a.minQuantity - b.minQuantity)[0].mrp,
+          "Dispatch in 3–5 working days. Pan-India delivery. Shipping calculated by zone and weight at checkout.",
+        stock: hasVariants ? variantRows.filter((v) => v.isActive).reduce((sum, v) => sum + v.stock, 0) : seed.stock,
+        pricingMode: seed.pricingMode ?? "BULK",
+        basePrice: sortedTiers[0]?.price ?? 0,
+        baseMrp: sortedTiers[0]?.mrp ?? 0,
+        hsnCode: lg.hsnCode,
+        gstRate: lg.gstRate,
+        weightGrams: lg.weightGrams,
+        lengthCm: lg.dims[0],
+        widthCm: lg.dims[1],
+        heightCm: lg.dims[2],
+        hasVariants,
         isActive: true,
         isNew: seed.flags?.includes("new") ?? false,
         isFeatured: seed.flags?.includes("featured") ?? false,
@@ -1466,11 +1640,36 @@ async function main() {
             .filter((id): id is number => id !== undefined)
             .map((categoryId) => ({ categoryId })),
         },
+        options: hasVariants
+          ? { create: seed.options!.map((o, oi) => ({ name: o.name, values: o.values, sortOrder: oi })) }
+          : undefined,
+        variants: hasVariants
+          ? {
+              create: variantRows.map(({ prices, ...v }) => ({
+                ...v,
+                prices: { create: prices },
+              })),
+            }
+          : undefined,
       },
+      include: { variants: { select: { id: true, label: true, sku: true, basePrice: true, weightGrams: true } } },
     });
     productIds.push(created.id);
+    if (created.variants.length) {
+      variantTotal += created.variants.length;
+      productVariants.set(
+        index,
+        created.variants.map((v) => ({
+          id: v.id,
+          label: v.label,
+          sku: v.sku ?? "",
+          price: Number(v.basePrice),
+          weightGrams: v.weightGrams ?? lg.weightGrams,
+        })),
+      );
+    }
   }
-  console.log(`  ✓ ${productIds.length} products`);
+  console.log(`  ✓ ${productIds.length} products (${variantTotal} variants)`);
 
   // Reviews on a few products
   const reviewData = [
@@ -1588,6 +1787,22 @@ async function main() {
       ],
     },
     {
+      userId: demo.id,
+      status: "SHIPPED" as const,
+      daysAgo: 6,
+      customer: {
+        name: "Demo Customer",
+        email: "demo@kcsgmart.in",
+        phone: "9812345678",
+      },
+      // Apparel with variants — mixed sizes of the same tee on one order.
+      items: [
+        { productIndex: 0, qty: 60, name: "Adidas Dry-Fit Round Neck T-Shirt", variantLabel: "Black / M" },
+        { productIndex: 0, qty: 40, name: "Adidas Dry-Fit Round Neck T-Shirt", variantLabel: "Black / L" },
+        { productIndex: 1, qty: 30, name: "Puma Cotton Polo T-Shirt", variantLabel: "White / XL" },
+      ],
+    },
+    {
       userId: riya.id,
       status: "DELIVERED" as const,
       daysAgo: 12,
@@ -1625,24 +1840,74 @@ async function main() {
   ];
 
   let orderCounter = 1;
-  for (const order of demoOrders) {
+  let invoiceCounter = 0;
+  const fyStart = new Date().getMonth() >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1;
+  const fy = `${String(fyStart).slice(-2)}-${String(fyStart + 1).slice(-2)}`;
+  const DEMO_COURIERS = [
+    { name: "Delhivery", url: (awb: string) => `https://www.delhivery.com/track/package/${awb}` },
+    { name: "Blue Dart", url: (awb: string) => `https://www.bluedart.com/tracking?trackFor=0&trackNo=${awb}` },
+    { name: "DTDC", url: (awb: string) => `https://www.dtdc.in/tracking.asp?strCnno=${awb}` },
+  ];
+  for (const [oi, order] of demoOrders.entries()) {
+    const isDemoUser = order.userId === demo.id;
+    // Demo user is a GST-registered UP company (inter-state from Delhi → IGST);
+    // the other buyer is an unregistered Delhi customer (CGST + SGST).
+    const gstNo = isDemoUser ? "09AABCA1234B1ZK" : null;
+    const state = isDemoUser ? "Uttar Pradesh" : "Delhi";
+    const city = isDemoUser ? "Noida" : "New Delhi";
+    const pincode = isDemoUser ? "201309" : "110020";
+    const interState = isDemoUser;
+
     const lines = order.items.map((item) => {
       const seed = P[item.productIndex];
+      const lg = logistics(seed);
+      const variants = productVariants.get(item.productIndex);
+      const wanted = (item as { variantLabel?: string }).variantLabel;
+      const variant = variants ? (variants.find((v) => v.label === wanted) ?? variants[(oi * 7 + item.qty) % variants.length]) : undefined;
       const tier =
         [...seed.tiers]
           .sort((a, b) => b.minQuantity - a.minQuantity)
           .find((t) => item.qty >= t.minQuantity) ?? seed.tiers[0];
+      const unitPrice = tier.price + (variant ? variant.price - seed.tiers.slice().sort((a, b) => a.minQuantity - b.minQuantity)[0].price : 0);
+      const lineTotal = unitPrice * item.qty;
+      const weightGrams = variant?.weightGrams ?? lg.weightGrams;
       return {
         productId: productIds[item.productIndex],
+        variantId: variant?.id ?? null,
+        variantLabel: variant?.label ?? null,
+        sku: variant?.sku ?? `KCS-${String(1000 + item.productIndex)}`,
         name: item.name,
         image: seed.image,
-        unitPrice: tier.price,
+        unitPrice,
         quantity: item.qty,
-        lineTotal: tier.price * item.qty,
+        lineTotal,
+        hsnCode: lg.hsnCode,
+        gstRate: lg.gstRate,
+        taxAmount: splitInclusive(lineTotal, lg.gstRate).tax,
+        weightGrams,
+        _dims: lg.dims,
       };
     });
     const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
-    const shipping = subtotal >= 1000 ? 0 : 100;
+    const quote = quoteShipping(
+      lines.map((l) => ({ quantity: l.quantity, weightGrams: l.weightGrams, lengthCm: l._dims[0], widthCm: l._dims[1], heightCm: l._dims[2] })),
+      state,
+      subtotal,
+      shippingConfig,
+    );
+    const shipping = quote.amount;
+    const tax = summariseTax(
+      lines.map((l) => ({ lineTotal: l.lineTotal, gstRate: l.gstRate })),
+      interState,
+      shipping,
+    );
+    const createdAt = new Date(Date.now() - order.daysAgo * 24 * 60 * 60 * 1000);
+    const cancelled = (order.status as string) === "CANCELLED";
+    const shipped = order.status === "SHIPPED" || order.status === "DELIVERED";
+    const courier = DEMO_COURIERS[oi % DEMO_COURIERS.length];
+    const awb = shipped ? `${String(1400000000 + oi * 91733)}` : null;
+    const shippedAt = shipped ? new Date(createdAt.getTime() + 2 * 24 * 60 * 60 * 1000) : null;
+    const invoiceNumber = cancelled ? null : `KCS/INV/${fy}/${String(++invoiceCounter).padStart(6, "0")}`;
 
     await prisma.order.create({
       data: {
@@ -1652,27 +1917,49 @@ async function main() {
         customerName: order.customer.name,
         customerEmail: order.customer.email,
         customerPhone: order.customer.phone,
-        companyName:
-          order.userId === demo.id
-            ? "Acme Technologies Pvt. Ltd."
-            : "Bright Labs",
-        billingAddress: "4th Floor, Cyber Tower",
-        billingCity: "Noida",
-        billingState: "Uttar Pradesh",
-        billingPincode: "201309",
-        shippingAddress: "4th Floor, Cyber Tower",
-        shippingCity: "Noida",
-        shippingState: "Uttar Pradesh",
-        shippingPincode: "201309",
+        companyName: isDemoUser ? "Acme Technologies Pvt. Ltd." : "Bright Labs",
+        gstNo,
+        billingAddress: isDemoUser ? "4th Floor, Cyber Tower, Sector 62" : "B-14, Okhla Phase I",
+        billingCity: city,
+        billingState: state,
+        billingPincode: pincode,
+        shippingAddress: isDemoUser ? "4th Floor, Cyber Tower, Sector 62" : "B-14, Okhla Phase I",
+        shippingCity: city,
+        shippingState: state,
+        shippingPincode: pincode,
         subtotal,
         shipping,
         total: subtotal + shipping,
-        createdAt: new Date(Date.now() - order.daysAgo * 24 * 60 * 60 * 1000),
-        items: { create: lines },
+        taxableAmount: tax.taxableAmount,
+        cgst: tax.cgst,
+        sgst: tax.sgst,
+        igst: tax.igst,
+        placeOfSupply: isDemoUser ? "09" : "07",
+        shippingZone: quote.zone?.name ?? null,
+        chargeableWeight: quote.chargeableWeight,
+        shippingMethod: quote.method,
+        invoiceNumber,
+        invoicedAt: invoiceNumber ? createdAt : null,
+        courierName: shipped ? courier.name : null,
+        trackingNumber: awb,
+        trackingUrl: awb ? courier.url(awb) : null,
+        shippedAt,
+        expectedAt: shippedAt ? new Date(shippedAt.getTime() + 4 * 24 * 60 * 60 * 1000) : null,
+        deliveredAt: order.status === "DELIVERED" && shippedAt ? new Date(shippedAt.getTime() + 3 * 24 * 60 * 60 * 1000) : null,
+        shipmentNote: shipped && oi % 2 === 0 ? "Dispatched in 2 cartons. Please keep a photo ID ready at delivery." : null,
+        createdAt,
+        items: {
+          create: lines.map((line) => {
+            const { _dims, ...rest } = line;
+            void _dims;
+            return rest;
+          }),
+        },
       },
     });
   }
-  console.log(`  ✓ ${demoOrders.length} demo orders`);
+  await prisma.storeSetting.update({ where: { id: 1 }, data: { invoiceCounter } });
+  console.log(`  ✓ ${demoOrders.length} demo orders (${invoiceCounter} invoices)`);
 
   // Leads
   await prisma.bulkEnquiry.createMany({
