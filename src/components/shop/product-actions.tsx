@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -25,6 +25,7 @@ import { WishlistButton } from "@/components/shop/wishlist-button";
 import { BulkEnquiryDialog } from "@/components/shop/bulk-enquiry-dialog";
 import { BulkInquiryTable } from "@/components/shop/bulk-inquiry-table";
 import { VariantSelector } from "@/components/shop/variant-selector";
+import { useVariantPreview } from "@/store/variant-preview";
 import { cn, formatCurrency } from "@/lib/utils";
 import { formatGrams } from "@/lib/shipping";
 import { findVariant, type VariantAttributes } from "@/lib/variants";
@@ -50,6 +51,19 @@ export function ProductActions({ product }: { product: ProductDetail }) {
   });
   const variant = hasVariants ? findVariant(product.variants, selection, product.options) : undefined;
   const needsSelection = hasVariants && !variant;
+
+  // Let the media stage mirror the chosen variant (its own photo is far more
+  // useful at 640 px than in a chip next to the price).
+  const setVariantPreview = useVariantPreview((state) => state.setPreview);
+  const clearVariantPreview = useVariantPreview((state) => state.clearPreview);
+  useEffect(() => {
+    if (!hasVariants) {
+      clearVariantPreview();
+      return;
+    }
+    setVariantPreview(product.id, variant ? { image: variant.image, label: variant.label } : null);
+  }, [product.id, hasVariants, variant, setVariantPreview, clearVariantPreview]);
+  useEffect(() => () => clearVariantPreview(), [clearVariantPreview]);
 
   // Effective price tiers: variant's when selected, else the product's.
   const tiers: ProductPriceTier[] = useMemo(() => {
@@ -178,15 +192,31 @@ export function ProductActions({ product }: { product: ProductDetail }) {
               </p>
             </div>
             {variant && (
-              <div className="flex items-center gap-3 rounded-xl bg-surface p-2 pr-3">
-                {variant.image && (
-                  <span className="studio relative size-12 overflow-hidden rounded-lg">
-                    <Image src={variant.image} alt="" fill sizes="48px" className="object-contain p-0.5 mix-blend-multiply dark:mix-blend-normal" />
+              <div className="flex items-center gap-3 rounded-xl bg-surface p-2.5 pr-4">
+                {variant.image ? (
+                  <button
+                    type="button"
+                    onClick={() => setVariantPreview(product.id, { image: variant.image, label: variant.label })}
+                    className="studio relative size-24 shrink-0 overflow-hidden rounded-lg ring-1 ring-foreground/[0.07] transition-shadow hover:shadow-md"
+                    aria-label={`Show the ${variant.label} photo in the gallery`}
+                    title="Show in gallery"
+                  >
+                    <Image
+                      src={variant.image}
+                      alt={`${product.name} — ${variant.label}`}
+                      fill
+                      sizes="96px"
+                      className="object-contain p-1.5 mix-blend-multiply dark:mix-blend-normal"
+                    />
+                  </button>
+                ) : (
+                  <span className="grid size-24 shrink-0 place-items-center rounded-lg bg-background text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ring-1 ring-foreground/[0.07]">
+                    No photo
                   </span>
                 )}
                 <div className="text-xs">
-                  <p className="font-bold">{variant.label}</p>
-                  <p className="text-muted-foreground">
+                  <p className="text-sm font-bold">{variant.label}</p>
+                  <p className="mt-0.5 text-muted-foreground">
                     {variant.sku ? `SKU ${variant.sku} · ` : ""}
                     {variant.stock > 0 ? <span className="text-success">{variant.stock} in stock</span> : <span className="text-destructive">Out of stock</span>}
                   </p>

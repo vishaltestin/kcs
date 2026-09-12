@@ -173,3 +173,96 @@ The side column is reserved only when there are **category** matches; brands alo
 
 ### Quality gates (final code)
 `tsc --noEmit` 0 errors · `eslint` 0 errors (15 pre-existing warnings) · `next build --webpack` EXIT 0 · probe 15×200 / 4×302 / 1×404 (expected) · Playwright storefront sweep at 1280/1440/390 incl. PDP → cart → checkout → profile → order-success and both search states: no ≥400, no page/console errors; every image on home, /category, /category/drinkwares, /blog, /product loads (0 incomplete).
+
+## Round 7 — variant data safety, bigger media popups, visible variant photos, cursor affordance, product handbook
+
+### 1. Turning variants off no longer deletes them (`actions/admin/products.ts`, `variants-editor.tsx`, `orders.ts`)
+
+**Reported:** a product has variants today, not tomorrow — flipping the switch off and saving wiped every variant
+(SKU, stock, image, weight, price tables) with no way back.
+
+- `updateProductAction` now treats the switch as a **visibility toggle**: while `hasVariants` is false it skips the
+  whole option/variant sync (no `productOption.deleteMany`, no variant upsert/delete), so the stored rows survive
+  untouched. `Product.hasVariants` still drives the storefront (`catalog.ts` already maps `p.hasVariants ? … : []`),
+  so the product simply sells as a single-price item from its own price/stock fields, and switching back on restores
+  every row exactly.
+- Permanent deletion is now its own confirmed action: `deleteProductVariantsAction(id)` (order lines keep their
+  snapshots; only `OrderItem.variantId` nulls out, which is already `onDelete: SetNull`). The editor shows an amber
+  panel while the switch is off — “N variants are hidden, not deleted” — with **Delete variants permanently** →
+  inline confirm → immediate action + toast.
+- Same class of loss fixed for pricing strategy: `normaliseVariantPrices` no longer empties the per-variant tier
+  tables when the product switches to **SHARED**. The resolver ignores them while shared (so the storefront, cart,
+  order and invoice are unchanged), but switching back to **CUSTOM** finds the tables intact. Every
+  `variantPricing === "CUSTOM"` rule in `productSchema` is already conditional, so retained rows can’t fail validation.
+- `placeOrder` resolves a cart line’s variant only while `product.hasVariants` is true — a stale cart entry can no
+  longer be priced off a hidden variant table.
+- **Verified** by driving the real actions end to end (`createProductAction` → hide → snapshot → purge → delete) with a
+  temporary dev-only route: after hiding, `variantCount 2 / optionCount 1`, both SKUs, both stock values, the variant
+  image and the tier counts were still in MySQL; `productStock` moved to the product’s own field (0) and
+  `hasVariants` false; the purge then returned “2 variants and their option axes deleted” with counts at 0. The probe
+  route and the test product were removed afterwards (`leftoverProducts 0`).
+
+### 2. Media popups are actually big (`dialog.tsx` note, `product-gallery.tsx`, `video-section.tsx`, `image-picker.tsx`)
+
+Root cause: `DialogContent` ends with `sm:max-w-sm` (384 px). Tailwind sorts `sm:` utilities after the unprefixed ones,
+so callers writing `max-w-[min(96vw,1100px)]` / `max-w-3xl` were silently capped at 384 px — the PDP lightbox, the home
+showreel and the admin image-library picker were all tiny. Confirmed with the project’s own `cn`: the merged class
+string kept `sm:max-w-sm` and dropped the caller’s width; with `sm:` on both sides the base is merged away instead.
+
+- Lightbox: `w-[min(96vw,1400px)] sm:max-w-[min(96vw,1400px)]`, `p-0 gap-0`, and the stage is now height-driven
+  (`h-[min(78svh,940px)]`, `object-contain`) instead of a 4:3 box inside a 384 px dialog. Bigger arrows/dots, Esc hint line.
+- Home showreel dialog: `w-[min(96vw,1320px)] sm:max-w-[min(96vw,1320px)]`; the `<video>` uses
+  `h-auto max-h-[86svh] w-full` (letterbox instead of distortion, no fixed `aspect-video` fighting the viewport).
+- Image picker + gallery picker dialogs: `max-w-3xl` → `sm:max-w-3xl`.
+- Documented the rule in `dialog.tsx` so the next caller doesn’t lose the same fight.
+- Production CSS verified to contain `max-width:min(96vw,1400px)` and `max-width:min(96vw,1320px)`.
+
+### 3. Variant images are impossible to miss (`variant-selector.tsx`, `product-gallery.tsx`, `product-actions.tsx`, new `store/variant-preview.ts`)
+
+- **New store** `useVariantPreview` (zustand, in-memory, keyed by product id): the channel between the purchase panel
+  and the media stage, so no prop drilling through server components and no extra client boundary.
+- Selecting a variant puts **its own photo on the gallery stage and in the lightbox** — pinned as frame 0 (with a
+  “selected variant” pill on the stage, in the lightbox and on the thumbnail), and the reset happens during render
+  (React’s “adjust state when a prop changes” pattern, no cascading-render lint error).
+- Option axes whose values each carry a distinct photo render as **image tiles** (7.5 rem plate, contained image,
+  hover zoom, tick badge, name + “out” state) instead of 40 px swatches; the decision is made from the whole variant
+  list so the layout can’t jump mid-choice. A Size axis whose values all resolve to the same colour photo stays a
+  compact pill row.
+- The selected-variant card next to the price grew from a 48 px chip to an 96 px plate, clickable to pin it to the gallery.
+- Admin variant rows: `size-9` thumb → `size-14` contained plate; an empty one is now an “Add image” button that opens
+  the row where the `ImagePicker` lives.
+
+### 4. Hand cursor on everything clickable (`globals.css`, `dropdown-menu.tsx`, `select.tsx`, `command.tsx`)
+
+shadcn ships `cursor-default` on menu rows, and a utility always beats `@layer base`, so the global rule could not win.
+Replaced at the source: 4 dropdown rows (item / checkbox item / radio item / sub-trigger), 3 select parts (item + both
+scroll buttons), 1 command row. The base rule also grew to cover `[role="menuitemcheckbox"]`,
+`[role="menuitemradio"]`, `[data-slot="command-item"]`, all `[data-sidebar="menu-button|menu-sub-button|menu-action|trigger|rail"]`,
+`select`, checkbox/radio/file/range inputs and checkbox/radio labels; `[role="option"]`/`[role="menuitem"]` now skip
+`data-disabled`, and a companion rule gives disabled controls `cursor: not-allowed`.
+
+### 5. Product handbook — no demo needed to hand over the console (`products/product-guide.tsx`, `admin/guides/product`, `seo-fields.tsx`)
+
+- New module holds the documentation as data: `PRODUCT_FORM_GUIDES` (10 sections), `PRODUCT_GUIDE_CHAPTERS`
+  (order lifecycle, when-a-quote-is-right, launch checklist) and `SectionGuide`, a `<details>` panel with
+  labelled points, a worked-figures table and a “watch out” line. No JS, no new dependency.
+- Every card on `/admin/products/{new,[id]/edit}` gets its strip (Basics, Categories, Images, Content, Pricing,
+  Tax & shipping, Variants, Specifications, Visibility, SEO — the SEO one renders through a new optional
+  `footer` on the shared `SeoFields` card, so category/blog forms are untouched).
+- `/admin/guides/product` prints the same object expanded, with a numbered contents index, per-section anchors and a
+  print hint — one source of truth, so the form and the handbook can’t disagree. Linked from both product page
+  headers and the admin sidebar (Catalog → “Product guide”).
+- Content was written against the code, not the README: GST carve-out maths (`taxable = total × 100 ÷ (100 + rate)`,
+  CGST/SGST when place of supply = `sellerStateCode`, IGST otherwise, freight at 18 %), tier→“from” price and
+  tier→MOQ rules, stock semantics (`0` = untracked), the upload pipeline (EXIF rotate → 1600 px → WebP q82),
+  volumetric weight at divisor 5000, 500 g fallback, invoice numbering `prefix/25-26/000123`, and what the switch-off
+  behaviour from §1 means for the storefront.
+
+### Quality gates (final code)
+
+`tsc --noEmit` 0 errors · `eslint .` 0 errors, 15 warnings (the same pre-existing set) · `next build --webpack`
+EXIT 0 (`/admin/guides/product` in the route table). Runtime sweep on the production server: 16 routes 200
+(storefront incl. PDP/category/blog/faq/cart/checkout + `/admin`, `/admin/products`, `/admin/guides/product`,
+order edit) · PDP renders 14 variant radios, colour photos in the tile branch · compiled CSS carries the new
+`max-width` utilities and the cursor rules · `cn()` merge check proves the `sm:max-w-sm` cap is gone.
+(`npm run build` with the default Turbopack runner is OOM-killed on this 2 GB box — that is environmental, not code.)

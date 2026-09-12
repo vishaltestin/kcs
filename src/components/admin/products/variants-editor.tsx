@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
 import { AlertCircle, ChevronDown, Copy, Layers3, Plus, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,6 +12,7 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/comp
 import { Input } from "@/components/ui/input";
 import { ImagePicker } from "@/components/admin/image-picker";
 import { NumberField } from "@/components/admin/number-field";
+import { deleteProductVariantsAction } from "@/actions/admin/products";
 import type { productSchema, PricingModeValue } from "@/lib/validations/admin";
 import { attributeKey, combinations, mergeVariants, resolveVariantTiers, type OptionAxis, type VariantInput } from "@/lib/variants";
 import { formatGrams } from "@/lib/shipping";
@@ -48,10 +50,13 @@ export function VariantsEditor({
   form,
   pricingMode,
   productWeightGrams,
+  productId,
 }: {
   form: UseFormReturn<Values>;
   pricingMode: PricingModeValue;
   productWeightGrams: number | undefined;
+  /** Present when editing — enables the "delete variants permanently" escape hatch. */
+  productId?: string;
 }) {
   const hasVariants = form.watch("hasVariants");
   const variantPricing = form.watch("variantPricing") ?? "SHARED";
@@ -59,7 +64,10 @@ export function VariantsEditor({
   const variants = form.watch("variants");
   const productTiers = form.watch("prices") ?? [];
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [confirmPurge, setConfirmPurge] = useState(false);
+  const [isPurging, startPurge] = useTransition();
   const shared = variantPricing === "SHARED";
+  const retainedCount = (variants ?? []).length;
   // Only tiers the admin has finished typing feed the "effective price"
   // preview; a blank MRP/price box must never take the editor down.
   const validProductTiers = productTiers.filter(
@@ -84,6 +92,33 @@ export function VariantsEditor({
     const next = mergeVariants(axes, (form.getValues("variants") ?? []) as VariantInput[], template);
     setVariants(next);
     form.clearErrors(["variants", "options"]);
+  };
+
+  /**
+   * Removing variant rows is deliberately its own confirmed action — turning
+   * the switch off only hides them, so nothing can be lost by accident.
+   */
+  const purgeVariants = () => {
+    const clearLocal = () => {
+      setVariants([]);
+      setOptions([]);
+      setConfirmPurge(false);
+      setExpanded({});
+    };
+    if (!productId) {
+      clearLocal();
+      toast.success("Variants cleared from this product.");
+      return;
+    }
+    startPurge(async () => {
+      const result = await deleteProductVariantsAction(productId);
+      if (result.ok) {
+        clearLocal();
+        toast.success(result.message ?? "Variants deleted.");
+      } else {
+        toast.error(result.message ?? "Could not delete the variants.");
+      }
+    });
   };
 
   const errors = form.formState.errors;
@@ -114,6 +149,7 @@ export function VariantsEditor({
               onClick={() => {
                 const next = !field.value;
                 field.onChange(next);
+                setConfirmPurge(false);
                 if (next && (form.getValues("options") ?? []).length === 0) {
                   setOptions([{ name: "Colour", values: [] }]);
                 }
@@ -135,7 +171,7 @@ export function VariantsEditor({
                 <span className="block text-sm font-semibold">This product comes in variants</span>
                 <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
                   Colour, size, capacity… Each variant gets its own SKU, stock, image, price tiers and weight. Customers
-                  pick a variant before adding to cart.
+                  pick a variant before adding to cart. Turning this off only hides the variants — nothing is deleted.
                 </span>
               </span>
               <span
@@ -156,6 +192,41 @@ export function VariantsEditor({
           </FormItem>
         )}
       />
+
+      {!hasVariants && retainedCount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-amber/10 px-4 py-3 text-sm ring-1 ring-brand-amber/40">
+          <p className="min-w-0 flex-1 text-amber-900">
+            <strong className="font-semibold">
+              {retainedCount} variant{retainedCount === 1 ? "" : "s"} {retainedCount === 1 ? "is" : "are"} hidden, not
+              deleted.
+            </strong>{" "}
+            Their SKUs, stock, images, weights and price tables are still saved — switch this back on and they return
+            exactly as they were. While the switch is off, the product sells from its own price and stock fields.
+          </p>
+          {confirmPurge ? (
+            <span className="flex shrink-0 items-center gap-1.5">
+              <span className="text-xs font-semibold text-destructive">Delete for good?</span>
+              <Button type="button" size="sm" variant="destructive" onClick={purgeVariants} disabled={isPurging}>
+                <Trash2 aria-hidden /> {isPurging ? "Deleting…" : "Yes, delete"}
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmPurge(false)} disabled={isPurging}>
+                Keep them
+              </Button>
+            </span>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => setConfirmPurge(true)}
+              disabled={isPurging}
+            >
+              <Trash2 aria-hidden /> Delete variants permanently
+            </Button>
+          )}
+        </div>
+      )}
 
       {hasVariants && (
         <>
@@ -648,11 +719,23 @@ function VariantRows({
           <div className="flex items-center gap-2">
             {variant.image ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={variant.image} alt="" className="size-9 shrink-0 rounded-md object-cover ring-1 ring-foreground/10" />
+              <img
+                src={variant.image}
+                alt={variant.label}
+                title={`${variant.label} — variant image`}
+                className="studio size-14 shrink-0 rounded-lg object-contain p-1 ring-1 ring-foreground/10"
+              />
             ) : (
-              <span className="grid size-9 shrink-0 place-items-center rounded-md bg-surface text-[10px] font-semibold text-muted-foreground ring-1 ring-foreground/[0.06]">
-                IMG
-              </span>
+              <button
+                type="button"
+                onClick={onToggle}
+                className="grid size-14 shrink-0 place-items-center rounded-lg border border-dashed text-[10px] leading-tight font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                aria-label={`Add an image to ${variant.label}`}
+              >
+                Add
+                <br />
+                image
+              </button>
             )}
             <div className="min-w-0">
               <p className={cn("truncate font-semibold", inactive && "line-through decoration-muted-foreground/60")}>{variant.label}</p>

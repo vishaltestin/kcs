@@ -8,6 +8,7 @@ import {
   CalendarClock,
   ExternalLink,
   FolderTree,
+  GraduationCap,
   LayoutDashboard,
   Mail,
   MessageSquareText,
@@ -45,6 +46,7 @@ const NAV_SECTIONS = [
       { title: "Categories", href: "/admin/categories", icon: FolderTree },
       { title: "Brands", href: "/admin/brands", icon: Tags },
       { title: "Reviews", href: "/admin/reviews", icon: Star },
+      { title: "Product guide", href: "/admin/guides/product", icon: GraduationCap },
     ],
   },
   {

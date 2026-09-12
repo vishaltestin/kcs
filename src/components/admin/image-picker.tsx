@@ -348,7 +348,7 @@ export function ImagePicker({
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{label}</DialogTitle>
             <DialogDescription>Pick from the image library or paste a path / URL.</DialogDescription>
@@ -553,7 +553,7 @@ export function GalleryUploader({
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Add gallery images</DialogTitle>
             <DialogDescription>Click images to add or remove them from the gallery.</DialogDescription>

@@ -76,7 +76,7 @@ export function VideoSection() {
 
           <DialogContent
             showCloseButton
-            className="w-[min(96vw,1100px)] max-w-none border-none bg-black/95 p-2 shadow-2xl sm:p-3"
+            className="w-[min(96vw,1320px)] sm:max-w-[min(96vw,1320px)] border-none bg-black/95 p-2 shadow-2xl sm:p-3"
           >
             <DialogHeader className="sr-only">
               <DialogTitle>KCS G-Mart corporate gifting video</DialogTitle>
@@ -87,7 +87,7 @@ export function VideoSection() {
               controls
               autoPlay
               playsInline
-              className="aspect-video w-full rounded-xl bg-black"
+              className="block h-auto max-h-[86svh] w-full rounded-xl bg-black"
             >
               Your browser does not support the video tag.
             </video>

@@ -3,27 +3,50 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, Expand, PlayCircle, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Expand, Layers3, PlayCircle, X } from "lucide-react";
 
 import { Video } from "@/components/shop/video";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { selectPreviewFor, useVariantPreview } from "@/store/variant-preview";
 import { cn } from "@/lib/utils";
 
+/**
+ * PDP media stage. The image of the selected variant is pinned in front of the
+ * product gallery (so a colour/size photo is actually visible instead of a
+ * 48 px chip), and clicking either opens a full-viewport lightbox.
+ */
 export function ProductGallery({
   images,
   name,
   video,
+  productId,
 }: {
   images: string[];
   name: string;
   video?: string | null;
+  productId: string;
 }) {
+  const preview = useVariantPreview(selectPreviewFor(productId));
+  const variantImage = preview?.image ?? null;
+  const variantLabel = preview?.label || null;
+  const baseImages = images.length > 0 ? images : ["/images/demo.png"];
+  const variantFirst = !!variantImage && !baseImages.includes(variantImage);
+  const safeImages = variantFirst ? [variantImage as string, ...baseImages] : baseImages;
   const [currentImage, setCurrentImage] = useState(0);
   const [lightbox, setLightbox] = useState(false);
   const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
-  const safeImages = images.length > 0 ? images : ["/images/demo.png"];
   const many = safeImages.length > 1;
+  const showingVariant = variantFirst && currentImage === 0;
+
+  // Picking a different variant brings its photo to the front of the stage.
+  // Adjusted during render (React's "adjust state when a prop changes"
+  // pattern) rather than in an effect, so no extra paint is wasted.
+  const [lastVariantImage, setLastVariantImage] = useState(variantImage);
+  if (variantImage !== lastVariantImage) {
+    setLastVariantImage(variantImage);
+    if (variantFirst) setCurrentImage(0);
+  }
 
   const nextImage = useCallback(
     () => setCurrentImage((prev) => (prev + 1) % safeImages.length),
@@ -38,6 +61,7 @@ export function ProductGallery({
   useEffect(() => {
     if (!lightbox) return;
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(false);
       if (e.key === "ArrowRight") nextImage();
       if (e.key === "ArrowLeft") prevImage();
     };
@@ -68,7 +92,7 @@ export function ProductGallery({
           <Image
             key={safeImages[currentImage]}
             src={safeImages[currentImage]}
-            alt={`${name} — image ${currentImage + 1}`}
+            alt={showingVariant ? `${name} — ${variantLabel ?? "selected variant"}` : `${name} — image ${currentImage + 1}`}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 640px"
             quality={90}
@@ -83,6 +107,12 @@ export function ProductGallery({
 
           {/* Counter + expand */}
           <div className="pointer-events-none absolute top-3 right-3 flex items-center gap-2">
+            {showingVariant && variantLabel && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/90 px-2.5 py-1 text-[11px] font-semibold text-background backdrop-blur">
+                <Layers3 className="size-3" aria-hidden />
+                {variantLabel}
+              </span>
+            )}
             {many && (
               <span className="rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold text-white tabular-nums backdrop-blur">
                 {currentImage + 1} / {safeImages.length}
@@ -122,7 +152,7 @@ export function ProductGallery({
         {/* Thumbnails */}
         {many && (
           <div
-            className="no-scrollbar flex gap-2.5 overflow-x-auto md:w-[4.75rem] md:flex-col md:overflow-y-auto"
+            className="no-scrollbar flex gap-2.5 overflow-x-auto md:w-[5.5rem] md:flex-col md:overflow-y-auto"
             role="tablist"
             aria-label="Product images"
           >
@@ -132,16 +162,21 @@ export function ProductGallery({
                 role="tab"
                 onClick={() => setCurrentImage(index)}
                 onMouseEnter={() => setCurrentImage(index)}
-                aria-label={`View image ${index + 1}`}
+                aria-label={index === 0 && showingVariant ? `Selected variant — ${variantLabel ?? "image"}` : `View image ${index + 1}`}
                 aria-selected={currentImage === index}
                 className={cn(
-                  "studio relative aspect-square w-[4.25rem] shrink-0 overflow-hidden rounded-lg ring-1 transition-all md:w-full",
+                  "studio relative aspect-square w-[4.75rem] shrink-0 overflow-hidden rounded-lg ring-1 transition-all md:w-full",
                   currentImage === index
                     ? "ring-2 ring-foreground"
                     : "ring-foreground/[0.08] opacity-70 hover:opacity-100 hover:ring-foreground/30"
                 )}
               >
-                <Image src={src} alt={`${name} thumbnail ${index + 1}`} fill sizes="80px" className="object-contain p-1 mix-blend-multiply dark:mix-blend-normal" />
+                <Image src={src} alt={`${name} thumbnail ${index + 1}`} fill sizes="96px" className="object-contain p-1 mix-blend-multiply dark:mix-blend-normal" />
+                {index === 0 && showingVariant && (
+                  <span className="absolute inset-x-0 bottom-0 bg-foreground/85 py-0.5 text-center text-[9px] font-bold uppercase tracking-wide text-background">
+                    Selected
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -159,54 +194,63 @@ export function ProductGallery({
         </div>
       )}
 
-      {/* Lightbox */}
+      {/*
+        Lightbox. `DialogContent` sets `sm:max-w-sm`, so the width has to be
+        overridden at the same `sm:` breakpoint or the media renders 384 px wide.
+      */}
       <Dialog open={lightbox} onOpenChange={setLightbox}>
         <DialogContent
           showCloseButton={false}
-          className="max-w-[min(96vw,1100px)] border-none bg-black/95 p-0 text-white sm:rounded-2xl"
+          className="w-[min(96vw,1400px)] sm:max-w-[min(96vw,1400px)] gap-0 border-none bg-black/95 p-0 text-white"
         >
           <DialogTitle className="sr-only">{name} — image gallery</DialogTitle>
-          <div className="relative aspect-[4/3] w-full">
+          <div className="relative h-[min(78svh,940px)] w-full">
             <Image
               src={safeImages[currentImage]}
-              alt={`${name} — image ${currentImage + 1}`}
+              alt={showingVariant ? `${name} — ${variantLabel ?? "selected variant"}` : `${name} — image ${currentImage + 1}`}
               fill
-              sizes="96vw"
+              sizes="min(96vw, 1400px)"
               quality={90}
               className="object-contain"
             />
             <button
               onClick={() => setLightbox(false)}
-              className="absolute top-3 right-3 grid size-10 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+              className="absolute top-3 right-3 z-10 grid size-10 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
               aria-label="Close gallery"
             >
               <X className="size-5" aria-hidden />
             </button>
+            {showingVariant && variantLabel && (
+              <span className="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur">
+                <Layers3 className="size-3.5" aria-hidden />
+                {variantLabel}
+              </span>
+            )}
             {many && (
               <>
                 <button
                   onClick={prevImage}
-                  className="absolute top-1/2 left-3 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+                  className="absolute top-1/2 left-3 grid size-12 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
                   aria-label="Previous image"
                 >
                   <ChevronLeft className="size-6" aria-hidden />
                 </button>
                 <button
                   onClick={nextImage}
-                  className="absolute top-1/2 right-3 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+                  className="absolute top-1/2 right-3 grid size-12 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
                   aria-label="Next image"
                 >
                   <ChevronRight className="size-6" aria-hidden />
                 </button>
-                <div className="absolute inset-x-0 bottom-3 flex justify-center gap-1.5">
-                  {safeImages.map((_, i) => (
+                <div className="absolute inset-x-0 bottom-3 flex flex-wrap justify-center gap-1.5">
+                  {safeImages.map((src, i) => (
                     <button
-                      key={i}
+                      key={src + i}
                       onClick={() => setCurrentImage(i)}
                       aria-label={`Go to image ${i + 1}`}
                       className={cn(
-                        "h-1.5 rounded-full transition-all",
-                        i === currentImage ? "w-6 bg-white" : "w-1.5 bg-white/40 hover:bg-white/70"
+                        "size-1.5 rounded-full transition-all",
+                        i === currentImage ? "w-7 bg-white" : "bg-white/40 hover:bg-white/70"
                       )}
                     />
                   ))}
@@ -214,6 +258,9 @@ export function ProductGallery({
               </>
             )}
           </div>
+          <p className="pb-2 text-center text-[11px] text-white/45">
+            Click the photo or press Esc to close · ← / → to browse
+          </p>
         </DialogContent>
       </Dialog>
     </div>

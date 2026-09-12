@@ -47,6 +47,13 @@ function DialogOverlay({
   )
 }
 
+/**
+ * Note on width: the base styles end with `sm:max-w-sm` (384 px on desktop).
+ * Because Tailwind sorts `sm:` utilities after the unprefixed ones, a plain
+ * `className="max-w-3xl"` from a caller LOSES to it — the dialog silently
+ * stays 384 px wide. Always override at the same breakpoint: `sm:max-w-3xl`,
+ * or for media viewers `w-[min(96vw,1400px)] sm:max-w-[min(96vw,1400px)]`.
+ */
 function DialogContent({
   className,
   children,

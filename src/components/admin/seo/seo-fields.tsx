@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { Control, Path } from "react-hook-form";
 
 import { ImagePicker } from "@/components/admin/image-picker";
@@ -7,6 +8,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -52,7 +54,18 @@ function CharCount({ value, max }: { value: string; max: number }) {
  * Shared "SEO & social sharing" card for the product/category/blog forms.
  * Values fall back to derived metadata on the storefront when left empty.
  */
-export function SeoFields<T extends SeoFieldValues>({ control }: { control: Control<T> }) {
+/**
+ * `footer` lets a caller drop its own explainer inside the card (the product
+ * form passes its SEO guide here) without changing the shared layout for the
+ * category / blog forms.
+ */
+export function SeoFields<T extends SeoFieldValues>({
+  control,
+  footer,
+}: {
+  control: Control<T>;
+  footer?: ReactNode;
+}) {
   return (
     <Card>
       <CardHeader>
@@ -144,6 +157,7 @@ export function SeoFields<T extends SeoFieldValues>({ control }: { control: Cont
           )}
         />
       </CardContent>
+      {footer && <CardFooter className="flex-col items-stretch gap-0 pt-0">{footer}</CardFooter>}
     </Card>
   );
 }

@@ -486,6 +486,17 @@ body {
 
 /* ---------------------------------------------------------------------------
  * Pointer affordance — every interactive element gets the hand cursor
+ *
+ * Tailwind v4's preflight no longer gives `<button>` a hand cursor, so the
+ * rule below is what makes the whole UI feel clickable. Two things to keep in
+ * mind when touching it:
+ *  1. `:where()` keeps specificity at 0, so ANY utility cursor on the element
+ *     itself wins. shadcn primitives used to ship `cursor-default` on menu /
+ *     option rows (dropdown items, select items, command rows) — they now ship
+ *     `cursor-pointer`; if you re-run `npx shadcn add` and accept the stock
+ *     file, that `cursor-default` will silently beat this rule again.
+ *  2. Anything new that is clickable but not a `<button>` / `a[href]` needs a
+ *     line here (data-slot / role based, so it survives markup churn).
  * ------------------------------------------------------------------------- */
 @layer base {
   :where(
@@ -494,15 +505,35 @@ body {
       [role="checkbox"]:not(:disabled),
       [role="radio"]:not(:disabled),
       [role="switch"]:not(:disabled),
-      [role="menuitem"]:not(:disabled),
-      [role="option"]:not(:disabled),
+      [role="menuitem"]:not([data-disabled="true"]),
+      [role="menuitemcheckbox"]:not([data-disabled="true"]),
+      [role="menuitemradio"]:not([data-disabled="true"]),
+      [role="option"]:not([data-disabled="true"]),
       [role="tab"]:not(:disabled),
       [role="combobox"]:not(:disabled),
       [role="slider"]:not(:disabled),
+      [data-slot="command-item"]:not([data-disabled="true"]),
+      [data-sidebar="menu-button"],
+      [data-sidebar="menu-sub-button"],
+      [data-sidebar="menu-action"],
+      [data-sidebar="trigger"],
+      [data-sidebar="rail"],
+      select,
+      input:is([type="checkbox"], [type="radio"], [type="file"], [type="range"]),
+      label:has(:is(input[type="checkbox"], input[type="radio"])),
       summary,
       a[href]
     ) {
     cursor: pointer;
+  }
+
+  /* A disabled control must not look clickable. */
+  :where(
+      button:disabled,
+      [role="button"][aria-disabled="true"],
+      [data-disabled="true"]
+    ) {
+    cursor: not-allowed;
   }
 
   h1, h2, h3, h4 {

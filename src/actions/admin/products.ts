@@ -113,12 +113,14 @@ function normalisePrices(parsed: ProductInput) {
 }
 
 /**
- * Normalise a variant's own tier rows. Under shared pricing variants carry no
- * rows (they derive from the product tiers ± `priceDelta`), so anything left
- * over from a previous custom setup is dropped.
+ * Normalise a variant's own tier rows. Under SHARED pricing the effective price
+ * comes from the product tiers ± `priceDelta`, so these rows are simply ignored
+ * by every consumer — but they are still *stored*. Keeping them means an admin
+ * can flip Shared → Custom → Shared without losing the per-variant tables they
+ * took the time to type in (the storefront resolver picks them back up).
  */
 function normaliseVariantPrices(parsed: ProductInput, variant: VariantFormInput) {
-  if (parsed.pricingMode === "ENQUIRY" || parsed.variantPricing === "SHARED") return [];
+  if (parsed.pricingMode === "ENQUIRY") return [];
   if (parsed.pricingMode === "SINGLE") {
     const only = variant.prices[0];
     return only ? [{ ...only, minQuantity: 1 }] : [];
@@ -338,6 +340,15 @@ export async function updateProductAction(
 
   const options = cleanOptions(parsed.data);
   const variants = cleanVariants(parsed.data);
+  // The "this product comes in variants" switch is a *visibility* toggle, not a
+  // delete. While it is off the form submits no variant rows, so syncing would
+  // wipe every SKU, price table and variant image the product already has —
+  // and a product that goes back to being single-size tomorrow would lose the
+  // data it needs the day after. So: with the switch off we leave the stored
+  // option axes and variant rows completely untouched (flipping the switch back
+  // on restores them exactly). Rows are only removed when they were really
+  // edited away (switch on) or via deleteProductVariantsAction.
+  const syncVariantData = parsed.data.hasVariants;
 
   await db.$transaction(async (tx) => {
     await tx.product.update({ where: { id }, data: productData(parsed.data) });
@@ -345,7 +356,7 @@ export async function updateProductAction(
     await tx.productPrice.deleteMany({ where: { productId: id } });
     await tx.productSpec.deleteMany({ where: { productId: id } });
     await tx.productCategory.deleteMany({ where: { productId: id } });
-    await tx.productOption.deleteMany({ where: { productId: id } });
+    if (syncVariantData) await tx.productOption.deleteMany({ where: { productId: id } });
 
     await tx.productImage.createMany({
       data: parsed.data.images
@@ -361,34 +372,37 @@ export async function updateProductAction(
     await tx.productCategory.createMany({
       data: parsed.data.categoryIds.map((categoryId) => ({ productId: id, categoryId })),
     });
-    await tx.productOption.createMany({
-      data: options.map((o, index) => ({ productId: id, name: o.name, values: o.values, sortOrder: index })),
-    });
 
-    // Variants are upserted by id so carts and past order lines keep pointing
-    // at the same rows; anything no longer generated is removed.
-    const keepIds = variants.map((v) => v.id).filter((v): v is string => !!v);
-    await tx.productVariant.deleteMany({ where: { productId: id, id: { notIn: keepIds } } });
-    for (const { id: variantId, prices, ...v } of variants) {
-      const data: Prisma.ProductVariantUncheckedCreateInput = { ...v, productId: id };
-      if (variantId) {
-        const updated = await tx.productVariant.updateMany({ where: { id: variantId, productId: id }, data });
-        if (updated.count === 1) {
-          await tx.variantPrice.deleteMany({ where: { variantId } });
-          if (prices.length) {
-            await tx.variantPrice.createMany({
-              data: prices.map((t) => ({ variantId, minQuantity: t.minQuantity, price: t.price, mrp: t.mrp })),
-            });
-          }
-          continue;
-        }
-      }
-      await tx.productVariant.create({
-        data: {
-          ...data,
-          prices: { create: prices.map((t) => ({ minQuantity: t.minQuantity, price: t.price, mrp: t.mrp })) },
-        },
+    if (syncVariantData) {
+      await tx.productOption.createMany({
+        data: options.map((o, index) => ({ productId: id, name: o.name, values: o.values, sortOrder: index })),
       });
+
+      // Variants are upserted by id so carts and past order lines keep pointing
+      // at the same rows; anything no longer generated is removed.
+      const keepIds = variants.map((v) => v.id).filter((v): v is string => !!v);
+      await tx.productVariant.deleteMany({ where: { productId: id, id: { notIn: keepIds } } });
+      for (const { id: variantId, prices, ...v } of variants) {
+        const data: Prisma.ProductVariantUncheckedCreateInput = { ...v, productId: id };
+        if (variantId) {
+          const updated = await tx.productVariant.updateMany({ where: { id: variantId, productId: id }, data });
+          if (updated.count === 1) {
+            await tx.variantPrice.deleteMany({ where: { variantId } });
+            if (prices.length) {
+              await tx.variantPrice.createMany({
+                data: prices.map((t) => ({ variantId, minQuantity: t.minQuantity, price: t.price, mrp: t.mrp })),
+              });
+            }
+            continue;
+          }
+        }
+        await tx.productVariant.create({
+          data: {
+            ...data,
+            prices: { create: prices.map((t) => ({ minQuantity: t.minQuantity, price: t.price, mrp: t.mrp })) },
+          },
+        });
+      }
     }
   });
 
@@ -397,6 +411,41 @@ export async function updateProductAction(
   revalidatePath(`/product/${parsed.data.slug}`);
   revalidatePath("/");
   return { ok: true, message: "Product updated." };
+}
+
+/**
+ * Explicit, irreversible removal of a product's option axes and variant rows.
+ * This is the only path that deletes them — turning the "has variants" switch
+ * off merely hides them (see updateProductAction). Past order lines keep their
+ * own snapshots (name / SKU / price), so only `OrderItem.variantId` is nulled.
+ */
+export async function deleteProductVariantsAction(id: string): Promise<ActionResult> {
+  await assertAdmin();
+
+  const product = await db.product.findUnique({
+    where: { id },
+    select: { id: true, slug: true, variants: { select: { id: true } } },
+  });
+  if (!product) return { ok: false, message: "Product not found." };
+
+  const removed = product.variants.length;
+  await db.$transaction([
+    db.productVariant.deleteMany({ where: { productId: id } }),
+    db.productOption.deleteMany({ where: { productId: id } }),
+    db.product.update({
+      where: { id },
+      data: { hasVariants: false },
+    }),
+  ]);
+
+  revalidatePath("/admin/products");
+  revalidatePath("/product");
+  revalidatePath(`/product/${product.slug}`);
+  revalidatePath("/");
+  return {
+    ok: true,
+    message: removed > 0 ? `${removed} variant${removed === 1 ? "" : "s"} and their option axes deleted.` : "No variants to remove.",
+  };
 }
 
 export async function deleteProductAction(id: string): Promise<ActionResult> {

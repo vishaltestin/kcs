@@ -44,6 +44,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { GalleryUploader, ImagePicker } from "@/components/admin/image-picker";
 import { NumberField } from "@/components/admin/number-field";
 import { SeoFields } from "@/components/admin/seo/seo-fields";
+import { SectionGuide, sectionGuide } from "@/components/admin/products/product-guide";
 import { createProductAction, updateProductAction } from "@/actions/admin/products";
 import { productSchema, type PricingModeValue, type VariantPricingValue } from "@/lib/validations/admin";
 import { slugify } from "@/lib/utils";
@@ -375,7 +376,7 @@ export function ProductForm({
       <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
         {/* Basics + organisation */}
         <Card data-form-section="name">
-          <CardHeader>
+          <CardHeader className="space-y-3">
             <CardTitle>Basic information</CardTitle>
             <CardDescription>
               Name, slug and catalogue organisation. The slug forms the product URL.
@@ -485,7 +486,8 @@ export function ProductForm({
                 </FormItem>
               )}
             />
-          </CardContent>
+                      <SectionGuide content={sectionGuide("basics")} />
+</CardContent>
         </Card>
 
         {/* Categories */}
@@ -538,7 +540,8 @@ export function ProductForm({
                 })}
               </div>
             )}
-          </CardContent>
+                      <SectionGuide content={sectionGuide("categories")} />
+</CardContent>
         </Card>
 
         {/* Images */}
@@ -588,7 +591,8 @@ export function ProductForm({
                 </FormItem>
               )}
             />
-          </CardContent>
+                      <SectionGuide content={sectionGuide("images")} />
+</CardContent>
         </Card>
 
         {/* Content */}
@@ -637,7 +641,8 @@ export function ProductForm({
                 </FormItem>
               )}
             />
-          </CardContent>
+                      <SectionGuide content={sectionGuide("content")} />
+</CardContent>
         </Card>
 
         {/* Pricing */}
@@ -852,7 +857,8 @@ export function ProductForm({
                 </Button>
               </div>
             )}
-          </CardContent>
+                      <SectionGuide content={sectionGuide("pricing")} />
+</CardContent>
         </Card>
 
         {/* Tax & shipping */}
@@ -969,7 +975,8 @@ export function ProductForm({
                 </p>
               </div>
             </div>
-          </CardContent>
+                      <SectionGuide content={sectionGuide("tax")} />
+</CardContent>
         </Card>
 
         {/* Variants */}
@@ -981,8 +988,14 @@ export function ProductForm({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <VariantsEditor form={form} pricingMode={pricingMode} productWeightGrams={Number(weightGrams) || undefined} />
-          </CardContent>
+            <VariantsEditor
+              form={form}
+              pricingMode={pricingMode}
+              productWeightGrams={Number(weightGrams) || undefined}
+              productId={product?.id}
+            />
+                      <SectionGuide content={sectionGuide("variants")} />
+</CardContent>
         </Card>
 
         {/* Specs */}
@@ -1043,7 +1056,8 @@ export function ProductForm({
             >
               <Plus aria-hidden /> Add spec
             </Button>
-          </CardContent>
+                      <SectionGuide content={sectionGuide("specs")} />
+</CardContent>
         </Card>
 
         {/* Flags */}
@@ -1113,11 +1127,15 @@ export function ProductForm({
                 </FormItem>
               )}
             />
-          </CardContent>
+                      <SectionGuide content={sectionGuide("badges")} className="sm:col-span-2 lg:col-span-4" />
+</CardContent>
         </Card>
 
         {/* Actions */}
-        <SeoFields control={form.control} />
+        <SeoFields
+          control={form.control}
+          footer={<SectionGuide content={sectionGuide("seo")} />}
+        />
 
         <div className="sticky bottom-4 z-10 flex items-center justify-end gap-2 rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur">
           <Button type="button" variant="outline" asChild>

@@ -123,7 +123,12 @@ export async function placeOrderAction(
       };
     }
 
-    const variant = item.variantId ? product.variants.find((v) => v.id === item.variantId && v.isActive) : undefined;
+    // A variant line only counts while the product actually sells by variant —
+    // hiding variants in the admin must not keep pricing a stale variant table.
+    const variant =
+      product.hasVariants && item.variantId
+        ? product.variants.find((v) => v.id === item.variantId && v.isActive)
+        : undefined;
     if (product.hasVariants && product.variants.length > 0 && !variant) {
       return {
         ok: false,
