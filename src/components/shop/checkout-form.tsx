@@ -182,7 +182,7 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
             <option key={st} value={st} />
           ))}
         </datalist>
-        <fieldset disabled={busy} className="min-w-0 space-y-5 disabled:opacity-90">
+        <fieldset disabled={busy} className="min-w-0 space-y-10 disabled:opacity-90">
           {/* Contact */}
           <Section step={1} icon={Building2} title="Contact & Company" hint="Who should we reach for confirmation and invoicing?">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -416,10 +416,10 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
 
         {/* Summary */}
         <aside className="lg:sticky lg:top-20">
-          <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07] shadow-[0_24px_48px_-28px_rgb(0_0_0/0.35)]">
-            <div className="flex items-center justify-between border-b px-5 py-4">
-              <h2 className="text-base font-extrabold tracking-tight">Order Summary</h2>
-              <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+          <div className="overflow-hidden rounded-xl bg-surface">
+            <div className="flex items-center justify-between border-b border-foreground/[0.08] px-5 py-4">
+              <h2 className="display text-[1.25rem]">Order summary</h2>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 {items.length} {items.length === 1 ? "item" : "items"} · {pieces} pcs
               </span>
             </div>
@@ -427,8 +427,8 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
             <ul className="scrollbar-thin max-h-72 space-y-3 overflow-y-auto px-5 py-4">
               {items.map((item) => (
                 <li key={item.id} className="flex items-center gap-3">
-                  <span className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-foreground/5">
-                    <Image src={item.image} alt={item.name} fill sizes="48px" className="object-cover" />
+                  <span className="studio relative size-12 shrink-0 overflow-hidden rounded-lg">
+                    <Image src={item.image} alt={item.name} fill sizes="48px" className="object-contain p-0.5 mix-blend-multiply dark:mix-blend-normal" />
                     <span className="absolute -top-0.5 -right-0.5 rounded-full bg-foreground px-1.5 text-[10px] font-bold text-background">
                       {item.qty}
                     </span>
@@ -440,14 +440,12 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                       {item.qty} × {formatCurrency(item.price)}
                     </p>
                   </div>
-                  <p className="text-[13px] font-bold tabular-nums whitespace-nowrap">
-                    {formatCurrency(item.price * item.qty)}
-                  </p>
+                  <p className="numeral whitespace-nowrap text-[14px]">{formatCurrency(item.price * item.qty)}</p>
                 </li>
               ))}
             </ul>
 
-            <div className="space-y-2 border-t bg-surface px-5 py-4 text-sm">
+            <div className="space-y-2 border-t border-foreground/[0.08] px-5 py-4 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
                 <span className="font-medium text-foreground tabular-nums">{formatCurrency(subtotal)}</span>
@@ -473,9 +471,9 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                     : `${destinationState.trim() ? estimate.zoneName : "Enter your state for the exact rate"}${estimate.etaDays && destinationState.trim() ? ` · ${estimate.etaDays} working days` : ""}${estimate.chargeableWeight > 0 ? ` · ${formatGrams(estimate.chargeableWeight)}` : ""}`}
                 </p>
               )}
-              <div className="flex items-baseline justify-between border-t pt-3">
-                <span className="text-base font-extrabold tracking-tight">Total</span>
-                <span className="text-xl font-extrabold tracking-tight tabular-nums">{formatCurrency(total)}</span>
+              <div className="flex items-baseline justify-between border-t border-foreground/[0.12] pt-3">
+                <span className="text-[15px] font-semibold">Total</span>
+                <span className="numeral text-[1.75rem] leading-none">{formatCurrency(total)}</span>
               </div>
               <p className="text-[11px] text-muted-foreground">
                 Inclusive of GST · tax invoice generated with your order{form.watch("gstNo") ? " (B2B, with your GSTIN)" : ""}
@@ -540,23 +538,21 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl bg-card ring-1 ring-foreground/[0.07]">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
-        <div className="flex items-center gap-3">
-          <span className="relative grid size-10 place-items-center rounded-xl bg-primary/[0.08] text-primary">
-            <Icon className="size-[18px]" />
-            <span className="absolute -top-1.5 -left-1.5 grid size-5 place-items-center rounded-full bg-foreground text-[10px] font-bold text-background">
-              {step}
-            </span>
-          </span>
+    <section className="rule-top pt-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-4">
+          <span className="numeral pt-1 text-[13px] text-primary">{String(step).padStart(2, "0")}</span>
           <div>
-            <h2 className="text-[15px] font-extrabold tracking-tight">{title}</h2>
-            {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+            <h2 className="display flex items-center gap-2 text-[1.35rem]">
+              {title}
+              <Icon className="size-4 text-foreground/40" />
+            </h2>
+            {hint && <p className="mt-0.5 text-[13px] text-muted-foreground">{hint}</p>}
           </div>
         </div>
         {aside}
       </header>
-      <div className="px-5 py-5 sm:px-6">{children}</div>
+      <div className="mt-5 sm:pl-9">{children}</div>
     </section>
   );
 }

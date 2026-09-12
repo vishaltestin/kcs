@@ -37,9 +37,9 @@ export default async function CheckoutPage() {
   });
 
   return (
-    <div className="bg-surface/60">
-      <div className="container mx-auto px-4 py-8 md:py-10">
-        <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+    <div>
+      <div className="container py-8 md:py-10">
+        <div className="mb-10 flex flex-col gap-5 border-b border-foreground/[0.12] pb-6 md:flex-row md:items-end md:justify-between">
           <div>
             <nav aria-label="Breadcrumb" className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Link href="/cart" className="hover:text-primary">
@@ -48,9 +48,9 @@ export default async function CheckoutPage() {
               <ChevronRight className="size-3" aria-hidden />
               <span className="font-medium text-foreground">Checkout</span>
             </nav>
-            <h1 className="flex items-center gap-3 text-3xl font-extrabold tracking-tight md:text-4xl">
+            <h1 className="display flex items-center gap-3 text-[2.25rem] md:text-[2.9rem]">
               Checkout
-              <span className="hidden items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-bold tracking-wide text-success uppercase sm:inline-flex">
+              <span className="hidden items-center gap-1 text-[11px] font-semibold tracking-[0.14em] text-success uppercase sm:inline-flex">
                 <Lock className="size-3" aria-hidden /> Secure
               </span>
             </h1>
@@ -64,18 +64,14 @@ export default async function CheckoutPage() {
                 <li key={step} className="flex items-center gap-2">
                   <span
                     className={[
-                      "grid size-6 place-items-center rounded-full text-[11px] font-bold",
-                      current
-                        ? "bg-primary text-primary-foreground"
-                        : done
-                          ? "bg-foreground text-background"
-                          : "bg-muted text-muted-foreground",
+                      "numeral text-[13px]",
+                      current ? "text-primary" : done ? "text-foreground" : "text-muted-foreground/60",
                     ].join(" ")}
                   >
-                    {i + 1}
+                    {String(i + 1).padStart(2, "0")}
                   </span>
-                  <span className={current ? "text-foreground" : "text-muted-foreground"}>{step}</span>
-                  {i < STEPS.length - 1 && <span className="mx-1 h-px w-8 bg-border" aria-hidden />}
+                  <span className={current ? "font-semibold text-foreground" : "text-muted-foreground"}>{step}</span>
+                  {i < STEPS.length - 1 && <span className="mx-1 h-px w-8 bg-foreground/20" aria-hidden />}
                 </li>
               );
             })}

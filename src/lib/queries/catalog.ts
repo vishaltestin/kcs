@@ -10,7 +10,7 @@ import type {
   ProductWithRelations,
 } from "@/types";
 import { PRICE_FILTER_OPTIONS } from "@/lib/constants";
-import { priceRange, variantLabel, type StorefrontVariant } from "@/lib/variants";
+import { priceRange, resolveVariantTiers, variantLabel, type StorefrontVariant } from "@/lib/variants";
 
 /**
  * Server-side catalog queries. Every storefront page fetches its data here
@@ -38,7 +38,8 @@ function toStorefrontVariants(p: ProductWithRelations): StorefrontVariant[] {
     .filter((v) => v.isActive)
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((v) => {
-      const tiers = [...v.prices].sort((a, b) => a.minQuantity - b.minQuantity);
+      // Shared pricing → product tiers ± the variant's adjustment; custom → its own table.
+      const tiers = resolveVariantTiers(p.variantPricing, p.prices, v);
       const base = tiers[0];
       const attributes = (v.attributes ?? {}) as Record<string, string>;
       return {
@@ -48,10 +49,10 @@ function toStorefrontVariants(p: ProductWithRelations): StorefrontVariant[] {
         sku: v.sku,
         image: v.image,
         stock: v.stock,
-        price: base ? Number(base.price) : Number(v.basePrice) > 0 ? Number(v.basePrice) : null,
-        mrp: base ? Number(base.mrp) : Number(v.baseMrp) > 0 ? Number(v.baseMrp) : null,
+        price: base ? base.price : Number(v.basePrice) > 0 ? Number(v.basePrice) : null,
+        mrp: base ? base.mrp : Number(v.baseMrp) > 0 ? Number(v.baseMrp) : null,
         minQuantity: p.pricingMode === "SINGLE" ? 1 : (base?.minQuantity ?? 1),
-        prices: tiers.map((t) => ({ minQuantity: t.minQuantity, price: Number(t.price), mrp: Number(t.mrp) })),
+        prices: tiers,
       };
     });
 }
@@ -121,7 +122,6 @@ export function toProductListItem(p: ProductWithRelations): ProductListItem {
 
 export function toProductDetail(p: ProductWithRelations): ProductDetail {
   const sorted = [...p.prices].sort((a, b) => a.minQuantity - b.minQuantity);
-  const base = sorted[0];
   const ratings = p.reviews.map((r) => r.rating);
 
   return {

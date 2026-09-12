@@ -108,78 +108,72 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
 
   return (
     <div className="space-y-8">
-      {/* Profile hero — charcoal band with dot-grid, avatar + stats */}
-      <section className="relative overflow-hidden rounded-3xl bg-brand-charcoal text-white">
-        <div aria-hidden className="dot-grid absolute inset-0 opacity-40" />
-        <div aria-hidden className="absolute -top-24 -right-16 size-72 rounded-full bg-primary/40 blur-3xl" />
-        <div aria-hidden className="absolute -bottom-24 left-1/3 size-56 rounded-full bg-brand-amber/20 blur-3xl" />
-
-        <div className="relative flex flex-col gap-6 px-6 py-7 sm:flex-row sm:items-center sm:justify-between md:px-8">
-          <div className="flex items-center gap-4">
-            <span className="relative grid size-16 shrink-0 place-items-center rounded-2xl bg-primary text-2xl font-extrabold text-primary-foreground shadow-[0_16px_32px_-14px_oklch(0.545_0.206_25.5/0.9)] ring-4 ring-white/10 sm:size-20">
-              {initials(`${user.firstName} ${user.lastName}`)}
-              <span className="absolute -right-1 -bottom-1 grid size-6 place-items-center rounded-full bg-brand-amber text-[#3d2a00] ring-2 ring-brand-charcoal">
-                <Sparkles className="size-3" aria-hidden />
-              </span>
+      {/* Account header — editorial masthead with folio stats */}
+      <section className="flex flex-col gap-6 border-b border-foreground/[0.12] pb-8 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex items-center gap-5">
+          <span className="display relative grid size-16 shrink-0 place-items-center rounded-full bg-brand-ink text-[1.5rem] text-white sm:size-20 sm:text-[1.75rem]">
+            {initials(`${user.firstName} ${user.lastName}`)}
+            <span className="absolute -right-0.5 -bottom-0.5 grid size-6 place-items-center rounded-full bg-brand-amber text-[#3d2a00] ring-2 ring-background">
+              <Sparkles className="size-3" aria-hidden />
             </span>
-            <div>
-              <p className="eyebrow text-brand-amber">My account</p>
-              <h1 className="mt-1 text-xl font-extrabold tracking-tight sm:text-2xl">
-                {user.firstName} {user.lastName}
-              </h1>
-              <p className="text-[13px] text-white/70">
-                {user.email} · Member since {formatDate(user.createdAt)}
-              </p>
-            </div>
+          </span>
+          <div>
+            <span className="kicker text-primary">My account</span>
+            <h1 className="display mt-1.5 text-[1.9rem] sm:text-[2.4rem]">
+              {user.firstName} {user.lastName}
+            </h1>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              {user.email} · Member since {formatDate(user.createdAt)}
+            </p>
           </div>
-
-          <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-white/10 ring-1 ring-white/10 sm:min-w-[24rem]">
-            {[
-              { label: "Orders", value: String(orders.length) },
-              { label: "In progress", value: String(openOrders) },
-              { label: "Spent", value: formatCurrency(totalSpent) },
-            ].map((stat) => (
-              <div key={stat.label} className="min-w-0 bg-brand-charcoal/60 px-3 py-3 backdrop-blur-sm sm:px-4">
-                <dt className="truncate text-[10px] font-bold uppercase tracking-[0.14em] text-white/55 sm:text-[10.5px] sm:tracking-[0.16em]">{stat.label}</dt>
-                <dd className="mt-0.5 text-[15px] font-extrabold tabular-nums tracking-tight sm:text-lg">{stat.value}</dd>
-              </div>
-            ))}
-          </dl>
         </div>
+
+        <dl className="grid grid-cols-3 divide-x divide-foreground/[0.12] lg:min-w-[24rem]">
+          {[
+            { label: "Orders", value: String(orders.length) },
+            { label: "In progress", value: String(openOrders) },
+            { label: "Spent", value: formatCurrency(totalSpent) },
+          ].map((stat) => (
+            <div key={stat.label} className="min-w-0 px-4 first:pl-0 last:pr-0">
+              <dt className="truncate text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{stat.label}</dt>
+              <dd className="numeral mt-1 text-[1.35rem] leading-none sm:text-[1.6rem]">{stat.value}</dd>
+            </div>
+          ))}
+        </dl>
       </section>
 
       <Tabs defaultValue={initialTab} className="w-full">
         <div className="flex flex-col gap-8 lg:flex-row">
           {/* Side nav (desktop) / scrollable (mobile) */}
-          <TabsList className="no-scrollbar flex !h-auto w-full shrink-0 flex-row items-stretch justify-start gap-1.5 overflow-x-auto rounded-none bg-transparent p-0 group-data-horizontal/tabs:!h-auto lg:sticky lg:top-24 lg:w-64 lg:flex-col lg:gap-1 lg:overflow-visible lg:rounded-2xl lg:bg-card lg:p-2 lg:ring-1 lg:ring-foreground/[0.07]">
-            {NAV.map(({ value, label, icon: Icon }) => (
+          <TabsList className="no-scrollbar flex !h-auto w-full shrink-0 flex-row items-stretch justify-start gap-0 overflow-x-auto rounded-none border-b border-foreground/[0.12] bg-transparent p-0 group-data-horizontal/tabs:!h-auto lg:sticky lg:top-24 lg:w-60 lg:flex-col lg:overflow-visible lg:border-0">
+            {NAV.map(({ value, label, icon: Icon }, index) => (
               <TabsTrigger
                 key={value}
                 value={value}
                 className={cn(
-                  "group/tab !h-auto shrink-0 flex-none justify-start gap-2.5 rounded-full border border-border bg-card px-4 py-2 text-[13.5px] font-semibold text-muted-foreground shadow-none transition-colors",
-                  "data-[state=active]:border-foreground data-[state=active]:bg-foreground data-[state=active]:text-background",
-                  "lg:w-full lg:rounded-xl lg:border-transparent lg:bg-transparent lg:px-3.5 lg:py-2.5",
-                  "lg:hover:bg-surface lg:hover:text-foreground",
-                  "lg:data-[state=active]:border-transparent lg:data-[state=active]:bg-primary/[0.08] lg:data-[state=active]:text-primary"
+                  "group/tab relative !h-auto shrink-0 flex-none justify-start gap-3 rounded-none border-0 bg-transparent px-3 py-3 text-[13.5px] font-semibold text-muted-foreground shadow-none transition-colors first:pl-0",
+                  "after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-primary after:opacity-0 after:transition-opacity",
+                  "hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:after:opacity-100",
+                  "lg:w-full lg:border-b lg:border-foreground/[0.08] lg:px-1 lg:py-3.5 lg:first:pl-1 lg:after:inset-y-0 lg:after:inset-x-auto lg:after:-left-4 lg:after:h-auto lg:after:w-0.5"
                 )}
               >
-                <Icon className="size-4" aria-hidden />
+                <span className="numeral hidden w-6 text-[11px] text-muted-foreground/70 group-data-[state=active]/tab:text-primary lg:inline">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <Icon className="size-4 lg:hidden" aria-hidden />
                 <span className="whitespace-nowrap">{label}</span>
                 {value === "orders" && orders.length > 0 && (
-                  <span className="ml-auto hidden rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[11px] font-bold tabular-nums group-data-[state=active]/tab:bg-primary group-data-[state=active]/tab:text-primary-foreground lg:inline">
-                    {orders.length}
-                  </span>
+                  <span className="numeral ml-auto hidden text-[12px] text-muted-foreground lg:inline">{orders.length}</span>
                 )}
               </TabsTrigger>
             ))}
-            <div className="hidden lg:my-2 lg:block lg:h-px lg:bg-border" aria-hidden />
             <Button
               variant="ghost"
               onClick={handleSignOut}
               disabled={isSigningOut}
-              className="!h-auto shrink-0 flex-none justify-start gap-2.5 rounded-full border border-border bg-card px-4 py-2 text-[13.5px] font-semibold text-muted-foreground hover:border-primary/30 hover:bg-primary/[0.06] hover:text-primary lg:w-full lg:rounded-xl lg:border-transparent lg:bg-transparent lg:px-3.5 lg:py-2.5"
+              className="!h-auto shrink-0 flex-none justify-start gap-3 rounded-none px-3 py-3 text-[13.5px] font-semibold text-muted-foreground hover:bg-transparent hover:text-primary lg:mt-2 lg:w-full lg:px-1 lg:py-3.5"
             >
+              <span className="hidden w-6 lg:inline" aria-hidden />
               <LogOut className="size-4" aria-hidden />
               {isSigningOut ? "Signing out…" : "Sign out"}
             </Button>
@@ -191,20 +185,17 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
             </TabsContent>
 
             <TabsContent value="orders" className="mt-0">
-              <section className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07]">
-                <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
-                  <div className="flex items-center gap-3">
-                    <span className="grid size-10 place-items-center rounded-xl bg-primary/[0.08] text-primary">
-                      <ShoppingBag className="size-[18px]" />
-                    </span>
-                    <div>
-                      <h2 className="text-[15px] font-bold tracking-tight">My orders</h2>
-                      <p className="text-[12.5px] text-muted-foreground">
-                        {orders.length === 0
-                          ? "Nothing placed yet"
-                          : `${orders.length} order${orders.length === 1 ? "" : "s"} · ${openOrders} in progress`}
-                      </p>
-                    </div>
+              <section>
+                <header className="flex flex-wrap items-end justify-between gap-3 border-b border-foreground/[0.12] pb-4">
+                  <div>
+                    <h2 className="display flex items-center gap-2 text-[1.5rem]">
+                      My orders <ShoppingBag className="size-4 text-foreground/40" />
+                    </h2>
+                    <p className="mt-0.5 text-[13px] text-muted-foreground">
+                      {orders.length === 0
+                        ? "Nothing placed yet"
+                        : `${orders.length} order${orders.length === 1 ? "" : "s"} · ${openOrders} in progress`}
+                    </p>
                   </div>
                   <Button variant="outline" size="sm" asChild>
                     <Link href="/product">
@@ -214,11 +205,9 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
                 </header>
 
                 {orders.length === 0 ? (
-                  <div className="m-5 rounded-xl border border-dashed px-6 py-12 text-center sm:m-6">
-                    <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-primary/[0.08] text-primary">
-                      <Package className="size-6" aria-hidden />
-                    </span>
-                    <p className="mt-4 font-bold">No orders yet</p>
+                  <div className="mt-6 border border-dashed border-foreground/20 px-6 py-12 text-center">
+                    <Package className="mx-auto size-7 text-primary" aria-hidden />
+                    <p className="display mt-4 text-[1.2rem]">No orders yet</p>
                     <p className="mt-1 text-sm text-muted-foreground">
                       Your placed orders will appear here with live status.
                     </p>
@@ -229,18 +218,18 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
                     </Button>
                   </div>
                 ) : (
-                  <ul className="divide-y">
-                    {orders.map((order) => (
+                  <ul className="divide-y divide-foreground/[0.08]">
+                    {orders.map((order, index) => (
                       <li key={order.id} className="group/order">
                         <Link
                           href={`/order-success/${order.orderNumber}`}
-                          className="flex flex-wrap items-center gap-x-5 gap-y-2 px-5 pt-4 pb-2 transition-colors hover:bg-surface/70 sm:px-6"
+                          className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-4 pb-2 transition-colors"
                         >
-                          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface text-muted-foreground ring-1 ring-foreground/[0.06] transition-colors group-hover/order:bg-primary/[0.08] group-hover/order:text-primary">
-                            <Package className="size-5" aria-hidden />
+                          <span className="numeral w-8 shrink-0 text-[12px] text-muted-foreground/70 transition-colors group-hover/order:text-primary">
+                            {String(orders.length - index).padStart(2, "0")}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate font-mono text-[13.5px] font-bold tracking-tight">{order.orderNumber}</p>
+                            <p className="truncate font-mono text-[13.5px] font-bold tracking-tight transition-colors group-hover/order:text-primary">{order.orderNumber}</p>
                             <p className="mt-0.5 text-[12.5px] text-muted-foreground">
                               {formatDate(order.createdAt)} · {order.itemCount} item
                               {order.itemCount === 1 ? "" : "s"}
@@ -249,22 +238,20 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
                           </div>
                           <span
                             className={cn(
-                              "rounded-full px-2.5 py-1 text-[11px] font-bold ring-1",
+                              "rounded-md px-2 py-0.5 text-[11px] font-bold ring-1",
                               STATUS_STYLES[order.status] ?? "bg-muted text-muted-foreground ring-border"
                             )}
                           >
                             {STATUS_LABELS[order.status] ?? order.status}
                           </span>
-                          <p className="min-w-[6rem] text-right text-[15px] font-extrabold tabular-nums tracking-tight">
-                            {formatCurrency(order.total)}
-                          </p>
+                          <p className="numeral min-w-[6rem] text-right text-[1.05rem]">{formatCurrency(order.total)}</p>
                           <ChevronRight
                             className="size-4 text-muted-foreground/50 transition-transform group-hover/order:translate-x-0.5 group-hover/order:text-primary"
                             aria-hidden
                           />
                         </Link>
                         {/* Secondary row: tracking + invoice shortcuts */}
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 pb-3.5 pl-[5.25rem] text-[12px] sm:px-6 sm:pl-[5.5rem]">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pb-3.5 pl-[3.25rem] text-[12px]">
                           {order.courierName ? (
                             <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                               <Truck className="size-3.5 text-primary" aria-hidden />

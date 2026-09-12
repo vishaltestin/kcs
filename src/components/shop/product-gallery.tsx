@@ -62,7 +62,7 @@ export function ProductGallery({
           ref={stageRef}
           onMouseMove={onMove}
           onMouseLeave={() => setZoom(null)}
-          className="group/stage relative aspect-square w-full flex-1 cursor-zoom-in overflow-hidden rounded-2xl bg-white ring-1 ring-foreground/[0.07]"
+          className="studio group/stage relative aspect-square w-full flex-1 cursor-zoom-in overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgb(17_24_39/0.05)]"
           onClick={() => setLightbox(true)}
         >
           <Image
@@ -73,7 +73,7 @@ export function ProductGallery({
             sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 640px"
             quality={90}
             priority
-            className="animate-fade-up object-contain p-4 transition-transform duration-300 ease-out"
+            className="animate-fade-up object-contain p-6 mix-blend-multiply transition-transform duration-300 ease-out dark:mix-blend-normal"
             style={
               zoom
                 ? { transform: "scale(1.8)", transformOrigin: `${zoom.x}% ${zoom.y}%` }
@@ -135,13 +135,13 @@ export function ProductGallery({
                 aria-label={`View image ${index + 1}`}
                 aria-selected={currentImage === index}
                 className={cn(
-                  "relative aspect-square w-[4.25rem] shrink-0 overflow-hidden rounded-xl bg-white ring-1 transition-all md:w-full",
+                  "studio relative aspect-square w-[4.25rem] shrink-0 overflow-hidden rounded-lg ring-1 transition-all md:w-full",
                   currentImage === index
-                    ? "ring-2 ring-primary"
-                    : "ring-foreground/[0.08] opacity-70 hover:opacity-100 hover:ring-foreground/20"
+                    ? "ring-2 ring-foreground"
+                    : "ring-foreground/[0.08] opacity-70 hover:opacity-100 hover:ring-foreground/30"
                 )}
               >
-                <Image src={src} alt={`${name} thumbnail ${index + 1}`} fill sizes="80px" className="object-cover" />
+                <Image src={src} alt={`${name} thumbnail ${index + 1}`} fill sizes="80px" className="object-contain p-1 mix-blend-multiply dark:mix-blend-normal" />
               </button>
             ))}
           </div>
@@ -149,12 +149,13 @@ export function ProductGallery({
       </div>
 
       {video && (
-        <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/[0.07]">
-          <div className="flex items-center gap-2 border-b bg-surface px-4 py-2.5">
-            <PlayCircle className="size-4 text-primary" aria-hidden />
-            <h3 className="text-sm font-bold">Product video</h3>
+        <div>
+          <h3 className="flex items-center gap-2 border-b border-foreground/[0.12] pb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <PlayCircle className="size-3.5 text-primary" aria-hidden /> Product video
+          </h3>
+          <div className="mt-3 overflow-hidden rounded-xl">
+            <Video src={video} />
           </div>
-          <Video src={video} />
         </div>
       )}
 

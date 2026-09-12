@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm, type FieldErrors } from "react-hook-form";
 import { ArrowLeft, Layers, Loader2, MessageSquareQuote, Plus, Save, Tag, Trash2 } from "lucide-react";
 import { VariantsEditor } from "@/components/admin/products/variants-editor";
 import { formatGrams, volumetricGrams } from "@/lib/shipping";
@@ -45,10 +45,51 @@ import { GalleryUploader, ImagePicker } from "@/components/admin/image-picker";
 import { NumberField } from "@/components/admin/number-field";
 import { SeoFields } from "@/components/admin/seo/seo-fields";
 import { createProductAction, updateProductAction } from "@/actions/admin/products";
-import { productSchema, type PricingModeValue } from "@/lib/validations/admin";
+import { productSchema, type PricingModeValue, type VariantPricingValue } from "@/lib/validations/admin";
 import { slugify } from "@/lib/utils";
 
 export type ProductFormValues = z.infer<typeof productSchema>;
+
+const FIELD_LABELS: Record<string, string> = {
+  name: "Product name",
+  slug: "Slug",
+  image: "Main image",
+  prices: "Pricing",
+  stock: "Stock",
+  hsnCode: "HSN code",
+  gstRate: "GST rate",
+  weightGrams: "Weight",
+  options: "Variant options",
+  variants: "Variants",
+  categoryIds: "Categories",
+  video: "Video URL",
+  metaTitle: "Meta title",
+  metaDescription: "Meta description",
+};
+
+/** First human-readable message in RHF's nested error tree, prefixed with the section. */
+function firstErrorMessage(errors: FieldErrors<ProductFormValues>): string | null {
+  const walk = (node: unknown, path: string[]): string | null => {
+    if (!node || typeof node !== "object") return null;
+    const rec = node as Record<string, unknown>;
+    if (typeof rec.message === "string") {
+      const top = path[0] ?? "";
+      const nested = path.slice(1).filter((p) => !/^\d+$/.test(p));
+      const rowIndex = path.length > 1 && /^\d+$/.test(path[1]) ? Number(path[1]) + 1 : null;
+      const where = [FIELD_LABELS[top] ?? top, rowIndex ? `row ${rowIndex}` : null, nested.at(-1)]
+        .filter(Boolean)
+        .join(" › ");
+      return `${where}: ${rec.message}`;
+    }
+    for (const [key, value] of Object.entries(rec)) {
+      if (key === "ref" || key === "type" || key === "types") continue;
+      const found = walk(value, [...path, key]);
+      if (found) return found;
+    }
+    return null;
+  };
+  return walk(errors, []);
+}
 
 type BrandOption = { id: number; name: string };
 type CategoryOption = { id: number; title: string; parentId: number | null };
@@ -85,6 +126,7 @@ export interface ProductFormProduct {
   widthCm?: number | null;
   heightCm?: number | null;
   hasVariants?: boolean;
+  variantPricing?: VariantPricingValue;
   options?: OptionAxis[];
   variants?: VariantInput[];
 }
@@ -172,6 +214,7 @@ export function ProductForm({
       widthCm: product?.widthCm ?? null,
       heightCm: product?.heightCm ?? null,
       hasVariants: product?.hasVariants ?? false,
+      variantPricing: product?.variantPricing ?? "SHARED",
       options: product?.options ?? [],
       variants: product?.variants ?? [],
     },
@@ -194,6 +237,9 @@ export function ProductForm({
     form.setValue("images", paths, { shouldDirty: true, shouldValidate: true });
   const pricingMode = form.watch("pricingMode");
   const hasVariants = form.watch("hasVariants");
+  const variantPricing = form.watch("variantPricing");
+  // Product-level tiers are hidden only when every variant prices itself.
+  const tiersLiveOnVariants = hasVariants && variantPricing === "CUSTOM";
   const weightGrams = form.watch("weightGrams");
   const lengthCm = form.watch("lengthCm");
   const widthCm = form.watch("widthCm");
@@ -257,6 +303,7 @@ export function ProductForm({
     formData.set("widthCm", values.widthCm == null ? "" : String(values.widthCm));
     formData.set("heightCm", values.heightCm == null ? "" : String(values.heightCm));
     formData.set("hasVariants", values.hasVariants ? "true" : "false");
+    formData.set("variantPricing", values.variantPricing);
     formData.set("options", JSON.stringify(values.hasVariants ? values.options : []));
     formData.set(
       "variants",
@@ -291,13 +338,17 @@ export function ProductForm({
       toast.success(result.message ?? "Saved!");
       router.push("/admin/products");
     } else {
-      toast.error(result.message);
+      toast.error("Couldn't save the product", { description: result.message });
       if (result.fieldErrors) {
         for (const [key, messages] of Object.entries(result.fieldErrors)) {
           if (messages?.length) {
-            form.setError(key as keyof ProductFormValues, { message: messages[0] });
+            form.setError(key as keyof ProductFormValues, { message: messages.join(" · ") });
           }
         }
+        const key = Object.keys(result.fieldErrors)[0];
+        document
+          .querySelector<HTMLElement>(`[data-form-section="${key}"]`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     }
   };
@@ -305,11 +356,25 @@ export function ProductForm({
   const { isSubmitting } = form.formState;
   const parentCategories = categories.filter((c) => c.parentId === null);
 
+  /**
+   * Client-side validation failed: say what is wrong instead of silently
+   * painting things red, and bring the first problem into view.
+   */
+  const onInvalid = (errors: FieldErrors<ProductFormValues>) => {
+    const first = firstErrorMessage(errors);
+    toast.error("Can't save yet", { description: first ?? "Please check the highlighted fields." });
+    const key = Object.keys(errors)[0];
+    const anchor =
+      document.querySelector<HTMLElement>(`[data-form-section="${key}"]`) ??
+      document.querySelector<HTMLElement>("[aria-invalid='true']");
+    anchor?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
         {/* Basics + organisation */}
-        <Card>
+        <Card data-form-section="name">
           <CardHeader>
             <CardTitle>Basic information</CardTitle>
             <CardDescription>
@@ -477,7 +542,7 @@ export function ProductForm({
         </Card>
 
         {/* Images */}
-        <Card>
+        <Card data-form-section="image">
           <CardHeader>
             <CardTitle>Images</CardTitle>
             <CardDescription>
@@ -576,7 +641,7 @@ export function ProductForm({
         </Card>
 
         {/* Pricing */}
-        <Card>
+        <Card data-form-section="prices">
           <CardHeader>
             <CardTitle>Pricing *</CardTitle>
             <CardDescription>Choose how this product is sold, then enter the price(s).</CardDescription>
@@ -601,16 +666,20 @@ export function ProductForm({
                             aria-checked={selected}
                             onClick={() => {
                               field.onChange(option.value);
-                              const current = form.getValues("prices");
+                              // Drop rows that were removed/never filled so a stale
+                              // half-typed tier can't survive a mode switch.
+                              const current = (form.getValues("prices") ?? []).filter(Boolean);
                               if (option.value === "SINGLE") {
                                 const first = current[0] ?? emptyTier(1);
                                 form.setValue("prices", [{ ...first, minQuantity: 1 }], { shouldDirty: true });
                               } else if (option.value === "BULK" && current.length === 0) {
                                 form.setValue("prices", [emptyTier(10)], { shouldDirty: true });
-                              } else if (option.value === "BULK" && current.length === 1 && current[0].minQuantity === 1) {
+                              } else if (option.value === "BULK" && current.length === 1 && Number(current[0].minQuantity) <= 1) {
                                 form.setValue("prices", [{ ...current[0], minQuantity: 10 }], { shouldDirty: true });
+                              } else if (option.value === "ENQUIRY") {
+                                form.setValue("prices", [], { shouldDirty: true });
                               }
-                              form.clearErrors("prices");
+                              form.clearErrors(["prices", "variants"]);
                             }}
                             className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all ${
                               selected
@@ -647,14 +716,20 @@ export function ProductForm({
                 and a <strong className="text-foreground">Request a quote</strong> button that opens the bulk-enquiry
                 form. The product can&apos;t be added to the cart.
               </p>
-            ) : hasVariants ? (
+            ) : tiersLiveOnVariants ? (
               <p className="rounded-xl border border-dashed bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
                 Prices are entered <strong className="text-foreground">per variant</strong> in the Variants section
-                below. The product card shows a “from” price based on the cheapest active variant.
+                below (custom pricing). The product card shows a “from” price based on the cheapest active variant.
                 {pricingMode === "BULK" && " Use “Copy to all variants” to share one tier table."}
               </p>
             ) : pricingMode === "SINGLE" ? (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {hasVariants && (
+                  <p className="rounded-xl border border-dashed bg-muted/40 px-4 py-3 text-sm text-muted-foreground sm:col-span-2">
+                    This price applies to <strong className="text-foreground">every variant</strong>. Add a per-variant ₹
+                    adjustment in the Variants section if some cost more (e.g. XXL).
+                  </p>
+                )}
                 <FormField
                   control={form.control}
                   name="prices.0.price"
@@ -691,6 +766,12 @@ export function ProductForm({
                 <p className="text-xs text-muted-foreground">
                   e.g. 10+ @ ₹749, 50+ @ ₹689, 100+ @ ₹649 — the lowest tier sets the minimum order quantity.
                 </p>
+                {hasVariants && (
+                  <p className="rounded-xl border border-dashed bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                    These tiers apply to <strong className="text-foreground">every variant</strong>. Add a per-variant ₹
+                    adjustment in the Variants section if some cost more (e.g. XXL).
+                  </p>
+                )}
                 {tierFields.map((tierField, index) => (
                   <div
                     key={tierField.id}
@@ -759,8 +840,11 @@ export function ProductForm({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const last = form.getValues("prices").at(-1);
-                    const nextMin = last && Number.isFinite(last.minQuantity) ? last.minQuantity * 5 : 10;
+                    // Suggest the next slab from the largest finished min-qty (rows may be half-typed).
+                    const mins = (form.getValues("prices") ?? [])
+                      .map((t) => Number(t?.minQuantity))
+                      .filter((n) => Number.isFinite(n) && n >= 1);
+                    const nextMin = mins.length ? Math.max(...mins) * 5 : 10;
                     appendTier(emptyTier(nextMin));
                   }}
                 >
@@ -772,7 +856,7 @@ export function ProductForm({
         </Card>
 
         {/* Tax & shipping */}
-        <Card>
+        <Card data-form-section="hsnCode">
           <CardHeader>
             <CardTitle>Tax &amp; shipping</CardTitle>
             <CardDescription>
@@ -826,7 +910,7 @@ export function ProductForm({
                       </div>
                     </FormControl>
                     <FormDescription>
-                      {Number.isFinite(firstPrice) && firstPrice > 0 && !hasVariants
+                      {Number.isFinite(firstPrice) && firstPrice > 0 && !tiersLiveOnVariants
                         ? `₹${firstPrice} includes ₹${splitInclusive(firstPrice, Number(gstRate) || 0).tax.toFixed(2)} GST.`
                         : "Intra-state orders split this into CGST + SGST; inter-state charge IGST."}
                     </FormDescription>
@@ -866,7 +950,8 @@ export function ProductForm({
                     <FormItem>
                       <FormLabel>{label}</FormLabel>
                       <FormControl>
-                        <NumberField field={{ ...field, value: field.value ?? undefined } as typeof field} min={0} placeholder="—" />
+                        <NumberField field={{ ...field, value: field.value ?? undefined } as typeof field}
+                    emptyValue={null} min={0} placeholder="—" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -888,7 +973,7 @@ export function ProductForm({
         </Card>
 
         {/* Variants */}
-        <Card>
+        <Card data-form-section="variants">
           <CardHeader>
             <CardTitle>Variants</CardTitle>
             <CardDescription>

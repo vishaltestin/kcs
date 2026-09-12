@@ -18,7 +18,7 @@ export const IMAGES = {
   logo: "/images/logo.webp",
   panIndia: "/images/PAN-India.jpg",
   drinkware: "/images/apprals.jpeg",
-  videoPoster: "/images/video.jpeg",
+  videoPoster: "/images/video-poster.jpg",
   contentBanner: "/images/ph-banner.webp",
   homeBanners: [
     "/images/KCS/Home-Banner/home-banner-0.jpg",

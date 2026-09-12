@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
     // Next's default JPEG/WebP quality is 75, which visibly softens product
     // photos; 85–90 keeps them crisp for a modest byte cost. Callers pass
     // `quality={90}` for hero/gallery imagery — values must be listed here.
-    qualities: [75, 85, 90],
+    qualities: [30, 75, 85, 90],
     formats: ["image/avif", "image/webp"],
     // Widths that match our real layouts (cards ≈ 320 px → 640/960 on 2–3×
     // screens, gallery ≈ 600 px → 1200/1800) so the browser never picks a

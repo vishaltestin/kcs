@@ -8,8 +8,9 @@ import { assertAdmin } from "@/lib/auth/guards";
 import { productSchema, type ProductInput, type VariantFormInput } from "@/lib/validations/admin";
 import type { ActionResult } from "@/types";
 import { str } from "@/lib/form";
-import { variantLabel } from "@/lib/variants";
+import { resolveVariantTiers, variantLabel } from "@/lib/variants";
 import type { Prisma } from "@prisma/client";
+import type { z } from "zod";
 
 /**
  * Admin — product CRUD.
@@ -49,12 +50,40 @@ function parseProductForm(formData: FormData): Record<keyof ProductInput, unknow
     widthCm: numOrNull(formData.get("widthCm")),
     heightCm: numOrNull(formData.get("heightCm")),
     hasVariants: formData.get("hasVariants") === "true",
+    variantPricing: str(formData.get("variantPricing")) || "SHARED",
     options: safeJsonArray(formData.get("options")),
-    variants: safeJsonArray(formData.get("variants")),
+    variants: safeJsonArray(formData.get("variants")).map((v) =>
+      v && typeof v === "object"
+        ? { priceDelta: 0, prices: [], ...(v as Record<string, unknown>) }
+        : v,
+    ),
     metaTitle: str(formData.get("metaTitle")),
     metaDescription: str(formData.get("metaDescription")),
     metaKeywords: str(formData.get("metaKeywords")),
     ogImage: str(formData.get("ogImage")),
+  };
+}
+
+/**
+ * Server-side validation normally never fires (the form validates first), but
+ * when it does the admin should see *which* field failed rather than a generic
+ * "fix the highlighted fields" — nested paths (variants.3.stock) are
+ * flattened to their top-level key with a readable pointer.
+ */
+function validationFailure(error: z.ZodError): ActionResult {
+  const fieldErrors: Record<string, string[]> = {};
+  for (const issue of error.issues) {
+    const [top, ...rest] = issue.path.map(String);
+    if (!top) continue;
+    const pointer = rest.length ? ` (${rest.join(" › ")})` : "";
+    (fieldErrors[top] ??= []).push(`${issue.message}${pointer}`);
+  }
+  const first = error.issues[0];
+  const where = first?.path.length ? ` — ${first.path.map(String).join(".")}` : "";
+  return {
+    ok: false,
+    message: `${first?.message ?? "Validation failed."}${where}`,
+    fieldErrors,
   };
 }
 
@@ -83,9 +112,13 @@ function normalisePrices(parsed: ProductInput) {
   return [...parsed.prices].sort((a, b) => a.minQuantity - b.minQuantity);
 }
 
-/** Normalise a variant's tiers with the same rules as product tiers. */
+/**
+ * Normalise a variant's own tier rows. Under shared pricing variants carry no
+ * rows (they derive from the product tiers ± `priceDelta`), so anything left
+ * over from a previous custom setup is dropped.
+ */
 function normaliseVariantPrices(parsed: ProductInput, variant: VariantFormInput) {
-  if (parsed.pricingMode === "ENQUIRY") return [];
+  if (parsed.pricingMode === "ENQUIRY" || parsed.variantPricing === "SHARED") return [];
   if (parsed.pricingMode === "SINGLE") {
     const only = variant.prices[0];
     return only ? [{ ...only, minQuantity: 1 }] : [];
@@ -108,6 +141,12 @@ function cleanVariants(parsed: ProductInput) {
     .filter((v) => axes.every((a) => a.values.includes(v.attributes[a.name] ?? "")))
     .map((v, index) => {
       const prices = normaliseVariantPrices(parsed, v);
+      const priceDelta = parsed.variantPricing === "SHARED" ? v.priceDelta ?? 0 : 0;
+      // Denormalised first tier — resolved the same way the storefront does.
+      const effective =
+        parsed.pricingMode === "ENQUIRY"
+          ? []
+          : resolveVariantTiers(parsed.variantPricing, normalisePrices(parsed), { prices, priceDelta });
       return {
         id: v.id,
         sortOrder: index,
@@ -117,8 +156,9 @@ function cleanVariants(parsed: ProductInput) {
         image: v.image.trim() || null,
         stock: v.stock,
         isActive: v.isActive,
-        basePrice: prices[0]?.price ?? 0,
-        baseMrp: prices[0]?.mrp ?? 0,
+        priceDelta,
+        basePrice: effective[0]?.price ?? 0,
+        baseMrp: effective[0]?.mrp ?? 0,
         weightGrams: v.weightGrams && v.weightGrams > 0 ? v.weightGrams : null,
         lengthCm: v.lengthCm && v.lengthCm > 0 ? v.lengthCm : null,
         widthCm: v.widthCm && v.widthCm > 0 ? v.widthCm : null,
@@ -148,6 +188,7 @@ function productData(parsed: ProductInput) {
     widthCm: parsed.widthCm ?? 0,
     heightCm: parsed.heightCm ?? 0,
     hasVariants: parsed.hasVariants && variants.length > 0,
+    variantPricing: parsed.variantPricing,
     name: parsed.name,
     slug: parsed.slug,
     sku: parsed.sku || null,
@@ -174,7 +215,7 @@ function productData(parsed: ProductInput) {
  * cheapest active variant so legacy consumers (cards, sorting) have a price.
  */
 function productTierRows(parsed: ProductInput, variants: ReturnType<typeof cleanVariants>) {
-  if (!parsed.hasVariants || variants.length === 0) {
+  if (!parsed.hasVariants || variants.length === 0 || parsed.variantPricing === "SHARED") {
     return normalisePrices(parsed).map((tier) => ({ minQuantity: tier.minQuantity, price: tier.price, mrp: tier.mrp }));
   }
   if (parsed.pricingMode === "ENQUIRY") return [];
@@ -205,13 +246,7 @@ export async function createProductAction(
   await assertAdmin();
 
   const parsed = productSchema.safeParse(parseProductForm(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      message: "Please fix the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  if (!parsed.success) return validationFailure(parsed.error);
 
   const slugTaken = await db.product.findUnique({
     where: { slug: parsed.data.slug },
@@ -282,13 +317,7 @@ export async function updateProductAction(
   if (!id) return { ok: false, message: "Missing product id." };
 
   const parsed = productSchema.safeParse(parseProductForm(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      message: "Please fix the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  if (!parsed.success) return validationFailure(parsed.error);
 
   const existing = await db.product.findUnique({ where: { id } });
   if (!existing) return { ok: false, message: "Product not found." };

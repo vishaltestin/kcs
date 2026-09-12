@@ -138,9 +138,7 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
                 <span className="text-[11px] font-medium text-muted-foreground">Made to order</span>
               )}
             </div>
-            <h1 className="text-2xl font-extrabold leading-tight tracking-tight md:text-[2rem]">
-              {product.name}
-            </h1>
+            <h1 className="display text-[1.85rem] md:text-[2.4rem]">{product.name}</h1>
           </div>
 
           <div className="flex items-center gap-2.5">
@@ -154,13 +152,12 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
 
           {/* Price block (variant products render theirs inside ProductActions) */}
           {!hasVariants && (
-          <div className="relative overflow-hidden rounded-2xl bg-surface p-5 ring-1 ring-foreground/[0.06]">
-            <div aria-hidden className="pointer-events-none absolute -top-10 -right-10 size-32 rounded-full bg-primary/[0.07] blur-2xl" />
-            <p className="eyebrow text-muted-foreground">
+          <div className="border-y border-foreground/[0.12] py-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               {isEnquiry ? "Pricing" : isBulk ? "Starting at" : "Price"}
             </p>
-            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <p className={cn("font-extrabold tracking-tight tabular-nums", baseTier ? "text-4xl" : "text-2xl md:text-3xl")}>
+            <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <p className={cn("numeral", baseTier ? "text-[2.6rem] leading-none" : "kicker text-[1.6rem] leading-none")}>
                 {baseTier ? formatCurrency(baseTier.price) : "Price on request"}
               </p>
               {baseTier && isBulk && (
@@ -168,7 +165,7 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
               )}
               {baseTier && baseTier.price < baseTier.mrp && (
                 <>
-                  <p className="text-base text-muted-foreground tabular-nums line-through">
+                  <p className="numeral text-lg text-muted-foreground line-through">
                     {formatCurrency(baseTier.mrp)}
                   </p>
                   <Badge className="rounded-md bg-primary px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase">
@@ -203,38 +200,26 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
 
           <ProductActions product={product} />
 
-          {/* Trust badges */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {/* Trust notes */}
+          <ul className="grid grid-cols-2 gap-x-6 gap-y-2.5 border-t border-foreground/[0.1] pt-5 sm:grid-cols-4">
             {[
               { icon: Truck, label: "Pan-India delivery" },
               { icon: ShieldCheck, label: "Quality assured" },
               { icon: FileText, label: "GST invoice" },
               { icon: Headset, label: "Dedicated manager" },
             ].map(({ icon: Icon, label }) => (
-              <div
-                key={label}
-                className="flex flex-col items-center gap-2 rounded-xl bg-card p-3 text-center ring-1 ring-foreground/[0.06]"
-              >
-                <span className="grid size-9 place-items-center rounded-full bg-primary/[0.08] text-primary">
-                  <Icon className="size-4" aria-hidden />
-                </span>
-                <span className="text-[11px] font-semibold leading-tight text-foreground/75">{label}</span>
-              </div>
+              <li key={label} className="flex items-center gap-2 text-[12.5px] font-medium text-foreground/75">
+                <Icon className="size-4 shrink-0 text-primary" strokeWidth={1.8} aria-hidden />
+                {label}
+              </li>
             ))}
-          </div>
+          </ul>
 
           {product.delivery && (
-            <div className="flex items-start gap-3.5 rounded-2xl bg-card p-4 ring-1 ring-foreground/[0.06]">
-              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-                <Truck className="size-5" aria-hidden />
-              </span>
-              <div>
-                <h3 className="text-sm font-semibold">Delivery & Shipping</h3>
-                <p className="mt-0.5 text-sm text-muted-foreground">{product.delivery}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Free shipping on orders above {formatCurrency(1000)}.
-                </p>
-              </div>
+            <div className="border-l-2 border-primary pl-4">
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Delivery &amp; shipping</h3>
+              <p className="mt-1 text-sm text-foreground/85">{product.delivery}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Free shipping on orders above {formatCurrency(1000)}.</p>
             </div>
           )}
         </div>
@@ -261,69 +246,72 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
       </div>
 
       {/* Reviews */}
-      <div className="mt-14">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b pb-5">
-          <div>
-            <p className="eyebrow text-primary">What buyers say</p>
-            <h2 className="mt-1 text-2xl font-extrabold tracking-tight md:text-3xl">Customer Reviews</h2>
+      <div className="mt-16">
+        <div className="rule-top grid gap-6 pt-5 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:gap-14">
+          <div className="lg:sticky lg:top-24 lg:self-start">
+            <span className="kicker text-primary">What buyers say</span>
+            <h2 className="display mt-1.5 text-[1.85rem] md:text-[2.25rem]">Customer Reviews</h2>
+            {product.rating ? (
+              <div className="mt-5 flex items-end gap-3">
+                <span className="numeral text-[3.5rem] leading-none">{product.rating.average.toFixed(1)}</span>
+                <div className="pb-1.5">
+                  <StarRating rating={product.rating.average} size="sm" />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    from {product.rating.count} {product.rating.count === 1 ? "review" : "reviews"}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-muted-foreground">No reviews yet — be the first to share your experience.</p>
+            )}
           </div>
-          {product.rating && (
-            <div className="flex items-center gap-3 rounded-2xl bg-card px-4 py-2.5 ring-1 ring-foreground/[0.07]">
-              <span className="text-3xl font-extrabold tracking-tight tabular-nums">{product.rating.average.toFixed(1)}</span>
-              <div>
-                <StarRating rating={product.rating.average} size="sm" />
-                <p className="text-xs text-muted-foreground">
-                  {product.rating.count} {product.rating.count === 1 ? "review" : "reviews"}
-                </p>
+
+          <div>
+            {reviews.length === 0 ? (
+              <div className="flex items-center gap-4 border-b border-foreground/[0.1] pb-8">
+                <MessageSquareQuote className="size-6 text-primary" strokeWidth={1.6} aria-hidden />
+                <div>
+                  <p className="font-semibold">No reviews yet</p>
+                  <p className="text-sm text-muted-foreground">Bought this for your team? Tell others how it landed.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="divide-y divide-foreground/[0.1] border-b border-foreground/[0.1]">
+                {reviews.map((review) => (
+                  <ReviewCard
+                    key={review.id}
+                    review={{
+                      id: review.id,
+                      authorName: review.authorName,
+                      rating: review.rating,
+                      title: review.title,
+                      comment: review.comment,
+                      createdAt: formatDate(review.createdAt),
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className="mt-8">
+              <h3 className="display text-[1.35rem]">Write a review</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Share your experience with this product.</p>
+              <div className="mt-5">
+                <ReviewForm productId={product.id} />
               </div>
             </div>
-          )}
-        </div>
-        {reviews.length === 0 ? (
-          <div className="rounded-2xl border border-dashed bg-surface/60 p-10 text-center">
-            <span className="mx-auto mb-3 grid size-14 place-items-center rounded-2xl bg-card text-primary ring-1 ring-foreground/5">
-              <MessageSquareQuote className="size-6" aria-hidden />
-            </span>
-            <p className="font-bold">No reviews yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">Be the first to share your experience.</p>
           </div>
-        ) : (
-          <div className="grid gap-5 lg:grid-cols-2">
-            {reviews.map((review) => (
-              <ReviewCard
-                key={review.id}
-                review={{
-                  id: review.id,
-                  authorName: review.authorName,
-                  rating: review.rating,
-                  title: review.title,
-                  comment: review.comment,
-                  createdAt: formatDate(review.createdAt),
-                }}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-12 rounded-3xl bg-card p-6 ring-1 ring-foreground/[0.07] md:p-8">
-        <div className="mb-6">
-          <p className="eyebrow text-primary">Share your experience</p>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight">Write a Review</h2>
         </div>
-        <ReviewForm productId={product.id} />
       </div>
 
       {/* Related products */}
       {related.length > 0 && (
-        <div className="mt-16">
-          <div className="flex flex-col gap-5">
-            <SectionHeader eyebrow="Pairs well with" title="You May Also Like" viewMoreHref="/product" />
-            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
-              {related.map((item) => (
-                <ProductCard key={item.id} product={item} />
-              ))}
-            </div>
+        <div className="mt-20">
+          <SectionHeader eyebrow="Pairs well with" title="You May Also Like" viewMoreHref="/product" />
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 lg:grid-cols-4">
+            {related.map((item) => (
+              <ProductCard key={item.id} product={item} />
+            ))}
           </div>
         </div>
       )}

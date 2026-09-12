@@ -214,19 +214,19 @@ export function NavbarClient({
     <nav className="contents" aria-label="Main navigation">
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       <div className="w-full bg-brand-ink text-white/80">
-        <div className="flex h-10 items-center justify-between px-4 md:px-10 xl:px-20">
-          <div className="hidden items-center gap-5 md:flex">
-            <Link href="/product" className="flex items-center gap-1.5 text-[12px] font-medium transition-colors hover:text-white">
+        <div className="flex h-10 items-center justify-between gap-6 px-4 md:px-10 xl:px-20">
+          <div className="hidden min-w-0 items-center gap-5 md:flex">
+            <Link href="/product" className="flex items-center gap-1.5 text-[12px] font-medium whitespace-nowrap transition-colors hover:text-white">
               <Truck className="size-3.5 text-brand-amber" aria-hidden />
               {shippingPromise}
             </Link>
             <span className="h-3 w-px bg-white/15" aria-hidden />
-            <Link href="/category/curated-gift-hampers" className="flex items-center gap-1.5 text-[12px] font-medium transition-colors hover:text-white">
+            <Link href="/category/curated-gift-hampers" className="flex items-center gap-1.5 text-[12px] font-medium whitespace-nowrap transition-colors hover:text-white">
               <Gift className="size-3.5 text-brand-amber" aria-hidden />
               100% customised hampers
             </Link>
-            <span className="hidden h-3 w-px bg-white/15 lg:block" aria-hidden />
-            <span className="hidden items-center gap-1.5 text-[12px] font-medium lg:flex">
+            <span className="hidden h-3 w-px bg-white/15 min-[1360px]:block" aria-hidden />
+            <span className="hidden items-center gap-1.5 text-[12px] font-medium whitespace-nowrap min-[1360px]:flex">
               <ShieldCheck className="size-3.5 text-brand-amber" aria-hidden />
               GST invoice on every order
             </span>
@@ -254,7 +254,7 @@ export function NavbarClient({
             </span>
           </div>
 
-          <div className="flex h-full items-center gap-5">
+          <div className="flex h-full shrink-0 items-center gap-5">
             <ul className="hidden items-center gap-5 text-[12px] font-medium lg:flex">
               <li>
                 <Link href="/product" className="transition-colors hover:text-white">
@@ -266,8 +266,8 @@ export function NavbarClient({
                   FAQ
                 </Link>
               </li>
-              <li>
-                <a href={SITE.phoneHref} className="flex items-center gap-1.5 transition-colors hover:text-white">
+              <li className="hidden xl:block">
+                <a href={SITE.phoneHref} className="flex items-center gap-1.5 whitespace-nowrap transition-colors hover:text-white">
                   <Phone className="size-3.5" aria-hidden /> {SITE.phone}
                 </a>
               </li>
@@ -333,7 +333,7 @@ export function NavbarClient({
                   </DropdownMenu>
                 </li>
               ) : (
-                <li className="flex items-center gap-1.5">
+                <li className="flex items-center gap-1.5 whitespace-nowrap">
                   <Link href="/login" className="transition-colors hover:text-white">
                     Sign in
                   </Link>
@@ -382,9 +382,9 @@ export function NavbarClient({
       </div>
 
       {/* ── Logo / search / actions ─────────────────────────────────────── */}
-      <div className="flex w-full items-center justify-between gap-4 px-4 py-3 md:px-10 md:py-4 xl:px-20">
+      <div className="flex w-full items-center justify-between gap-4 px-4 py-3 md:px-8 md:py-4 xl:px-12 2xl:px-20">
         <div className="hidden md:block">
-          <Logo size={96} />
+          <Logo size={92} />
         </div>
 
         {/* Search */}
@@ -490,8 +490,37 @@ export function NavbarClient({
                         </div>
                       );
                     }
+                    // Categories earn a side column; brands alone are a short chip row under the
+                    // products, so a products-only or products+brands result never leaves a hollow panel.
+                    const hasSideColumn = suggestions.categories.length > 0;
+                    const brandChips =
+                      suggestions.brands.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {suggestions.brands.map((brand) => (
+                            <button
+                              key={brand.id}
+                              type="button"
+                              onClick={() => {
+                                setShowSuggestions(false);
+                                router.push(`/product?brands=${brand.id}`);
+                              }}
+                              className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[12px] font-semibold transition-colors hover:border-primary/40 hover:bg-primary/[0.06] hover:text-primary"
+                            >
+                              {brand.name}
+                              <span className="text-[10px] font-medium text-muted-foreground">{brand.count}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null;
                     return (
-                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_15rem]">
+                      <div
+                        className={cn(
+                          "grid gap-3",
+                          // Only reserve the side column when there is something to put in it —
+                          // otherwise the products list stretches edge to edge.
+                          hasSideColumn && "md:grid-cols-[minmax(0,1fr)_15rem]"
+                        )}
+                      >
                         {/* Products */}
                         <div className="min-w-0">
                           <div className="mb-1.5 flex items-center justify-between px-2 pt-1">
@@ -515,8 +544,8 @@ export function NavbarClient({
                                     onClick={() => handleSuggestionClick(product.slug)}
                                     className="group/sugg flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-muted"
                                   >
-                                    <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-foreground/5">
-                                      <Image src={product.image} alt="" fill sizes="44px" className="object-cover" />
+                                    <span className="studio relative size-11 shrink-0 overflow-hidden rounded-lg ring-1 ring-foreground/5">
+                                      <Image src={product.image} alt="" fill sizes="44px" className="object-contain p-0.5 mix-blend-multiply dark:mix-blend-normal" />
                                     </span>
                                     <span className="min-w-0 flex-1">
                                       <span className="block truncate text-sm font-semibold transition-colors group-hover/sugg:text-primary">
@@ -543,6 +572,12 @@ export function NavbarClient({
                               ))}
                             </ul>
                           )}
+                          {!hasSideColumn && brandChips && (
+                            <div className="mt-1 flex items-center gap-3 border-t px-2 pt-2.5 pb-1">
+                              <h3 className="eyebrow shrink-0 text-muted-foreground">Brands</h3>
+                              {brandChips}
+                            </div>
+                          )}
                           <div className="mt-1 border-t pt-1">
                             <button
                               onClick={() => handleSearch()}
@@ -554,8 +589,8 @@ export function NavbarClient({
                           </div>
                         </div>
 
-                        {/* Categories + brands */}
-                        {(suggestions.categories.length > 0 || suggestions.brands.length > 0) && (
+                        {/* Categories (+ brands) */}
+                        {hasSideColumn && (
                           <div className="min-w-0 rounded-xl bg-surface p-2 md:border-l md:border-border/70 md:bg-transparent md:pl-3">
                             {suggestions.categories.length > 0 && (
                               <>
@@ -576,7 +611,7 @@ export function NavbarClient({
                                         <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-md bg-primary/[0.08] text-primary">
                                           {category.image ? (
                                             <span className="relative size-full">
-                                              <Image src={category.image} alt="" fill sizes="32px" className="object-cover" />
+                                              <Image src={category.image} alt="" fill sizes="32px" className="object-contain p-0.5 mix-blend-multiply dark:mix-blend-normal" />
                                             </span>
                                           ) : (
                                             <LayoutGrid className="size-4" aria-hidden />
@@ -598,25 +633,10 @@ export function NavbarClient({
                                 </ul>
                               </>
                             )}
-                            {suggestions.brands.length > 0 && (
+                            {brandChips && (
                               <>
                                 <h3 className="eyebrow px-2 pt-3 pb-1.5 text-muted-foreground">Brands</h3>
-                                <div className="flex flex-wrap gap-1.5 px-2 pb-1">
-                                  {suggestions.brands.map((brand) => (
-                                    <button
-                                      key={brand.id}
-                                      type="button"
-                                      onClick={() => {
-                                        setShowSuggestions(false);
-                                        router.push(`/product?brands=${brand.id}`);
-                                      }}
-                                      className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[12px] font-semibold transition-colors hover:border-primary/40 hover:bg-primary/[0.06] hover:text-primary"
-                                    >
-                                      {brand.name}
-                                      <span className="text-[10px] font-medium text-muted-foreground">{brand.count}</span>
-                                    </button>
-                                  ))}
-                                </div>
+                                <div className="px-2 pb-1">{brandChips}</div>
                               </>
                             )}
                           </div>
@@ -631,27 +651,29 @@ export function NavbarClient({
         </div>
 
         {/* Phone / wishlist / cart */}
-        <div className="hidden h-full items-center gap-2 lg:flex">
+        <div className="hidden h-full shrink-0 items-center gap-1 lg:flex xl:gap-2">
           <a
             href={SITE.phoneHref}
-            className="group/phone mr-2 flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-muted"
+            className="group/phone flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-muted xl:mr-2"
+            aria-label={`Call us now ${SITE.phone}`}
           >
             <span className="grid size-10 place-items-center rounded-full bg-primary/[0.08] text-primary transition-colors group-hover/phone:bg-primary group-hover/phone:text-primary-foreground">
               <Phone className="size-[18px]" aria-hidden />
             </span>
-            <span className="flex flex-col leading-tight">
+            <span className="hidden flex-col leading-tight xl:flex">
               <small className="text-[11px] font-medium text-muted-foreground">Call us now</small>
-              <span className="text-[14px] font-bold tracking-tight">(+91) 78 3815 2753</span>
+              <span className="text-[14px] font-bold tracking-tight whitespace-nowrap">(+91) 78 3815 2753</span>
             </span>
           </a>
           <Link
             href="/wishlist"
-            className="group/wish flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 transition-colors hover:bg-muted"
+            className="group/wish flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-muted xl:px-2.5"
+            aria-label="Wishlist — gifting ideas"
           >
             <span className="grid size-10 place-items-center rounded-full border border-border bg-background text-foreground transition-colors group-hover/wish:border-primary/40 group-hover/wish:text-primary">
               <Heart className="size-[18px]" aria-hidden />
             </span>
-            <span className="flex flex-col leading-tight">
+            <span className="hidden flex-col leading-tight xl:flex">
               <small className="text-[11px] font-medium text-muted-foreground">Gifting ideas</small>
               <span className="text-[14px] font-bold tracking-tight">Wishlist</span>
             </span>
@@ -676,7 +698,7 @@ export function NavbarClient({
           scrolled && "shadow-[0_12px_28px_-18px_rgb(0_0_0/0.35)]"
         )}
       >
-        <div className="flex h-14 items-center justify-between px-5 xl:px-20">
+        <div className="flex h-14 items-center justify-between px-5 md:px-8 xl:px-12 2xl:px-20">
           {/* Compact logo — slides in once the big header has scrolled away */}
           <div
             aria-hidden={!scrolled}
@@ -694,7 +716,7 @@ export function NavbarClient({
           </div>
 
           <NavigationMenu viewport={false}>
-            <NavigationMenuList className="flex gap-7 whitespace-nowrap">
+            <NavigationMenuList className="flex gap-5 whitespace-nowrap xl:gap-7">
               <NavigationMenuItem>
                 <Link
                   href="/"
@@ -788,19 +810,6 @@ export function NavbarClient({
 
       <BookMeetingDialog open={bookingOpen} onOpenChange={setBookingOpen} />
 
-      {/* Banner strip image (mobile brand reinforcement, hidden on desktop) */}
-      <div className="px-4 pb-2 md:hidden">
-        <Link href="/product" className="relative block h-24 overflow-hidden rounded-xl">
-          <Image
-            src={IMAGES.homeBanners[0]}
-            alt="KCS G-Mart corporate gifting"
-            fill
-            sizes="100vw"
-            className="object-cover"
-            priority
-          />
-        </Link>
-      </div>
     </nav>
   );
 }
@@ -827,7 +836,7 @@ function MegaMenuPanel({ categories }: { categories: CategoryNode[] }) {
             <div key={category.id} className="min-w-0">
               <Link
                 href={`/category/${category.slug}`}
-                className="group/cat mb-2 flex items-start gap-1 text-[13.5px] leading-snug font-bold tracking-tight transition-colors hover:text-primary"
+                className="group/cat mb-2 flex items-start gap-1 font-display text-[1.02rem] leading-snug font-medium transition-colors hover:text-primary"
               >
                 <span>{category.title}</span>
                 <ChevronRight className="mt-0.5 size-3.5 shrink-0 -translate-x-1 opacity-0 transition-all group-hover/cat:translate-x-0 group-hover/cat:opacity-100" aria-hidden />
@@ -867,19 +876,19 @@ function MegaMenuPanel({ categories }: { categories: CategoryNode[] }) {
       {/* Feature tile */}
       <Link
         href="/category/curated-gift-hampers"
-        className="group/feature relative hidden w-[17rem] shrink-0 overflow-hidden rounded-r-2xl bg-brand-charcoal xl:block"
+        className="group/feature relative hidden w-[17rem] shrink-0 overflow-hidden rounded-r-2xl bg-brand-ink xl:block"
       >
         <Image
-          src={IMAGES.homeGrid.diwali}
+          src="/images/product/themes/diwali-gift-hampers-37-2024-09.webp"
           alt=""
           fill
           sizes="272px"
-          className="object-cover opacity-80 transition-transform duration-700 group-hover/feature:scale-105"
+          className="object-cover opacity-90 transition-transform duration-700 group-hover/feature:scale-105"
         />
         <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
         <span className="absolute inset-x-0 bottom-0 p-6 text-white">
-          <span className="eyebrow text-brand-amber">Festive season</span>
-          <span className="mt-2 block text-lg font-extrabold leading-tight">Curated Diwali &amp; festive hampers</span>
+          <span className="kicker text-brand-amber">Festive season</span>
+          <span className="display mt-1.5 block text-[1.3rem] text-white">Curated Diwali &amp; festive hampers</span>
           <span className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold">
             Shop the edit <ArrowRight className="size-3.5 transition-transform group-hover/feature:translate-x-0.5" aria-hidden />
           </span>
@@ -900,9 +909,9 @@ function SpecialMenuPanel({ categories }: { categories: CategoryNode[] }) {
             href={`/category/${category.slug}`}
             className="group/sp flex items-center gap-3 rounded-xl border border-transparent p-3 transition-all hover:border-border hover:bg-surface"
           >
-            <span className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-foreground/5">
+            <span className="studio relative size-12 shrink-0 overflow-hidden rounded-lg ring-1 ring-foreground/5">
               {category.image ? (
-                <Image src={category.image} alt="" fill sizes="48px" className="object-cover" />
+                <Image src={category.image} alt="" fill sizes="48px" className="object-contain p-1 mix-blend-multiply dark:mix-blend-normal" />
               ) : (
                 <span className="grid size-full place-items-center text-primary">
                   <Gift className="size-5" aria-hidden />

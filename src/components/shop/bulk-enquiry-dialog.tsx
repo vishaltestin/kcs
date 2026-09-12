@@ -33,12 +33,11 @@ export function BulkEnquiryDialog({
       <DialogContent className="max-h-[92vh] gap-0 overflow-hidden p-0 sm:max-w-3xl">
         <div className="grid md:grid-cols-[15rem_minmax(0,1fr)]">
           {/* Side panel */}
-          <aside className="relative hidden overflow-hidden bg-brand-charcoal p-7 text-white md:block">
-            <div aria-hidden className="dot-grid absolute inset-0 opacity-40" />
+          <aside className="relative hidden overflow-hidden bg-brand-ink p-7 text-white md:block">
             <div aria-hidden className="absolute -bottom-20 -left-20 size-56 rounded-full bg-primary/40 blur-3xl" />
             <div className="relative flex h-full flex-col">
-              <p className="eyebrow text-brand-amber">Bulk enquiry</p>
-              <h3 className="mt-2 text-xl font-extrabold leading-tight tracking-tight">
+              <span className="kicker text-brand-amber">Bulk enquiry</span>
+              <h3 className="display mt-2.5 text-[1.5rem] text-white">
                 Get a tailored quote for your team.
               </h3>
               <ul className="mt-6 space-y-3">
@@ -62,7 +61,7 @@ export function BulkEnquiryDialog({
 
           <div className="max-h-[92vh] overflow-y-auto p-6 md:p-8">
             <DialogHeader className="mb-5 text-left">
-              <DialogTitle className="text-xl font-extrabold tracking-tight">Bulk Inquiry</DialogTitle>
+              <DialogTitle className="display text-[1.5rem]">Bulk Inquiry</DialogTitle>
               <DialogDescription>
                 {productName
                   ? `Tell us your requirement for "${productName}" and our team will share a custom quote.`

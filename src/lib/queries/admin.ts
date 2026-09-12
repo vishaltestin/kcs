@@ -275,6 +275,7 @@ export async function getAdminProductForEdit(id: string) {
     widthCm: Number(row.widthCm) || null,
     heightCm: Number(row.heightCm) || null,
     hasVariants: row.hasVariants,
+    variantPricing: row.variantPricing,
     options: row.options.map((o) => ({
       name: o.name,
       values: Array.isArray(o.values) ? (o.values as unknown[]).map(String) : [],
@@ -289,6 +290,7 @@ export async function getAdminProductForEdit(id: string) {
       image: v.image ?? "",
       stock: v.stock,
       isActive: v.isActive,
+      priceDelta: Number(v.priceDelta),
       prices: v.prices.map(({ minQuantity, price, mrp }) => ({ minQuantity, price: Number(price), mrp: Number(mrp) })),
       weightGrams: v.weightGrams,
       lengthCm: v.lengthCm === null ? null : Number(v.lengthCm),

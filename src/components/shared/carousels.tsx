@@ -16,6 +16,7 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import { ProductCard } from "@/components/shared/product-card";
+import { FramedImage } from "@/components/shared/framed-image";
 import { cn } from "@/lib/utils";
 import type { BlogCard, ProductListItem } from "@/types";
 
@@ -34,9 +35,9 @@ export function ProductCarousel({ products }: { products: ProductListItem[] }) {
       className="group/carousel relative w-full"
       aria-label="Product carousel"
     >
-      <CarouselContent className="-ml-5 py-2">
+      <CarouselContent className="-ml-6 py-1">
         {products.map((product) => (
-          <CarouselItem key={product.id} className="basis-[78%] pl-5 sm:basis-1/2 lg:basis-1/3 xl:basis-1/4">
+          <CarouselItem key={product.id} className="basis-[72%] pl-6 sm:basis-1/2 lg:basis-1/3 xl:basis-1/4">
             <ProductCard product={product} />
           </CarouselItem>
         ))}
@@ -71,36 +72,39 @@ export function BlogCarousel({ posts }: { posts: BlogCard[] }) {
 export function BlogTile({ post, className }: { post: BlogCard & { author?: string }; className?: string }) {
   const date = new Date(post.publishedAt);
   return (
-    <article
-      className={cn(
-        "group/post flex h-full flex-col overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_-18px_rgb(17_24_39/0.22)]",
-        className
-      )}
-    >
-      <Link href={`/blog/${post.slug}`} className="relative block aspect-[16/10] overflow-hidden bg-muted">
-        <Image
+    <article className={cn("group/post flex h-full flex-col", className)}>
+      <Link href={`/blog/${post.slug}`} className="block">
+        <FramedImage
           src={post.image}
-          fill
+          alt={post.title}
           sizes="(max-width: 768px) 90vw, 33vw"
           quality={85}
-          alt={post.title}
-          className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/post:scale-105"
+          className="aspect-[16/10] rounded-xl shadow-[inset_0_0_0_1px_rgb(17_24_39/0.06)]"
+          imgClassName="transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/post:scale-[1.03]"
         />
-        <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-white/92 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur">
+      </Link>
+      <div className="flex flex-1 flex-col pt-4">
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           <CalendarDays className="size-3.5 text-primary" aria-hidden />
           {date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-        </span>
-      </Link>
-      <div className="flex flex-1 flex-col p-5">
-        <h3 className="line-clamp-2 text-[1.05rem] font-bold leading-snug tracking-tight transition-colors group-hover/post:text-primary">
+          {post.author && (
+            <>
+              <span aria-hidden>·</span>
+              <span className="normal-case tracking-normal">{post.author}</span>
+            </>
+          )}
+        </p>
+        <h3 className="display mt-2 line-clamp-2 text-[1.25rem] leading-[1.25] text-wrap transition-colors group-hover/post:text-primary">
           <Link href={`/blog/${post.slug}`}>{post.title}</Link>
         </h3>
-        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{post.excerpt}</p>
+        <p className="mt-2 line-clamp-2 text-[14px] leading-relaxed text-muted-foreground">{post.excerpt}</p>
         <Link
           href={`/blog/${post.slug}`}
-          className="mt-auto inline-flex items-center gap-1.5 pt-4 text-[12.5px] font-bold uppercase tracking-wider text-foreground transition-colors hover:text-primary"
+          className="group/read mt-auto inline-flex w-max items-center gap-1.5 pt-4 text-[12.5px] font-semibold text-foreground transition-colors hover:text-primary"
         >
-          Read article
+          <span className="underline decoration-foreground/25 underline-offset-[6px] transition-colors group-hover/read:decoration-primary">
+            Read article
+          </span>
           <ArrowUpRight
             className="size-3.5 transition-transform duration-300 group-hover/post:translate-x-0.5 group-hover/post:-translate-y-0.5"
             aria-hidden
@@ -127,7 +131,7 @@ export function BrandCarousel({ brands }: { brands: BrandSlide[] }) {
           <CarouselItem key={brand.id} className="basis-1/2 pl-4 sm:basis-1/3 md:basis-1/4 lg:basis-1/6">
             <Link
               href={`/product?brands=${brand.id}`}
-              className="group/brand relative flex h-[7.5rem] items-center justify-center overflow-hidden rounded-2xl bg-card p-6 ring-1 ring-foreground/[0.07] transition-all duration-300 hover:-translate-y-0.5 hover:ring-primary/40 hover:shadow-[0_16px_32px_-16px_rgb(17_24_39/0.25)]"
+              className="group/brand relative flex h-[6.5rem] items-center justify-center overflow-hidden rounded-xl border border-foreground/[0.1] bg-background p-6 transition-colors duration-300 hover:border-primary/50"
               aria-label={`Browse ${brand.name} products`}
             >
               <Image
@@ -183,7 +187,7 @@ export function BannerCarousel({ images, alt }: { images: string[]; alt: string 
       setApi={setApi}
       opts={{ align: "start", loop: true }}
       plugins={plugins}
-      className="group/hero relative h-full w-full overflow-hidden rounded-2xl"
+      className="group/hero relative h-full w-full overflow-hidden rounded-xl"
       aria-label="Promotional banner"
     >
       <CarouselContent className="ml-0 h-full">

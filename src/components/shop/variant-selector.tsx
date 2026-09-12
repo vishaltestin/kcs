@@ -83,12 +83,12 @@ export function VariantSelector({
         const selected = selection[axis.name];
         return (
           <fieldset key={axis.name}>
-            <legend className="mb-2 flex w-full items-center justify-between text-[13px]">
-              <span className="font-bold">
+            <legend className="mb-2.5 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <span>
                 {axis.name}
-                {selected && <span className="ml-1.5 font-medium text-muted-foreground">· {selected}</span>}
+                {selected && <span className="ml-1.5 normal-case tracking-normal text-foreground">· {selected}</span>}
               </span>
-              {!selected && <span className="text-xs text-muted-foreground">Select {axis.name.toLowerCase()}</span>}
+              {!selected && <span className="font-medium normal-case tracking-normal">Select {axis.name.toLowerCase()}</span>}
             </legend>
             <div className="flex flex-wrap gap-2">
               {axis.values.map((value) => {
@@ -109,11 +109,11 @@ export function VariantSelector({
                     aria-label={`${axis.name} ${value}${available ? "" : " (out of stock)"}`}
                     onClick={() => onChange({ ...selection, [axis.name]: active ? "" : value })}
                     className={cn(
-                      "relative inline-flex items-center gap-2 rounded-xl border-2 text-[13px] font-semibold transition-all",
+                      "relative inline-flex items-center gap-2 rounded-lg border text-[13px] font-semibold transition-all",
                       swatch ? "h-10 pr-3 pl-1.5" : compact ? "h-9 px-3" : "h-10 min-w-11 px-3.5",
                       active
-                        ? "border-primary bg-primary/[0.06] text-foreground shadow-[0_0_0_3px_rgb(195_28_24/0.12)]"
-                        : "border-border bg-background text-foreground hover:border-foreground/40",
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-foreground/20 bg-background text-foreground hover:border-foreground/60",
                       !available && "text-muted-foreground",
                     )}
                   >
@@ -121,7 +121,7 @@ export function VariantSelector({
                       <span
                         aria-hidden
                         className={cn(
-                          "grid size-7 place-items-center rounded-lg ring-1 ring-inset ring-black/10",
+                          "grid size-7 place-items-center rounded-md ring-1 ring-inset ring-black/10",
                           value.toLowerCase() === "white" && "ring-black/20",
                         )}
                         style={{ background: swatch }}
@@ -137,11 +137,7 @@ export function VariantSelector({
                     <span className={cn(!available && "line-through decoration-2 decoration-muted-foreground/70")}>
                       {value}
                     </span>
-                    {!swatch && active && (
-                      <span aria-hidden className="absolute -top-1.5 -right-1.5 grid size-4 place-items-center rounded-full bg-primary text-white">
-                        <Check className="size-2.5" strokeWidth={3.5} />
-                      </span>
-                    )}
+
                   </button>
                 );
               })}

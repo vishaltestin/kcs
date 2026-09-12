@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 
 import Banner from "@/components/shared/content-banner";
+import { FramedImage } from "@/components/shared/framed-image";
 import { Button } from "@/components/ui/button";
 import { IMAGES } from "@/lib/constants";
 import { initials } from "@/lib/utils";
@@ -68,26 +68,26 @@ export default function AboutUsPage() {
       />
 
       {/* Who we are */}
-      <section className="container mx-auto px-4 py-14 md:py-20">
+      <section className="container py-14 md:py-20">
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
           <div>
-            <p className="eyebrow text-primary">Who we are</p>
-            <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">
+            <span className="kicker text-primary">Who we are</span>
+            <h2 className="display mt-3 text-[2.25rem] md:text-[2.9rem]">
               Gifting that says the right thing, at scale.
             </h2>
-            <p className="mt-5 text-muted-foreground">
+            <p className="mt-6 text-[15.5px] leading-relaxed text-muted-foreground">
               KCS G-Mart is one of India&apos;s most trusted corporate gifting companies. We help
               businesses celebrate milestones, welcome new joiners and delight clients through
               thoughtfully curated, brand-customised gifts — delivered pan-India.
             </p>
-            <p className="mt-4 text-muted-foreground">
+            <p className="mt-4 text-[15.5px] leading-relaxed text-muted-foreground">
               From premium tech gadgets and drinkware to gourmet hampers and logo-printed apparel,
               our catalogue is built for every budget and every brief. With in-house branding,
               quality checks and dedicated account managers, we make corporate gifting effortless.
             </p>
-            <ul className="mt-6 grid gap-2.5 text-sm sm:grid-cols-2">
+            <ul className="mt-7 grid gap-x-8 text-[14.5px] sm:grid-cols-2">
               {["Tiered bulk pricing", "Dedicated gifting manager", "GST-compliant invoicing", "Sample & mock-up support"].map((t) => (
-                <li key={t} className="flex items-center gap-2">
+                <li key={t} className="flex items-center gap-2.5 border-b border-foreground/[0.08] py-2.5">
                   <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
                   {t}
                 </li>
@@ -106,37 +106,32 @@ export default function AboutUsPage() {
           </div>
 
           <div className="relative">
-            <div aria-hidden className="absolute -inset-4 -z-10 rounded-[2rem] bg-primary/[0.06]" />
-            <div className="relative aspect-[4/3] overflow-hidden rounded-3xl shadow-[0_28px_56px_-28px_rgb(0_0_0/0.5)]">
-              <Image
-                src={IMAGES.homeGrid.corporate}
-                alt="KCS G-Mart corporate gifting"
-                fill
-                className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 50vw"
-              />
-            </div>
-            <div className="absolute -bottom-6 left-6 rounded-2xl bg-card px-5 py-4 shadow-[0_18px_40px_-18px_rgb(0_0_0/0.4)] ring-1 ring-foreground/[0.07]">
-              <p className="text-2xl font-extrabold tracking-tight">4.8★</p>
-              <p className="text-xs text-muted-foreground">Average client rating</p>
+            <FramedImage
+              src={IMAGES.homeGrid.corporate}
+              alt="KCS G-Mart corporate gifting"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              className="aspect-[4/3] rounded-xl shadow-[inset_0_0_0_1px_rgb(17_24_39/0.06)]"
+            />
+            <div className="absolute -bottom-6 left-6 rounded-lg bg-background px-5 py-4 shadow-[0_18px_40px_-18px_rgb(0_0_0/0.35)]">
+              <p className="numeral text-[2rem] leading-none">4.8★</p>
+              <p className="mt-1.5 text-xs text-muted-foreground">Average client rating</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Stats */}
-      <section className="relative overflow-hidden bg-brand-charcoal py-14 text-white md:py-16">
-        <div aria-hidden className="dot-grid absolute inset-0 opacity-40" />
-        <div aria-hidden className="absolute -top-32 right-0 size-96 rounded-full bg-primary/30 blur-3xl" />
-        <div className="container relative mx-auto grid grid-cols-1 gap-8 px-4 sm:grid-cols-3">
-          {STATS.map((stat) => (
-            <div key={stat.label} className="flex items-center gap-5 sm:flex-col sm:text-center">
-              <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/15">
-                <stat.icon className="size-6 text-brand-amber" aria-hidden />
-              </span>
+      <section className="relative overflow-hidden bg-brand-ink py-14 text-white md:py-16">
+        <span aria-hidden className="absolute -top-32 right-0 size-96 rounded-full bg-primary/25 blur-3xl" />
+        <div className="container relative grid grid-cols-1 divide-y divide-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          {STATS.map((stat, index) => (
+            <div key={stat.label} className="flex items-start gap-5 py-6 sm:px-8 sm:py-2 sm:first:pl-0 sm:last:pr-0">
+              <span className="numeral pt-1 text-[12px] text-brand-amber">{String(index + 1).padStart(2, "0")}</span>
               <div>
-                <p className="text-4xl font-extrabold tracking-tight md:text-5xl">{stat.value}</p>
-                <p className="mt-1 text-sm text-white/70">{stat.label}</p>
+                <p className="numeral text-[3rem] leading-none md:text-[3.5rem]">{stat.value}</p>
+                <p className="mt-2 flex items-center gap-1.5 text-sm text-white/70">
+                  <stat.icon className="size-3.5 text-brand-amber" aria-hidden /> {stat.label}
+                </p>
               </div>
             </div>
           ))}
@@ -144,43 +139,41 @@ export default function AboutUsPage() {
       </section>
 
       {/* Pillars */}
-      <section className="container mx-auto px-4 py-14 md:py-20">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="eyebrow text-primary">How we work</p>
-          <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Three things we never compromise on</h2>
+      <section className="container py-14 md:py-20">
+        <div className="max-w-2xl">
+          <span className="kicker text-primary">How we work</span>
+          <h2 className="display mt-3 text-[2.25rem] md:text-[2.9rem]">Three things we never compromise on</h2>
         </div>
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {PILLARS.map((p) => (
-            <div
-              key={p.title}
-              className="group rounded-2xl bg-card p-7 ring-1 ring-foreground/[0.07] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_-24px_rgb(0_0_0/0.3)]"
-            >
-              <span className="grid size-12 place-items-center rounded-xl bg-primary/[0.08] text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                <p.icon className="size-5" aria-hidden />
-              </span>
-              <h3 className="mt-5 text-lg font-extrabold tracking-tight">{p.title}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{p.text}</p>
-            </div>
+        <ol className="mt-10 grid gap-8 md:grid-cols-3 md:gap-10">
+          {PILLARS.map((p, index) => (
+            <li key={p.title} className="rule-top pt-6">
+              <div className="flex items-center justify-between">
+                <span className="numeral text-[13px] text-primary">{String(index + 1).padStart(2, "0")}</span>
+                <p.icon className="size-5 text-foreground/40" aria-hidden />
+              </div>
+              <h3 className="display mt-5 text-[1.5rem]">{p.title}</h3>
+              <p className="mt-2.5 text-[14.5px] leading-relaxed text-muted-foreground">{p.text}</p>
+            </li>
           ))}
-        </div>
+        </ol>
       </section>
 
       {/* Testimonials */}
       <section className="bg-surface py-14 md:py-20">
-        <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="eyebrow text-primary">Client love</p>
-            <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">What Our Clients Say</h2>
+        <div className="container">
+          <div className="max-w-2xl">
+            <span className="kicker text-primary">Client love</span>
+            <h2 className="display mt-3 text-[2.25rem] md:text-[2.9rem]">What Our Clients Say</h2>
           </div>
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
+          <div className="mt-10 grid gap-10 md:grid-cols-3 md:gap-8">
             {TESTIMONIALS.map((t) => (
-              <figure key={t.name} className="relative flex h-full flex-col rounded-2xl bg-card p-7 ring-1 ring-foreground/[0.07]">
-                <Quote className="size-8 text-primary/25" aria-hidden />
-                <blockquote className="mt-3 flex-1 text-[15px] leading-relaxed text-foreground/85">
+              <figure key={t.name} className="relative flex h-full flex-col">
+                <Quote className="size-7 text-primary" aria-hidden />
+                <blockquote className="display mt-4 flex-1 text-[1.25rem] leading-[1.45]! text-foreground/90">
                   &ldquo;{t.content}&rdquo;
                 </blockquote>
-                <figcaption className="mt-6 flex items-center gap-3 border-t pt-5">
-                  <span className="grid size-10 place-items-center rounded-full bg-brand-charcoal text-xs font-bold text-white">
+                <figcaption className="mt-6 flex items-center gap-3 border-t border-foreground/[0.12] pt-5">
+                  <span className="display grid size-10 place-items-center rounded-full bg-brand-ink text-[13px] text-white">
                     {initials(t.name)}
                   </span>
                   <div>

@@ -112,10 +112,10 @@ export function MobileNav({
           </form>
 
           {/* Account strip */}
-          <div className="mt-4 rounded-2xl bg-surface p-3 ring-1 ring-foreground/[0.05]">
+          <div className="mt-5 border-y border-foreground/[0.1] py-3">
             {user ? (
               <div className="flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                <span className="display grid size-10 place-items-center rounded-full bg-brand-ink text-[15px] text-white">
                   {user.firstName.charAt(0)}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -137,7 +137,7 @@ export function MobileNav({
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-full bg-background text-muted-foreground ring-1 ring-foreground/10">
+                <span className="grid size-10 place-items-center rounded-full border border-foreground/15 text-muted-foreground">
                   <UserCircle className="size-5" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -157,14 +157,14 @@ export function MobileNav({
             <Link
               href="/"
               onClick={close}
-              className="flex items-center justify-between py-3 text-[15px] font-bold"
+              className="display flex items-center justify-between py-3 text-[1.2rem]"
             >
               Home <ChevronRight className="size-4 text-muted-foreground/60" aria-hidden />
             </Link>
 
             <Accordion type="multiple" className="w-full border-t">
               <AccordionItem value="products">
-                <AccordionTrigger className="py-3 text-[15px] font-bold hover:no-underline">Products</AccordionTrigger>
+                <AccordionTrigger className="display py-3 text-[1.2rem] hover:no-underline">Products</AccordionTrigger>
                 <AccordionContent className="pb-3">
                   <Link
                     href="/product"
@@ -190,7 +190,7 @@ export function MobileNav({
                                 key={child.id}
                                 href={`/category/${child.slug}`}
                                 onClick={close}
-                                className="rounded-full bg-muted px-2.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                                className="text-[12.5px] font-medium text-muted-foreground underline decoration-foreground/15 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary"
                               >
                                 {child.title}
                               </Link>
@@ -205,7 +205,7 @@ export function MobileNav({
 
               {specialCategories.length > 0 && (
                 <AccordionItem value="special">
-                  <AccordionTrigger className="py-3 text-[15px] font-bold hover:no-underline">
+                  <AccordionTrigger className="display py-3 text-[1.2rem] hover:no-underline">
                     Special Category
                   </AccordionTrigger>
                   <AccordionContent className="pb-3">
@@ -233,7 +233,7 @@ export function MobileNav({
                   key={link.href}
                   href={link.href}
                   onClick={close}
-                  className="flex items-center justify-between border-b py-3 text-[15px] font-bold last:border-b-0 hover:text-primary"
+                  className="display flex items-center justify-between border-b py-3 text-[1.2rem] last:border-b-0 hover:text-primary"
                 >
                   {link.title}
                   <ChevronRight className="size-4 text-muted-foreground/60" aria-hidden />
@@ -246,14 +246,14 @@ export function MobileNav({
             <Link
               href="/wishlist"
               onClick={close}
-              className="flex items-center gap-2 rounded-xl border p-3 text-sm font-semibold transition-colors hover:border-primary/40 hover:text-primary"
+              className="flex items-center gap-2 rounded-lg border border-foreground/15 p-3 text-sm font-semibold transition-colors hover:border-primary hover:text-primary"
             >
               <Heart className="size-4" aria-hidden /> Wishlist
             </Link>
             <Link
               href="/cart"
               onClick={close}
-              className="flex items-center gap-2 rounded-xl border p-3 text-sm font-semibold transition-colors hover:border-primary/40 hover:text-primary"
+              className="flex items-center gap-2 rounded-lg border border-foreground/15 p-3 text-sm font-semibold transition-colors hover:border-primary hover:text-primary"
             >
               <ShoppingBag className="size-4" aria-hidden /> Cart
             </Link>
@@ -261,16 +261,11 @@ export function MobileNav({
         </div>
 
         <div className="flex-shrink-0 space-y-2 border-t bg-surface px-5 py-4">
-          <a
-            href={SITE.phoneHref}
-            className="flex items-center gap-3 rounded-xl bg-background p-3 ring-1 ring-foreground/[0.06]"
-          >
-            <span className="grid size-9 place-items-center rounded-full bg-primary/10 text-primary">
-              <Phone className="size-4" aria-hidden />
-            </span>
+          <a href={SITE.phoneHref} className="flex items-center gap-3 py-1">
+            <Phone className="size-4 text-primary" aria-hidden />
             <span className="leading-tight">
-              <span className="block text-[11px] text-muted-foreground">Call us now</span>
-              <span className="block text-sm font-bold">{SITE.phone}</span>
+              <span className="block text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Call us now</span>
+              <span className="numeral block text-[1.05rem]">{SITE.phone}</span>
             </span>
           </a>
           {user ? (

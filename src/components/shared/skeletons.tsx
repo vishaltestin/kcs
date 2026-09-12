@@ -2,9 +2,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 function ProductCardSkeleton() {
   return (
-    <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.06]">
-      <Skeleton className="aspect-square w-full rounded-none" />
-      <div className="space-y-2.5 p-4">
+    <div>
+      <Skeleton className="aspect-square w-full rounded-xl" />
+      <div className="space-y-2.5 pt-3.5">
         <Skeleton className="h-3 w-16" />
         <Skeleton className="h-4 w-11/12" />
         <Skeleton className="h-4 w-2/3" />
@@ -12,7 +12,6 @@ function ProductCardSkeleton() {
           <Skeleton className="h-6 w-20" />
           <Skeleton className="h-4 w-12" />
         </div>
-        <Skeleton className="mt-2 h-9 w-full rounded-lg" />
       </div>
     </div>
   );
@@ -32,7 +31,7 @@ export function ProductGridSkeleton({ count = 9 }: { count?: number }) {
       <div className="flex flex-col gap-8 md:flex-row md:gap-10">
         <div className="hidden w-full space-y-6 md:block md:w-1/4">
           {Array.from({ length: 3 }).map((_, group) => (
-            <div key={group} className="space-y-3 rounded-2xl bg-card p-5 ring-1 ring-foreground/[0.06]">
+            <div key={group} className="space-y-3 border-t border-foreground/[0.12] pt-4">
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-3.5 w-full" />
               <Skeleton className="h-3.5 w-4/5" />
@@ -41,7 +40,7 @@ export function ProductGridSkeleton({ count = 9 }: { count?: number }) {
           ))}
         </div>
         <div className="w-full md:w-3/4">
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-3">
             {Array.from({ length: count }).map((_, index) => (
               <ProductCardSkeleton key={index} />
             ))}
@@ -58,10 +57,10 @@ export function ProductDetailSkeleton() {
       <Skeleton className="mb-6 h-4 w-72" />
       <div className="grid gap-10 md:grid-cols-2 md:gap-12">
         <div className="space-y-4">
-          <Skeleton className="aspect-square w-full rounded-3xl" />
+          <Skeleton className="aspect-square w-full rounded-xl" />
           <div className="grid grid-cols-5 gap-3">
             {Array.from({ length: 5 }).map((_, index) => (
-              <Skeleton key={index} className="aspect-square rounded-xl" />
+              <Skeleton key={index} className="aspect-square rounded-lg" />
             ))}
           </div>
         </div>
@@ -69,12 +68,12 @@ export function ProductDetailSkeleton() {
           <Skeleton className="h-3 w-24" />
           <Skeleton className="h-9 w-3/4" />
           <Skeleton className="h-4 w-40" />
-          <Skeleton className="h-28 w-full rounded-2xl" />
-          <Skeleton className="h-36 w-full rounded-2xl" />
-          <Skeleton className="h-12 w-full rounded-xl" />
+          <Skeleton className="h-28 w-full rounded-lg" />
+          <Skeleton className="h-36 w-full rounded-lg" />
+          <Skeleton className="h-12 w-full rounded-lg" />
           <div className="grid grid-cols-4 gap-3">
             {Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} className="h-16 rounded-xl" />
+              <Skeleton key={index} className="h-16 rounded-lg" />
             ))}
           </div>
         </div>

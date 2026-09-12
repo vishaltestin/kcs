@@ -134,82 +134,89 @@ async function ProductListingContent({ searchParams }: { searchParams: SearchPar
 
   return (
     <div>
-      {/* Header band */}
-      <div className="border-b bg-surface/70">
-        <div className="container mx-auto px-4 pt-7 pb-6 md:pt-9">
-          <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Link href="/" className="hover:text-primary">
-              Home
-            </Link>
-            <ChevronRight className="size-3" aria-hidden />
-            <span className="font-medium text-foreground">{filterTitle ?? "Products"}</span>
-          </nav>
+      {/* Header */}
+      <div className="container pt-6 md:pt-8">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Link href="/" className="hover:text-primary">
+            Home
+          </Link>
+          <ChevronRight className="size-3" aria-hidden />
+          <span className="font-medium text-foreground">{filterTitle ?? "Products"}</span>
+        </nav>
 
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="eyebrow text-primary">
-                {q ? "Search results" : filterTitle ? "Curated selection" : "Full catalogue"}
-              </p>
-              <h1 className="mt-1 text-3xl font-extrabold tracking-tight md:text-4xl">
-                {q ? (
-                  <>
-                    Results for <span className="text-primary">&ldquo;{q}&rdquo;</span>
-                  </>
-                ) : (
-                  filterTitle ?? "Our Products"
-                )}
-              </h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {result.total === 0 ? (
-                  "No products to show"
-                ) : (
-                  <>
-                    Showing <strong className="font-semibold text-foreground">{rangeStart}–{rangeEnd}</strong> of{" "}
-                    <strong className="font-semibold text-foreground">{result.total}</strong>{" "}
-                    {result.total === 1 ? "product" : "products"}
-                  </>
-                )}
-                {(q || filterTitle) && (
-                  <>
-                    {" · "}
-                    <Link href="/product" className="font-semibold text-primary hover:underline">
-                      {q ? "Clear search" : "Clear filter"}
-                    </Link>
-                  </>
-                )}
-              </p>
+        <div className="mt-5 grid gap-5 border-b border-foreground/[0.12] pb-0 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <div className="min-w-0">
+            <span className="kicker text-primary">
+              {q ? "Search results" : filterTitle ? "Curated selection" : "Full catalogue"}
+            </span>
+            <h1 className="display mt-1.5 text-[2.25rem] md:text-[2.9rem]">
+              {q ? (
+                <>
+                  Results for <em className="text-primary">&ldquo;{q}&rdquo;</em>
+                </>
+              ) : (
+                filterTitle ?? "Our Products"
+              )}
+              {result.total > 0 && (
+                <sup className="numeral ml-2 align-top text-[0.95rem] text-muted-foreground md:text-[1.05rem]">
+                  {result.total}
+                </sup>
+              )}
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {result.total === 0 ? (
+                "No products to show"
+              ) : (
+                <>
+                  Showing <strong className="font-semibold text-foreground">{rangeStart}–{rangeEnd}</strong> of{" "}
+                  <strong className="font-semibold text-foreground">{result.total}</strong>{" "}
+                  {result.total === 1 ? "product" : "products"}
+                </>
+              )}
+              {(q || filterTitle) && (
+                <>
+                  {" · "}
+                  <Link href="/product" className="font-semibold text-primary hover:underline">
+                    {q ? "Clear search" : "Clear filter"}
+                  </Link>
+                </>
+              )}
+            </p>
+
+            {/* Quick type filters — underlined tabs on the header rule */}
+            <div className="no-scrollbar mt-6 -mb-px flex gap-6 overflow-x-auto" role="tablist" aria-label="Quick filters">
+              {QUICK_FILTERS.map((f) => {
+                const active = (productType ?? "") === f.value;
+                const Icon = f.icon;
+                return (
+                  <Link
+                    key={f.label}
+                    href={quickHref(f.value)}
+                    role="tab"
+                    aria-selected={active}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "inline-flex h-10 shrink-0 items-center gap-1.5 border-b-2 text-[13.5px] font-semibold whitespace-nowrap transition-colors",
+                      active
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                    )}
+                  >
+                    {Icon && <Icon className={cn("size-3.5", active ? "text-primary" : "text-muted-foreground/70")} aria-hidden />}
+                    {f.label}
+                  </Link>
+                );
+              })}
             </div>
-            <SortSelect current={sort} />
           </div>
-
-          {/* Quick type filters */}
-          <div className="no-scrollbar mt-5 -mb-px flex gap-2 overflow-x-auto">
-            {QUICK_FILTERS.map((f) => {
-              const active = (productType ?? "") === f.value;
-              const Icon = f.icon;
-              return (
-                <Link
-                  key={f.label}
-                  href={quickHref(f.value)}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-4 text-[13px] font-semibold transition-all",
-                    active
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border bg-card text-foreground/80 hover:border-primary/40 hover:text-primary"
-                  )}
-                >
-                  {Icon && <Icon className={cn("size-3.5", active ? "text-brand-amber" : "text-primary")} aria-hidden />}
-                  {f.label}
-                </Link>
-              );
-            })}
+          <div className="pb-3 md:pb-3.5">
+            <SortSelect current={sort} />
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 md:py-10">
-        <div className="flex flex-col gap-6 md:flex-row md:gap-8 lg:gap-10">
+      <div className="container py-8 md:py-10">
+        <div className="flex flex-col gap-6 md:flex-row md:gap-8 lg:gap-10 xl:gap-14">
           <ProductFilters categories={categoryTree} brands={brandList} />
 
           <div className="min-w-0 flex-1">
@@ -237,7 +244,7 @@ async function ProductListingContent({ searchParams }: { searchParams: SearchPar
               />
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-3">
                   {result.items.map((product, i) => (
                     <ProductCard key={product.id} product={product} priority={i < 3} />
                   ))}

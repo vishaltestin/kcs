@@ -28,24 +28,22 @@ export function ProfilePanel({
   children: ReactNode;
 }) {
   return (
-    <section className={cn("overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07]", className)}>
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
-        <div className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl bg-primary/[0.08] text-primary">
-            <Icon className="size-[18px]" />
-          </span>
-          <div>
-            <h2 className="text-[15px] font-bold tracking-tight">{title}</h2>
-            {description && <p className="text-[12.5px] text-muted-foreground">{description}</p>}
-          </div>
+    <section className={cn("", className)}>
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-foreground/[0.12] pb-4">
+        <div>
+          <h2 className="display flex items-center gap-2 text-[1.5rem]">
+            {title}
+            <Icon className="size-4 text-foreground/40" />
+          </h2>
+          {description && <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p>}
         </div>
         {aside}
       </header>
 
-      <div className="px-5 py-5 sm:px-6">{children}</div>
+      <div className="py-6">{children}</div>
 
       {footer && (
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t bg-surface/70 px-5 py-3.5 sm:px-6">
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-foreground/[0.12] pt-4">
           {footer}
         </footer>
       )}

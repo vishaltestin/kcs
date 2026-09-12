@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Bot, GraduationCap, Headset, Truck } from "lucide-react";
 
 import Banner from "@/components/shared/content-banner";
+import { FramedImage } from "@/components/shared/framed-image";
 import { Button } from "@/components/ui/button";
 import { IMAGES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -76,26 +76,26 @@ export default function WhyUsPage() {
       />
 
       {/* Quick nav */}
-      <div className="border-b bg-surface/70">
-        <div className="container mx-auto flex flex-wrap items-center gap-2 px-4 py-4">
-          <span className="mr-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Our services</span>
+      <div className="container">
+        <div className="no-scrollbar flex items-center gap-x-6 overflow-x-auto border-b border-foreground/[0.12]">
+          <span className="shrink-0 py-4 text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">Our services</span>
           {SERVICES.map((s) => (
             <a
               key={s.id}
               href={`#${s.id}`}
-              className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3.5 py-1.5 text-[13px] font-semibold transition-colors hover:border-primary/40 hover:text-primary"
+              className="relative inline-flex shrink-0 items-center gap-2 py-4 text-[13.5px] font-semibold text-foreground/80 transition-colors after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-primary after:opacity-0 after:transition-opacity hover:text-primary hover:after:opacity-100"
             >
-              <s.icon className="size-3.5 text-primary" aria-hidden />
+              <span className="numeral text-[11px] text-primary">{s.index}</span>
               {s.title}
             </a>
           ))}
         </div>
       </div>
 
-      <section className="container mx-auto px-4 py-14 md:py-20">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="eyebrow text-primary">What sets us apart</p>
-          <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-5xl">Our Services</h2>
+      <section className="container py-14 md:py-20">
+        <div className="max-w-2xl">
+          <span className="kicker text-primary">What sets us apart</span>
+          <h2 className="display mt-3 text-[2.25rem] md:text-[3.25rem]">Our Services</h2>
         </div>
 
         <div className="mt-12 space-y-16 md:mt-16 md:space-y-24">
@@ -105,43 +105,32 @@ export default function WhyUsPage() {
               <article
                 key={s.id}
                 id={s.id}
-                className="grid scroll-mt-28 items-center gap-8 md:grid-cols-2 md:gap-14"
+                className="rule-top grid scroll-mt-28 items-center gap-8 pt-8 md:grid-cols-2 md:gap-14 md:pt-10"
               >
                 <div className={cn(flip && "md:order-2")}>
-                  <div className="flex items-center gap-3">
-                    <span className="text-4xl font-extrabold tracking-tight text-primary/20">{s.index}</span>
-                    <span className="grid size-11 place-items-center rounded-xl bg-primary/[0.08] text-primary">
-                      <s.icon className="size-5" aria-hidden />
-                    </span>
+                  <div className="flex items-center justify-between">
+                    <span className="numeral text-[2.5rem] leading-none text-primary">{s.index}</span>
+                    <s.icon className="size-6 text-foreground/40" aria-hidden />
                   </div>
-                  <h3 className="mt-4 text-2xl font-extrabold tracking-tight md:text-3xl">{s.title}</h3>
-                  <p className="mt-1 text-base font-semibold text-primary">{s.lead}</p>
-                  <p className="mt-4 text-muted-foreground">{s.body}</p>
-                  <ul className="mt-5 flex flex-wrap gap-2">
-                    {s.bullets.map((b) => (
-                      <li key={b} className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-foreground/80">
+                  <h3 className="display mt-6 text-[1.9rem] md:text-[2.4rem]">{s.title}</h3>
+                  <p className="kicker mt-2 text-primary">{s.lead}</p>
+                  <p className="mt-5 text-[15.5px] leading-relaxed text-muted-foreground">{s.body}</p>
+                  <ul className="mt-6 divide-y divide-foreground/[0.08] border-y border-foreground/[0.08]">
+                    {s.bullets.map((b, bi) => (
+                      <li key={b} className="flex items-baseline gap-3 py-2.5 text-[14px] font-medium text-foreground/85">
+                        <span className="numeral text-[11px] text-muted-foreground/70">{s.index}.{bi + 1}</span>
                         {b}
                       </li>
                     ))}
                   </ul>
                 </div>
                 <div className={cn("relative", flip && "md:order-1")}>
-                  <div
-                    aria-hidden
-                    className={cn(
-                      "absolute -inset-3 -z-10 rounded-[1.75rem] bg-primary/[0.05]",
-                      flip ? "-rotate-1" : "rotate-1"
-                    )}
+                  <FramedImage
+                    src={s.image}
+                    alt={s.alt}
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="aspect-[3/2] rounded-xl shadow-[inset_0_0_0_1px_rgb(17_24_39/0.06)]"
                   />
-                  <div className="relative aspect-[3/2] overflow-hidden rounded-3xl shadow-[0_28px_56px_-28px_rgb(0_0_0/0.5)]">
-                    <Image
-                      src={s.image}
-                      alt={s.alt}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                      className="object-cover"
-                    />
-                  </div>
                 </div>
               </article>
             );
@@ -150,17 +139,16 @@ export default function WhyUsPage() {
       </section>
 
       {/* CTA */}
-      <section className="container mx-auto px-4 pb-16 md:pb-20">
-        <div className="relative overflow-hidden rounded-3xl bg-brand-charcoal px-6 py-10 text-white md:px-12 md:py-14">
-          <div aria-hidden className="dot-grid absolute inset-0 opacity-40" />
-          <div aria-hidden className="absolute -top-24 -right-24 size-72 rounded-full bg-primary/40 blur-3xl" />
+      <section className="container pb-16 md:pb-20">
+        <div className="relative overflow-hidden rounded-xl bg-brand-ink px-6 py-10 text-white md:px-12 md:py-14">
+          <span aria-hidden className="absolute -top-24 -right-24 size-72 rounded-full bg-primary/30 blur-3xl" />
           <div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
             <div className="max-w-xl">
-              <p className="eyebrow text-brand-amber">Experience it first-hand</p>
-              <h2 className="mt-2 text-2xl font-extrabold tracking-tight md:text-3xl">
+              <span className="kicker text-brand-amber">Experience it first-hand</span>
+              <h2 className="display mt-3 text-[1.9rem] text-white md:text-[2.4rem]">
                 Let&apos;s plan your next gifting drive.
               </h2>
-              <p className="mt-2 text-sm text-white/70">
+              <p className="mt-3 text-[15px] text-white/70">
                 Tell us the occasion, headcount and budget — we&apos;ll come back with a curated shortlist.
               </p>
             </div>

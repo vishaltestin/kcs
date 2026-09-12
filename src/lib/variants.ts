@@ -12,6 +12,8 @@ export type VariantAttributes = Record<string, string>;
 
 export type PriceTierInput = { minQuantity: number; price: number; mrp: number };
 
+export type VariantPricingMode = "SHARED" | "CUSTOM";
+
 export type VariantInput = {
   id?: string;
   attributes: VariantAttributes;
@@ -20,6 +22,9 @@ export type VariantInput = {
   image: string;
   stock: number;
   isActive: boolean;
+  /** Shared pricing: ₹ added to every product tier for this variant. */
+  priceDelta: number;
+  /** Custom pricing: the variant's own tier table. */
   prices: PriceTierInput[];
   weightGrams: number | null;
   lengthCm: number | null;
@@ -88,6 +93,7 @@ export function mergeVariants(axes: OptionAxis[], existing: VariantInput[], temp
       image: "",
       stock: 0,
       isActive: true,
+      priceDelta: 0,
       prices: template.prices?.map((t) => ({ ...t })) ?? [],
       weightGrams: null,
       lengthCm: null,
@@ -121,4 +127,58 @@ export function priceRange(variants: { price: number | null }[]): { min: number;
   const prices = variants.map((v) => v.price).filter((p): p is number => typeof p === "number" && p > 0);
   if (prices.length === 0) return null;
   return { min: Math.min(...prices), max: Math.max(...prices) };
+}
+
+/**
+ * Effective tier table for a variant.
+ *
+ * SHARED pricing → the product's tiers shifted by the variant's `priceDelta`
+ * (MRP shifts too so the discount stays honest). CUSTOM pricing → the
+ * variant's own tiers, falling back to the product tiers when it has none.
+ * Used by the storefront mapper, the admin save and order placement, so all
+ * three agree to the paisa.
+ */
+type Numeric = number | string | null | undefined | { toString(): string };
+type TierLike = { minQuantity: Numeric; price: Numeric; mrp: Numeric };
+
+/**
+ * Coerces Prisma Decimals, strings and half-typed admin form values to a
+ * finite number. Anything missing or unparsable (an empty MRP box while the
+ * admin is still typing, `undefined` from a freshly added tier row) becomes 0
+ * instead of throwing.
+ */
+function coerceNumber(value: Numeric): number {
+  if (value === null || value === undefined) return 0;
+  const n = typeof value === "number" ? value : Number(value.toString());
+  return Number.isFinite(n) ? n : 0;
+}
+
+export function resolveVariantTiers(
+  mode: VariantPricingMode,
+  productTiers: readonly TierLike[],
+  variant: { prices?: readonly TierLike[] | null; priceDelta?: Numeric },
+): PriceTierInput[] {
+  const num = coerceNumber;
+  const asTiers = (rows: readonly TierLike[]) =>
+    rows
+      .filter((t): t is TierLike => !!t)
+      .map((t) => {
+        const price = num(t.price);
+        // A tier without an MRP (or with an MRP below the price) sells at list price.
+        const mrp = Math.max(num(t.mrp), price);
+        return { minQuantity: Math.max(1, Math.trunc(num(t.minQuantity)) || 1), price, mrp };
+      })
+      .sort((a, b) => a.minQuantity - b.minQuantity);
+  const own = variant.prices ?? [];
+  if (mode === "CUSTOM" && own.length > 0) return asTiers(own);
+  const delta = num(variant.priceDelta);
+  return asTiers(productTiers).map((t) => ({
+    minQuantity: t.minQuantity,
+    price: round2(t.price + delta),
+    mrp: round2(Math.max(t.mrp + delta, t.price + delta)),
+  }));
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }

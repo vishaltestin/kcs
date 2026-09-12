@@ -15,10 +15,10 @@ export function BulkInquiryTable({ prices }: { prices: ProductPriceTier[] }) {
   const base = sorted[0];
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07]">
-      <div className="flex items-center justify-between gap-3 border-b bg-surface px-4 py-3">
-        <h3 className="flex items-center gap-2 text-sm font-bold">
-          <Layers className="size-4 text-primary" aria-hidden /> Bulk pricing slabs
+    <div>
+      <div className="flex items-center justify-between gap-3 border-b border-foreground/[0.12] pb-2.5">
+        <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <Layers className="size-3.5 text-primary" aria-hidden /> Bulk pricing slabs
         </h3>
         <span className="text-[11px] font-medium text-muted-foreground">Per piece · incl. taxes</span>
       </div>
@@ -31,7 +31,7 @@ export function BulkInquiryTable({ prices }: { prices: ProductPriceTier[] }) {
             <th>Saving vs base</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody className="divide-y divide-foreground/[0.08]">
           {sorted.map((tier, index) => {
             const next = sorted[index + 1];
             const label = next ? `${tier.minQuantity} – ${next.minQuantity - 1}` : `${tier.minQuantity}+`;
@@ -40,19 +40,17 @@ export function BulkInquiryTable({ prices }: { prices: ProductPriceTier[] }) {
             const best = index === sorted.length - 1 && sorted.length > 1;
             return (
               <tr key={tier.minQuantity} className={best ? "bg-primary/[0.04]" : undefined}>
-                <td className="px-4 py-3">
-                  <span className="font-semibold tabular-nums">{label}</span>
+                <td className="py-3 pr-2 pl-1">
+                  <span className="numeral text-[15px]">{label}</span>
                   <span className="ml-1 text-xs text-muted-foreground">pcs</span>
                 </td>
                 <td className="px-2 py-3">
-                  <span className="text-base font-extrabold tracking-tight text-primary tabular-nums">
-                    {formatCurrency(tier.price)}
-                  </span>
+                  <span className="numeral text-[1.1rem] text-primary">{formatCurrency(tier.price)}</span>
                 </td>
-                <td className="px-2 py-3 text-xs text-muted-foreground tabular-nums line-through">
+                <td className="numeral px-2 py-3 text-xs text-muted-foreground line-through">
                   {formatCurrency(tier.mrp)}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="py-3 pr-1 pl-2 text-right">
                   {index === 0 ? (
                     <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                       {discount > 0 ? `${discount}% off MRP` : "Base"}

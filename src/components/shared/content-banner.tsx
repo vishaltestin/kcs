@@ -36,7 +36,7 @@ export default function Banner({
     <section className={cn("container mt-4 md:mt-6", className)} aria-label={`${title} banner`}>
       <div
         className={cn(
-          "relative isolate overflow-hidden rounded-3xl bg-brand-charcoal text-white shadow-[0_24px_48px_-24px_rgb(0_0_0/0.45)]",
+          "relative isolate overflow-hidden rounded-2xl bg-brand-ink text-white shadow-[0_24px_48px_-24px_rgb(0_0_0/0.45)]",
           height
         )}
       >
@@ -50,13 +50,12 @@ export default function Banner({
             sizes="(max-width: 768px) 100vw, 60vw"
             className="object-cover opacity-70 md:opacity-100"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-brand-charcoal via-brand-charcoal/85 to-brand-charcoal/20 md:via-brand-charcoal/60" />
-          <div className="absolute inset-0 bg-gradient-to-t from-brand-charcoal/80 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-brand-ink via-brand-ink/85 to-brand-ink/20 md:via-brand-ink/60" />
+          <div className="absolute inset-0 bg-gradient-to-t from-brand-ink/80 via-transparent to-transparent" />
         </div>
-        <div className="dot-grid absolute inset-0 opacity-40 [mask-image:linear-gradient(90deg,#000,transparent_55%)]" aria-hidden />
         <span
           aria-hidden
-          className="absolute -top-24 -left-20 size-72 rounded-full bg-primary/25 blur-3xl"
+          className="absolute -top-32 -left-24 size-[26rem] rounded-full bg-primary/25 blur-[100px]"
         />
 
         <div className="relative px-6 py-12 sm:px-10 md:px-14 md:py-16 lg:py-20">
@@ -80,12 +79,12 @@ export default function Banner({
             </ol>
           </nav>
 
-          {eyebrow && <span className="eyebrow mb-3 text-brand-amber">{eyebrow}</span>}
-          <h1 className="max-w-2xl text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
+          {eyebrow && <span className="kicker block text-brand-amber">{eyebrow}</span>}
+          <h1 className={cn("display max-w-2xl text-[2.25rem] text-white sm:text-[2.75rem] md:text-[3.25rem]", eyebrow && "mt-2")}>
             {title}
           </h1>
           {subtitle && (
-            <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/70 md:text-base">{subtitle}</p>
+            <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-white/70 md:text-base">{subtitle}</p>
           )}
         </div>
       </div>

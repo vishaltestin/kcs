@@ -17,7 +17,7 @@ function ProfileSkeleton() {
       <Skeleton className="h-36 rounded-3xl" />
       <div className="flex flex-col gap-8 lg:flex-row">
         <Skeleton className="h-72 w-full rounded-2xl lg:w-64" />
-        <Skeleton className="h-96 flex-1 rounded-2xl" />
+        <Skeleton className="h-96 flex-1 rounded-xl" />
       </div>
     </div>
   );
@@ -54,8 +54,8 @@ export default async function ProfilePage() {
   if (!user) return null;
 
   return (
-    <div className="bg-surface/60">
-      <div className="container mx-auto px-4 py-8 md:py-12">
+    <div>
+      <div className="container py-8 md:py-12">
         {/* ProfileTabs reads `?tab=` via useSearchParams — Suspense keeps the
             rest of the page statically renderable. */}
         <Suspense fallback={<ProfileSkeleton />}>

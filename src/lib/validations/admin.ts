@@ -18,6 +18,13 @@ const specSchema = z.object({
 export const PRICING_MODES = ["SINGLE", "BULK", "ENQUIRY"] as const;
 export type PricingModeValue = (typeof PRICING_MODES)[number];
 
+export const VARIANT_PRICING = ["SHARED", "CUSTOM"] as const;
+export type VariantPricingValue = (typeof VARIANT_PRICING)[number];
+
+/** Variants price from the product's own tier table unless they have custom tiers. */
+export const usesSharedVariantPricing = (data: { hasVariants: boolean; variantPricing: VariantPricingValue }) =>
+  data.hasVariants && data.variantPricing === "SHARED";
+
 const HSN_REGEX = /^\d{4}(\d{2})?(\d{2})?$/;
 
 const optionAxisSchema = z.object({
@@ -31,8 +38,11 @@ const variantSchema = z.object({
   label: z.string().trim().min(1).max(160),
   sku: z.string().trim().max(60),
   image: z.string().trim(),
-  stock: z.number().int().min(0),
+  stock: z.number({ message: "Stock is required." }).int().min(0),
   isActive: z.boolean(),
+  /** Shared pricing: ₹ added to (or subtracted from) every product tier for this variant. */
+  priceDelta: z.number({ message: "Enter a number." }),
+  /** Custom pricing: this variant's own tier table (ignored under shared pricing). */
   prices: z.array(priceTierSchema),
   weightGrams: z.number().int().min(0).nullable(),
   lengthCm: z.number().min(0).nullable(),
@@ -77,6 +87,8 @@ export const productSchema = z
     heightCm: z.number().min(0).nullable(),
     // Variants
     hasVariants: z.boolean(),
+    /** SHARED: product tiers + per-variant ₹ adjustment. CUSTOM: each variant has its own tier table. */
+    variantPricing: z.enum(VARIANT_PRICING),
     options: z.array(optionAxisSchema),
     variants: z.array(variantSchema),
   // SEO overrides (optional — empty strings fall back to derived values)
@@ -92,14 +104,15 @@ export const productSchema = z
     (data) => data.prices.every((tier) => tier.mrp >= tier.price),
     { message: "MRP must be greater than or equal to the selling price.", path: ["prices"] }
   )
-  // Without variants the product-level tiers are the source of truth.
-  .refine((data) => data.hasVariants || data.pricingMode === "ENQUIRY" || data.prices.length >= 1, {
-    message: "Add at least one price.",
-    path: ["prices"],
-  })
+  // Product-level tiers are the source of truth unless every variant prices itself.
   .refine(
     (data) =>
-      data.hasVariants ||
+      (data.hasVariants && data.variantPricing === "CUSTOM") || data.pricingMode === "ENQUIRY" || data.prices.length >= 1,
+    { message: "Add at least one price.", path: ["prices"] }
+  )
+  .refine(
+    (data) =>
+      (data.hasVariants && data.variantPricing === "CUSTOM") ||
       data.pricingMode !== "SINGLE" ||
       (data.prices.length === 1 && data.prices[0].minQuantity === 1),
     { message: "Single-unit products have exactly one price with a minimum quantity of 1.", path: ["prices"] }
@@ -130,12 +143,15 @@ export const productSchema = z
   .refine(
     (data) =>
       !data.hasVariants ||
+      data.variantPricing !== "CUSTOM" ||
       data.pricingMode === "ENQUIRY" ||
       data.variants.every((v) => !v.isActive || v.prices.length >= 1),
-    { message: "Every active variant needs at least one price.", path: ["variants"] }
+    { message: "Every active variant needs at least one price — or switch to shared pricing.", path: ["variants"] }
   )
   .refine(
     (data) =>
+      !data.hasVariants ||
+      data.variantPricing !== "CUSTOM" ||
       data.variants.every((v) => {
         const qtys = v.prices.map((t) => t.minQuantity);
         return new Set(qtys).size === qtys.length && v.prices.every((t) => t.mrp >= t.price);
@@ -145,9 +161,18 @@ export const productSchema = z
   .refine(
     (data) =>
       !data.hasVariants ||
+      data.variantPricing !== "CUSTOM" ||
       data.pricingMode !== "SINGLE" ||
       data.variants.every((v) => v.prices.length <= 1 && (v.prices[0]?.minQuantity ?? 1) === 1),
     { message: "Single-unit products have one price per variant with a minimum quantity of 1.", path: ["variants"] }
+  )
+  .refine(
+    (data) =>
+      !data.hasVariants ||
+      data.variantPricing !== "SHARED" ||
+      data.pricingMode === "ENQUIRY" ||
+      data.prices.every((tier) => data.variants.every((v) => !v.isActive || tier.price + (v.priceDelta ?? 0) > 0)),
+    { message: "A variant adjustment makes one of the prices zero or negative.", path: ["variants"] }
   );
 
 export type ProductInput = z.infer<typeof productSchema>;

@@ -14,43 +14,64 @@ import {
 import { IMAGES } from "@/lib/constants";
 
 /**
- * Showreel banner. The poster is a wide, dark navy strip so the copy sits on a
- * translucent panel with a pulsing play button — the modal plays the promo.
+ * Showreel band: copy on the left, a real still from the film on the right
+ * (shown whole, in its own 3:2 frame) with the play control sitting on it.
  */
 export function VideoSection() {
   return (
     <section className="container" aria-label="Showreel">
-      <div className="relative isolate min-h-[19rem] overflow-hidden rounded-3xl bg-[#0f1b3a] shadow-[0_28px_56px_-28px_rgb(0_0_0/0.55)] md:min-h-[22rem]">
-        <Image
-          src={IMAGES.videoPoster}
-          alt=""
-          fill
-          sizes="100vw"
-          className="object-cover"
-          priority={false}
-        />
-        <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-[#0f1b3a]/85 via-[#0f1b3a]/35 to-[#0f1b3a]/70" />
-        <div aria-hidden className="dot-grid absolute inset-0 opacity-30" />
+      <div className="relative isolate overflow-hidden rounded-2xl bg-brand-ink text-white shadow-[0_28px_56px_-28px_rgb(0_0_0/0.55)]">
+        <span aria-hidden className="absolute -top-32 -left-24 size-[26rem] rounded-full bg-primary/25 blur-[100px]" />
+        <span aria-hidden className="absolute -right-24 -bottom-40 size-[22rem] rounded-full bg-brand-amber/10 blur-[90px]" />
 
         <Dialog>
-          <div className="relative flex min-h-[19rem] flex-col items-center justify-center gap-5 px-6 py-12 text-center text-white md:min-h-[22rem]">
-            <span className="eyebrow text-brand-amber">Procter assurance</span>
-            <h2 className="max-w-2xl text-2xl font-extrabold leading-[1.15] tracking-tight md:text-[2.25rem]">
-              Perfect Corporate Gifting Solutions for your Company
-            </h2>
-            <p className="max-w-lg text-[15px] leading-relaxed text-white/70">
-              Watch how we take a brief from mood-board to branded boxes on desks across India.
-            </p>
+          <div className="relative grid items-center gap-8 px-7 py-9 md:px-12 md:py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-14">
+            <div className="max-w-xl">
+              <span className="kicker text-brand-amber">Procter assurance</span>
+              <h2 className="display mt-2 text-[2rem] text-white md:text-[2.6rem]">
+                Perfect Corporate Gifting Solutions for your Company
+              </h2>
+              <p className="mt-4 max-w-md text-[15px] leading-relaxed text-white/65">
+                Watch how we take a brief from mood-board to branded boxes on desks across India.
+              </p>
 
+              <DialogTrigger
+                className="group/play mt-7 flex w-max items-center gap-4 rounded-full border border-white/20 py-2 pr-6 pl-2 text-left transition-colors hover:border-white/50 hover:bg-white/5 focus-visible:ring-4 focus-visible:ring-white/30 focus-visible:outline-none"
+                aria-label="Play the KCS G-Mart corporate gifting video"
+              >
+                <span className="relative grid size-14 place-items-center rounded-full bg-white text-foreground">
+                  <span aria-hidden className="absolute inset-0 animate-ring rounded-full bg-white/50" />
+                  <Play className="relative ml-0.5 size-5 fill-current transition-colors group-hover/play:text-primary" aria-hidden />
+                </span>
+                <span className="flex flex-col">
+                  <span className="text-[14px] font-semibold">Watch the film</span>
+                  <span className="text-[11px] uppercase tracking-[0.16em] text-white/50">1 min 12 s · sound on</span>
+                </span>
+              </DialogTrigger>
+            </div>
+
+            {/* Film still — whole frame, never cropped */}
             <DialogTrigger
-              className="group/play relative mt-2 grid size-[4.5rem] place-items-center rounded-full bg-white text-foreground shadow-[0_18px_40px_-12px_rgb(0_0_0/0.55)] transition-transform duration-300 hover:scale-105 focus-visible:ring-4 focus-visible:ring-white/40 focus-visible:outline-none"
+              className="group/still relative block aspect-[3/2] w-full overflow-hidden rounded-xl ring-1 ring-white/10 focus-visible:ring-4 focus-visible:ring-white/40 focus-visible:outline-none"
               aria-label="Play the KCS G-Mart corporate gifting video"
             >
-              <span aria-hidden className="absolute inset-0 animate-ring rounded-full bg-white/60" />
-              <span aria-hidden className="absolute inset-0 animate-ring rounded-full bg-white/40 [animation-delay:0.7s]" />
-              <Play className="relative ml-1 size-7 fill-current transition-colors group-hover/play:text-primary" aria-hidden />
+              <Image
+                src={IMAGES.videoPoster}
+                alt="A still from the KCS G-Mart corporate gifting film"
+                fill
+                sizes="(max-width: 1024px) 100vw, 55vw"
+                className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/still:scale-[1.03]"
+              />
+              <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+              <span className="absolute inset-0 grid place-items-center">
+                <span className="grid size-16 place-items-center rounded-full bg-white/90 text-foreground shadow-[0_18px_40px_-12px_rgb(0_0_0/0.5)] backdrop-blur transition-transform duration-300 group-hover/still:scale-105">
+                  <Play className="ml-0.5 size-6 fill-current" aria-hidden />
+                </span>
+              </span>
+              <span className="absolute bottom-3 left-3 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85 backdrop-blur-sm">
+                Showreel · 01:12
+              </span>
             </DialogTrigger>
-            <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/55">Watch the film · 1 min</span>
           </div>
 
           <DialogContent

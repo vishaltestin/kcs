@@ -37,14 +37,14 @@ export default function CartPage() {
   const remaining = Math.max(0, threshold - subtotal);
 
   return (
-    <div className="bg-surface/60">
-      <div className="container mx-auto px-4 py-8 md:py-10">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <div className="container py-8 md:py-10">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-foreground/[0.12] pb-6">
           <div>
-            <p className="eyebrow text-primary">Step 1 of 3</p>
-            <h1 className="mt-1 text-3xl font-extrabold tracking-tight md:text-4xl">Your Cart</h1>
+            <span className="kicker text-primary">Step 1 of 3</span>
+            <h1 className="display mt-1.5 text-[2.25rem] md:text-[2.9rem]">Your Cart</h1>
             {items.length > 0 && (
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-2 text-sm text-muted-foreground">
                 {items.length} {items.length === 1 ? "product" : "products"} · {pieces} pieces
               </p>
             )}
@@ -74,24 +74,24 @@ export default function CartPage() {
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
             {/* Items */}
             <div className="min-w-0">
-              <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07]">
-                <div className="hidden grid-cols-[minmax(0,1fr)_9rem_7rem_2.5rem] items-center gap-4 border-b bg-surface px-5 py-3 text-[11px] font-bold tracking-[0.14em] text-muted-foreground uppercase sm:grid">
+              <div>
+                <div className="hidden grid-cols-[minmax(0,1fr)_9rem_7rem_2.5rem] items-center gap-4 border-b border-foreground/[0.12] pb-3 text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase sm:grid">
                   <span>Product</span>
                   <span className="text-center">Quantity</span>
                   <span className="text-right">Total</span>
                   <span />
                 </div>
 
-                <ul className="divide-y">
+                <ul className="divide-y divide-foreground/[0.08]">
                   {items.map((item) => (
                     <li
                       key={item.id}
-                      className="group/row grid gap-4 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_9rem_7rem_2.5rem] sm:items-center sm:px-5"
+                      className="group/row grid gap-4 py-5 sm:grid-cols-[minmax(0,1fr)_9rem_7rem_2.5rem] sm:items-center"
                     >
                       <div className="flex items-center gap-4">
                         <Link
                           href={`/product/${item.slug}`}
-                          className="relative size-20 shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-foreground/5 sm:size-[5.5rem]"
+                          className="studio relative size-20 shrink-0 overflow-hidden rounded-lg sm:size-[5.5rem]"
                           aria-label={item.name}
                         >
                           <Image
@@ -99,30 +99,20 @@ export default function CartPage() {
                             alt={item.name}
                             fill
                             sizes="88px"
-                            className="object-cover transition-transform duration-500 group-hover/row:scale-105"
+                            className="object-contain p-1.5 mix-blend-multiply transition-transform duration-500 group-hover/row:scale-105 dark:mix-blend-normal"
                           />
                         </Link>
                         <div className="min-w-0">
                           <Link
                             href={`/product/${item.slug}`}
-                            className="line-clamp-2 text-[15px] font-semibold leading-snug transition-colors hover:text-primary"
+                            className="display line-clamp-2 text-[1.05rem] leading-snug transition-colors hover:text-primary"
                           >
                             {item.name}
                           </Link>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            <span className="font-semibold text-foreground tabular-nums">{formatCurrency(item.price)}</span> / pc
-                          </p>
-                          <p className="mt-1 flex flex-wrap items-center gap-1.5">
-                            {item.variantLabel && (
-                              <span className="inline-flex items-center rounded-md bg-primary/[0.08] px-1.5 py-0.5 text-[11px] font-semibold text-primary">
-                                {item.variantLabel}
-                              </span>
-                            )}
-                            {item.minQuantity > 1 && (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                                MOQ {item.minQuantity}
-                              </span>
-                            )}
+                            <span className="numeral text-foreground">{formatCurrency(item.price)}</span> / pc
+                            {item.variantLabel && <span className="text-foreground/80"> · {item.variantLabel}</span>}
+                            {item.minQuantity > 1 && <span> · MOQ {item.minQuantity}</span>}
                           </p>
                         </div>
                       </div>
@@ -151,14 +141,10 @@ export default function CartPage() {
                             <Plus className="size-4" aria-hidden />
                           </button>
                         </div>
-                        <p className="text-base font-extrabold tracking-tight tabular-nums sm:hidden">
-                          {formatCurrency(item.price * item.qty)}
-                        </p>
+                        <p className="numeral text-[1.1rem] sm:hidden">{formatCurrency(item.price * item.qty)}</p>
                       </div>
 
-                      <p className="hidden text-right text-base font-extrabold tracking-tight tabular-nums sm:block">
-                        {formatCurrency(item.price * item.qty)}
-                      </p>
+                      <p className="numeral hidden text-right text-[1.1rem] sm:block">{formatCurrency(item.price * item.qty)}</p>
 
                       <button
                         onClick={() => removeProduct(item.id)}
@@ -177,7 +163,7 @@ export default function CartPage() {
                   ))}
                 </ul>
 
-                <div className="flex items-center justify-between border-t bg-surface px-5 py-3">
+                <div className="flex items-center justify-between border-t border-foreground/[0.12] py-3">
                   <button
                     onClick={reset}
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-destructive"
@@ -189,35 +175,35 @@ export default function CartPage() {
               </div>
 
               {/* Reassurance strip */}
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <ol className="mt-8 grid gap-x-8 gap-y-4 sm:grid-cols-3">
                 {[
                   { icon: BadgeCheck, title: "Bulk pricing", text: "Tiered discounts auto-apply on quantity." },
                   { icon: Truck, title: "Pan-India delivery", text: "Doorstep or desk-drop to 19,000+ PIN codes." },
                   { icon: Headset, title: "Human confirmation", text: "A gifting manager verifies every order." },
-                ].map((f) => (
-                  <div key={f.title} className="flex items-start gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/[0.06]">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/[0.08] text-primary">
-                      <f.icon className="size-4" aria-hidden />
-                    </span>
+                ].map((f, index) => (
+                  <li key={f.title} className="flex gap-3">
+                    <span className="numeral pt-0.5 text-[12px] text-primary">{String(index + 1).padStart(2, "0")}</span>
                     <div>
-                      <p className="text-[13px] font-bold">{f.title}</p>
-                      <p className="text-xs text-muted-foreground">{f.text}</p>
+                      <p className="flex items-center gap-1.5 text-[13.5px] font-semibold">
+                        <f.icon className="size-3.5 text-foreground/60" aria-hidden /> {f.title}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{f.text}</p>
                     </div>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ol>
             </div>
 
             {/* Summary */}
             <aside className="lg:sticky lg:top-20">
-              <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07] shadow-[0_24px_48px_-28px_rgb(0_0_0/0.35)]">
-                <div className="border-b px-5 py-4">
-                  <h2 className="text-base font-extrabold tracking-tight">Order Summary</h2>
+              <div className="overflow-hidden rounded-xl bg-surface">
+                <div className="border-b border-foreground/[0.08] px-5 py-4">
+                  <h2 className="display text-[1.25rem]">Order summary</h2>
                 </div>
 
                 <div className="space-y-4 px-5 py-5">
                   {remaining > 0 && (
-                    <p className="flex items-center gap-2 rounded-lg bg-surface px-3 py-2 text-xs text-muted-foreground">
+                    <p className="flex items-center gap-2 rounded-lg bg-background px-3 py-2 text-xs text-muted-foreground">
                       <Truck className="size-4 shrink-0 text-primary" aria-hidden />
                       <span>
                         Add <strong className="text-foreground">{formatCurrency(remaining)}</strong> more for free shipping
@@ -236,9 +222,9 @@ export default function CartPage() {
                       destination={destination}
                       onDestinationChange={setDestination}
                     />
-                    <div className="flex items-baseline justify-between border-t pt-3">
-                      <dt className="text-base font-extrabold tracking-tight">{destination.trim() ? "Total" : "Estimated total"}</dt>
-                      <dd className="text-2xl font-extrabold tracking-tight tabular-nums">{formatCurrency(total)}</dd>
+                    <div className="flex items-baseline justify-between border-t border-foreground/[0.12] pt-3">
+                      <dt className="text-[15px] font-semibold">{destination.trim() ? "Total" : "Estimated total"}</dt>
+                      <dd className="numeral text-[1.75rem] leading-none">{formatCurrency(total)}</dd>
                     </div>
                   </dl>
                   <p className="text-[11px] text-muted-foreground">Inclusive of all taxes · GST invoice with every order</p>

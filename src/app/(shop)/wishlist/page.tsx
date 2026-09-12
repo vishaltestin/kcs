@@ -59,16 +59,13 @@ export default function WishlistPage() {
 
   return (
     <div>
-      <div className="border-b bg-surface/70">
-        <div className="container mx-auto px-4 pt-7 pb-8 md:pt-9">
-          <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="container pt-8 md:pt-10">
+        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-foreground/[0.12] pb-6">
             <div>
-              <p className="eyebrow text-primary">Saved for later</p>
-              <h1 className="mt-1 flex items-center gap-3 text-3xl font-extrabold tracking-tight md:text-4xl">
+              <span className="kicker text-primary">Saved for later</span>
+              <h1 className="display mt-1.5 flex items-center gap-3 text-[2.25rem] md:text-[2.9rem]">
                 Your Gifting Ideas
-                <span className="grid size-9 place-items-center rounded-full bg-primary/[0.08] text-primary">
-                  <Heart className="size-4.5" aria-hidden />
-                </span>
+                <Heart className="size-6 text-primary" aria-hidden />
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 {items.length === 0
@@ -86,11 +83,10 @@ export default function WishlistPage() {
                 </Button>
               </div>
             )}
-          </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 md:py-10">
+      <div className="container py-8 md:py-10">
         {items.length === 0 ? (
           <EmptyState
             icon={Heart}
@@ -105,19 +101,16 @@ export default function WishlistPage() {
             }
           />
         ) : (
-          <ul className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-3 xl:grid-cols-4">
             {items.map((item) => (
-              <li
-                key={item.id}
-                className="group/wl relative flex flex-col overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 hover:shadow-[0_24px_48px_-24px_rgb(0_0_0/0.35)]"
-              >
-                <Link href={`/product/${item.slug}`} className="relative block aspect-square overflow-hidden bg-muted">
+              <li key={item.id} className="group/wl relative flex flex-col">
+                <Link href={`/product/${item.slug}`} className="studio relative block aspect-square overflow-hidden rounded-xl">
                   <Image
                     src={item.image}
                     alt={item.name}
                     fill
                     sizes="(max-width: 768px) 50vw, 25vw"
-                    className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/wl:scale-[1.06]"
+                    className="object-contain p-4 mix-blend-multiply transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/wl:scale-[1.04] dark:mix-blend-normal"
                   />
                   <span className="absolute right-3 bottom-3 grid size-9 translate-y-1 place-items-center rounded-full bg-white text-foreground opacity-0 shadow-lg transition-all duration-300 group-hover/wl:translate-y-0 group-hover/wl:opacity-100">
                     <ArrowUpRight className="size-4" aria-hidden />
@@ -131,17 +124,17 @@ export default function WishlistPage() {
                   <Heart className="size-4 fill-current" aria-hidden />
                 </button>
 
-                <div className="flex flex-1 flex-col p-4">
+                <div className="flex flex-1 flex-col pt-3.5">
                   {item.brand && (
-                    <span className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">{item.brand}</span>
+                    <span className="text-[10.5px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">{item.brand}</span>
                   )}
                   <Link
                     href={`/product/${item.slug}`}
-                    className="mt-1 line-clamp-2 min-h-[2.6rem] text-[14px] font-semibold leading-snug transition-colors hover:text-primary"
+                    className="display mt-1 line-clamp-2 min-h-[2.6rem] text-[1.05rem] leading-snug transition-colors hover:text-primary"
                   >
                     {item.name}
                   </Link>
-                  <p className="mt-2 text-lg font-extrabold tracking-tight tabular-nums">{formatCurrency(item.price)}</p>
+                  <p className="numeral mt-2 text-[1.2rem]">{formatCurrency(item.price)}</p>
                   <div className="mt-3 flex gap-2">
                     <Button size="sm" className="flex-1" onClick={() => moveToCart(item)}>
                       <ShoppingCart aria-hidden /> Add to Cart

@@ -70,11 +70,11 @@ export function CartSidebar({ compact = false }: { compact?: boolean }) {
       <SheetContent className="flex h-full w-full flex-col gap-0 p-0 sm:max-w-md">
         {/* Header */}
         <SheetHeader className="flex-shrink-0 border-b px-6 py-4">
-          <SheetTitle className="flex items-baseline justify-between pr-8 text-lg font-bold tracking-tight">
-            <span>
+          <SheetTitle className="flex items-baseline justify-between pr-8">
+            <span className="display text-[1.35rem]">
               Your Cart
               {items.length > 0 && (
-                <span className="ml-2 text-sm font-medium text-muted-foreground">
+                <span className="ml-2 font-sans text-[13px] font-medium tracking-normal text-muted-foreground">
                   {items.length} {items.length === 1 ? "item" : "items"} · {pieces} pcs
                 </span>
               )}
@@ -98,13 +98,10 @@ export function CartSidebar({ compact = false }: { compact?: boolean }) {
         <div className="scrollbar-thin flex-grow overflow-y-auto px-6 py-5">
           {items.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center">
-              <span className="relative mb-6 grid place-items-center">
-                <span aria-hidden className="absolute size-28 rounded-full border border-primary/10" />
-                <span className="grid size-20 place-items-center rounded-3xl bg-surface text-primary ring-1 ring-foreground/5">
-                  <ShoppingBag className="size-8" strokeWidth={1.6} aria-hidden />
-                </span>
+              <span className="mb-6 grid size-16 place-items-center rounded-full border border-primary/30 text-primary">
+                <ShoppingBag className="size-7" strokeWidth={1.6} aria-hidden />
               </span>
-              <p className="mb-1 text-base font-bold">Your cart is empty</p>
+              <p className="display mb-1.5 text-[1.35rem]">Your cart is empty</p>
               <p className="mb-7 max-w-64 text-sm text-muted-foreground">
                 Browse our catalogue to find the perfect corporate gift.
               </p>
@@ -117,13 +114,13 @@ export function CartSidebar({ compact = false }: { compact?: boolean }) {
               </SheetClose>
             </div>
           ) : (
-            <ul className="divide-y divide-border/70">
+            <ul className="divide-y divide-foreground/[0.08]">
               {items.map((product) => (
                 <li key={product.id} className="group/item flex gap-4 py-4 first:pt-0 last:pb-0">
                   <SheetClose asChild>
                     <Link
                       href={`/product/${product.slug}`}
-                      className="relative size-[4.5rem] shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-foreground/5"
+                      className="studio relative size-[4.5rem] shrink-0 overflow-hidden rounded-lg"
                       aria-label={product.name}
                     >
                       <Image
@@ -131,7 +128,7 @@ export function CartSidebar({ compact = false }: { compact?: boolean }) {
                         alt={product.name}
                         fill
                         sizes="72px"
-                        className="object-cover transition-transform duration-300 group-hover/item:scale-105"
+                        className="object-contain p-1 mix-blend-multiply transition-transform duration-300 group-hover/item:scale-105 dark:mix-blend-normal"
                       />
                     </Link>
                   </SheetClose>
@@ -155,11 +152,7 @@ export function CartSidebar({ compact = false }: { compact?: boolean }) {
                       </button>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {product.variantLabel && (
-                        <span className="mr-1.5 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-foreground">
-                          {product.variantLabel}
-                        </span>
-                      )}
+                      {product.variantLabel && <span className="font-semibold text-foreground">{product.variantLabel} · </span>}
                       {formatCurrency(product.price)} / pc
                       {product.minQuantity > 1 ? ` · min ${product.minQuantity}` : ""}
                     </p>
@@ -185,9 +178,7 @@ export function CartSidebar({ compact = false }: { compact?: boolean }) {
                           <Plus className="size-3.5" aria-hidden />
                         </button>
                       </div>
-                      <p className="text-[14px] font-extrabold tracking-tight tabular-nums">
-                        {formatCurrency(product.price * product.qty)}
-                      </p>
+                      <p className="numeral text-[15px]">{formatCurrency(product.price * product.qty)}</p>
                     </div>
                   </div>
                 </li>
@@ -208,9 +199,9 @@ export function CartSidebar({ compact = false }: { compact?: boolean }) {
                 <span>Shipping</span>
                 <span className="text-xs font-medium text-muted-foreground">By weight &amp; destination · at checkout</span>
               </div>
-              <div className="flex justify-between border-t pt-2 text-base font-extrabold tracking-tight">
-                <span>Subtotal</span>
-                <span className="tabular-nums">{formatCurrency(subtotal)}</span>
+              <div className="flex items-baseline justify-between border-t border-foreground/[0.12] pt-2">
+                <span className="text-[15px] font-semibold">Subtotal</span>
+                <span className="numeral text-[1.5rem] leading-none">{formatCurrency(subtotal)}</span>
               </div>
             </div>
 

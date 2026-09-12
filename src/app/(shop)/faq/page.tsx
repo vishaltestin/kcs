@@ -45,15 +45,15 @@ export default function FaqPage() {
       <div className="container mt-10 grid gap-10 md:mt-12 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-14">
         {/* Section nav */}
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          <p className="eyebrow text-muted-foreground">Browse by topic</p>
-          <nav aria-label="FAQ sections" className="mt-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar lg:flex-col lg:overflow-visible">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Contents</p>
+          <nav aria-label="FAQ sections" className="no-scrollbar mt-3 flex gap-x-5 overflow-x-auto border-b border-foreground/[0.12] pb-1 lg:flex-col lg:gap-0 lg:border-0 lg:overflow-visible">
             {FAQ_SECTIONS.map((section, index) => (
               <a
                 key={section.id}
                 href={`#${section.id}`}
-                className="group flex shrink-0 items-center gap-3 rounded-xl bg-card px-3.5 py-2.5 text-[13px] font-semibold ring-1 ring-foreground/[0.07] transition-colors hover:bg-primary hover:text-primary-foreground hover:ring-primary lg:shrink"
+                className="group flex shrink-0 items-baseline gap-3 py-2 text-[13.5px] font-semibold text-foreground/80 transition-colors hover:text-primary lg:shrink lg:border-b lg:border-foreground/[0.08] lg:py-3"
               >
-                <span className="grid size-6 shrink-0 place-items-center rounded-md bg-primary/[0.08] text-[11px] font-bold text-primary tabular-nums group-hover:bg-white/20 group-hover:text-white">
+                <span className="numeral text-[11px] text-muted-foreground/70 transition-colors group-hover:text-primary">
                   {String(index + 1).padStart(2, "0")}
                 </span>
                 <span className="whitespace-nowrap lg:whitespace-normal">{section.title}</span>
@@ -61,9 +61,9 @@ export default function FaqPage() {
             ))}
           </nav>
 
-          <div className="mt-8 hidden rounded-2xl bg-brand-charcoal p-5 text-white lg:block">
-            <p className="eyebrow text-brand-amber">Still stuck?</p>
-            <p className="mt-1.5 text-[15px] font-bold leading-snug">Talk to a gifting manager</p>
+          <div className="mt-8 hidden rounded-xl bg-brand-ink p-5 text-white lg:block">
+            <span className="kicker text-brand-amber">Still stuck?</span>
+            <p className="display mt-1.5 text-[1.2rem] leading-snug text-white">Talk to a gifting manager</p>
             <p className="mt-1 text-xs text-white/70">Mon–Sat, 10 am – 7 pm IST</p>
             <div className="mt-4 grid gap-2">
               <Button asChild size="sm" className="justify-start">
@@ -77,16 +77,18 @@ export default function FaqPage() {
         </aside>
 
         {/* Sections */}
-        <div className="space-y-12">
+        <div className="space-y-16">
           {FAQ_SECTIONS.map((section, index) => (
             <section key={section.id} id={section.id} className="scroll-mt-28">
-              <div className="mb-4 flex items-end justify-between gap-4">
+              <div className="mb-6 grid gap-4 sm:grid-cols-[4rem_minmax(0,1fr)]">
+                <span className="numeral text-[2rem] leading-none text-primary sm:text-[2.5rem]">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
                 <div>
-                  <p className="eyebrow text-primary">
-                    {String(index + 1).padStart(2, "0")} · {section.items.length} questions
+                  <h2 className="display text-[1.75rem] md:text-[2.1rem]">{section.title}</h2>
+                  <p className="mt-1.5 text-[14.5px] text-muted-foreground">
+                    {section.blurb} <span className="text-foreground/50">· {section.items.length} questions</span>
                   </p>
-                  <h2 className="mt-1 text-2xl font-extrabold tracking-tight md:text-[1.7rem]">{section.title}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{section.blurb}</p>
                 </div>
               </div>
               <FaqAccordion items={section.items} sectionId={section.id} />
@@ -94,16 +96,15 @@ export default function FaqPage() {
           ))}
 
           {/* Bottom CTA */}
-          <section className="relative overflow-hidden rounded-3xl bg-brand-charcoal px-6 py-10 text-white md:px-12 md:py-12">
-            <div aria-hidden className="dot-grid absolute inset-0 opacity-40" />
-            <span aria-hidden className="absolute -top-24 -right-16 size-72 rounded-full bg-primary/25 blur-3xl" />
+          <section className="relative overflow-hidden rounded-xl bg-brand-ink px-6 py-10 text-white md:px-12 md:py-14">
+            <span aria-hidden className="absolute -top-24 -right-16 size-72 rounded-full bg-primary/30 blur-3xl" />
             <div className="relative grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
               <div className="max-w-xl">
-                <p className="eyebrow text-brand-amber">Didn&apos;t find your answer?</p>
-                <h2 className="mt-2 text-2xl font-extrabold tracking-tight md:text-3xl">
+                <span className="kicker text-brand-amber">Didn&apos;t find your answer?</span>
+                <h2 className="display mt-3 text-[1.9rem] text-white md:text-[2.4rem]">
                   We reply to every enquiry within a few working hours.
                 </h2>
-                <p className="mt-3 text-sm text-white/75 md:text-base">
+                <p className="mt-3 text-[15px] text-white/75">
                   Share your quantity, budget and timeline — you&apos;ll get curated options, a logo mock-up and a formal
                   quotation from a dedicated gifting manager.
                 </p>

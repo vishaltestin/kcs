@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Check, ChevronDown, ChevronUp, SlidersHorizontal, Tag, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronUp, SlidersHorizontal, Tag, X } from "lucide-react";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -154,14 +154,14 @@ export function ProductFilters({
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="hidden w-full shrink-0 md:block md:w-64 lg:w-72">
-        <div className="sticky top-20 space-y-4">
-          <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.07]">
-            <div className="flex items-center justify-between border-b px-5 py-3.5">
-              <h2 className="flex items-center gap-2 text-sm font-extrabold tracking-tight">
-                <SlidersHorizontal className="size-4 text-primary" aria-hidden /> Filters
+      <aside className="hidden w-full shrink-0 md:block md:w-56 lg:w-60 xl:w-64">
+        <div className="sticky top-20 space-y-8">
+          <div>
+            <div className="flex items-center justify-between border-b border-foreground/[0.12] pb-3">
+              <h2 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground">
+                <SlidersHorizontal className="size-3.5 text-primary" aria-hidden /> Refine
                 {activeCount > 0 && (
-                  <span className="grid size-5 place-items-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+                  <span className="numeral grid size-5 place-items-center rounded-full bg-primary text-[11px] text-primary-foreground">
                     {activeCount}
                   </span>
                 )}
@@ -179,21 +179,27 @@ export function ProductFilters({
               <ActiveChips
                 chips={chips}
                 onRemove={(c) => toggle(c.key, multi(c.key), c.value)}
-                className="border-b px-5 py-3"
+                className="border-b border-foreground/[0.08] py-3"
               />
             )}
-            <div className="px-5 py-1">{panel}</div>
+            <div>{panel}</div>
           </div>
 
-          {/* Quick category links */}
-          <div className="rounded-2xl bg-brand-charcoal p-5 text-white">
-            <p className="eyebrow text-brand-amber">Need it branded?</p>
-            <p className="mt-2 text-sm font-semibold leading-snug">
+          {/* Branding note */}
+          <div className="border-t-2 border-primary pt-4">
+            <p className="kicker text-primary">Need it branded?</p>
+            <p className="mt-2 text-[13.5px] leading-snug text-foreground/80">
               Logo print, engraving and custom packaging on every product.
             </p>
-            <Button asChild variant="glass" size="sm" className="mt-4 w-full">
-              <Link href="/contact-us">Talk to a gifting manager</Link>
-            </Button>
+            <Link
+              href="/contact-us"
+              className="group/brand mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-foreground transition-colors hover:text-primary"
+            >
+              <span className="underline decoration-foreground/25 underline-offset-[5px] group-hover/brand:decoration-primary">
+                Talk to a gifting manager
+              </span>
+              <ArrowRight className="size-3.5 transition-transform group-hover/brand:translate-x-0.5" aria-hidden />
+            </Link>
           </div>
         </div>
       </aside>
@@ -218,11 +224,11 @@ function ActiveChips({
         <button
           key={`${chip.key}-${chip.value}`}
           onClick={() => onRemove(chip)}
-          className="group/chip inline-flex items-center gap-1 rounded-full bg-primary/[0.08] py-1 pr-1.5 pl-2.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+          className="group/chip inline-flex items-center gap-1 rounded-md bg-foreground py-1 pr-1.5 pl-2.5 text-xs font-semibold text-background transition-colors hover:bg-primary"
           aria-label={`Remove filter ${chip.label}`}
         >
           {chip.label}
-          <span className="grid size-4 place-items-center rounded-full bg-primary/10 group-hover/chip:bg-white/20">
+          <span className="grid size-4 place-items-center rounded-full bg-white/15">
             <X className="size-2.5" aria-hidden />
           </span>
         </button>
@@ -256,7 +262,7 @@ function FilterPanel({
   return (
     <Accordion type="multiple" defaultValue={["categories", "price", "brands"]} className="w-full">
       <AccordionItem value="categories">
-        <AccordionTrigger className="py-3.5 text-[13px] font-bold tracking-tight hover:no-underline">
+        <AccordionTrigger className="py-3.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/80 hover:no-underline">
           Categories
         </AccordionTrigger>
         <AccordionContent className="pb-3">
@@ -291,7 +297,7 @@ function FilterPanel({
       </AccordionItem>
 
       <AccordionItem value="price">
-        <AccordionTrigger className="py-3.5 text-[13px] font-bold tracking-tight hover:no-underline">
+        <AccordionTrigger className="py-3.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/80 hover:no-underline">
           Price per piece
         </AccordionTrigger>
         <AccordionContent className="pb-3">
@@ -305,10 +311,10 @@ function FilterPanel({
                   onClick={() => onTogglePrice(option.label)}
                   aria-pressed={active}
                   className={cn(
-                    "flex items-center justify-between rounded-lg border px-3 py-2 text-left text-[12.5px] font-semibold transition-all",
+                    "flex items-center justify-between rounded-md border px-3 py-2 text-left text-[12.5px] font-medium transition-all",
                     active
-                      ? "border-primary bg-primary/[0.06] text-primary"
-                      : "border-border text-foreground/80 hover:border-primary/40 hover:text-foreground"
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border text-foreground/80 hover:border-foreground/50 hover:text-foreground"
                   )}
                 >
                   <span className="flex items-center gap-1.5">
@@ -324,7 +330,7 @@ function FilterPanel({
       </AccordionItem>
 
       <AccordionItem value="brands" className="border-b-0">
-        <AccordionTrigger className="py-3.5 text-[13px] font-bold tracking-tight hover:no-underline">
+        <AccordionTrigger className="py-3.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/80 hover:no-underline">
           Brand
         </AccordionTrigger>
         <AccordionContent className="pb-3">

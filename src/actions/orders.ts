@@ -7,6 +7,7 @@ import { checkoutSchema } from "@/lib/validations/shop";
 import { generateOrderNumber } from "@/lib/utils";
 import { getShippingConfig, getStoreSettings } from "@/lib/queries/shipping";
 import { quoteShipping } from "@/lib/shipping";
+import { resolveVariantTiers } from "@/lib/variants";
 import { resolvePlaceOfSupply, splitInclusive, summariseTax } from "@/lib/tax";
 import { allocateInvoiceNumber } from "@/lib/invoice";
 import type { ActionResult } from "@/types";
@@ -130,7 +131,8 @@ export async function placeOrderAction(
       };
     }
 
-    const tierSource = variant ? variant.prices : product.prices;
+    // Variants price from the product tiers ± adjustment (shared) or their own table (custom).
+    const tierSource = variant ? resolveVariantTiers(product.variantPricing, product.prices, variant) : product.prices;
     const tiers = [...tierSource].sort((a, b) => b.minQuantity - a.minQuantity);
     const tier = tiers.find((t) => item.quantity >= t.minQuantity) ?? tiers[tiers.length - 1];
     const fallback = variant ? Number(variant.basePrice ?? 0) : Number(product.basePrice ?? 0);

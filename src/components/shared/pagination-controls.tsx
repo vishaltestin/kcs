@@ -36,13 +36,13 @@ export function PaginationControls({
   const next = page < totalPages ? page + 1 : null;
 
   const edge =
-    "inline-flex h-10 items-center gap-1.5 rounded-full border bg-card px-4 text-sm font-semibold transition-all";
+    "inline-flex h-10 items-center gap-1.5 px-2 text-[13px] font-semibold uppercase tracking-[0.12em] transition-colors";
 
   return (
-    <nav className="mt-10 flex flex-col items-center gap-3" aria-label="Pagination">
+    <nav className="mt-12 flex flex-col items-center gap-3 border-t border-foreground/[0.12] pt-6" aria-label="Pagination">
       <div className="flex items-center gap-1.5">
         {prev ? (
-          <Link href={buildHref(prev)} className={cn(edge, "hover:border-primary hover:text-primary")} aria-label="Previous page">
+          <Link href={buildHref(prev)} className={cn(edge, "hover:text-primary")} aria-label="Previous page">
             <ChevronLeft className="size-4" aria-hidden /> <span className="hidden sm:inline">Prev</span>
           </Link>
         ) : (
@@ -51,7 +51,7 @@ export function PaginationControls({
           </span>
         )}
 
-        <div className="mx-1 flex items-center gap-1">
+        <div className="mx-3 flex items-center gap-1">
           {pages.map((p, index) =>
             p === "…" ? (
               <span key={`ellipsis-${index}`} className="grid size-10 place-items-center text-muted-foreground" aria-hidden>
@@ -63,10 +63,10 @@ export function PaginationControls({
                 href={buildHref(p)}
                 aria-current={p === page ? "page" : undefined}
                 className={cn(
-                  "grid size-10 place-items-center rounded-full text-sm font-semibold transition-all tabular-nums",
+                  "numeral relative grid size-10 place-items-center text-[15px] transition-colors",
                   p === page
-                    ? "bg-primary text-primary-foreground shadow-[0_8px_18px_-8px_var(--primary)]"
-                    : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                    ? "text-primary after:absolute after:inset-x-2 after:bottom-1 after:h-px after:bg-primary"
+                    : "text-foreground/70 hover:text-foreground"
                 )}
               >
                 {p}
@@ -76,7 +76,7 @@ export function PaginationControls({
         </div>
 
         {next ? (
-          <Link href={buildHref(next)} className={cn(edge, "hover:border-primary hover:text-primary")} aria-label="Next page">
+          <Link href={buildHref(next)} className={cn(edge, "hover:text-primary")} aria-label="Next page">
             <span className="hidden sm:inline">Next</span> <ChevronRight className="size-4" aria-hidden />
           </Link>
         ) : (
@@ -85,7 +85,7 @@ export function PaginationControls({
           </span>
         )}
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         Page {page} of {totalPages}
       </p>
     </nav>

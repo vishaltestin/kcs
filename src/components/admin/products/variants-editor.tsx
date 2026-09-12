@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
-import { ChevronDown, Copy, Layers3, Plus, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
+import { AlertCircle, ChevronDown, Copy, Layers3, Plus, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { ImagePicker } from "@/components/admin/image-picker";
 import { NumberField } from "@/components/admin/number-field";
 import type { productSchema, PricingModeValue } from "@/lib/validations/admin";
-import { attributeKey, combinations, mergeVariants, type OptionAxis, type VariantInput } from "@/lib/variants";
+import { attributeKey, combinations, mergeVariants, resolveVariantTiers, type OptionAxis, type VariantInput } from "@/lib/variants";
 import { formatGrams } from "@/lib/shipping";
 import { swatchFor as storefrontSwatch } from "@/components/shop/variant-selector";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -54,9 +54,17 @@ export function VariantsEditor({
   productWeightGrams: number | undefined;
 }) {
   const hasVariants = form.watch("hasVariants");
+  const variantPricing = form.watch("variantPricing") ?? "SHARED";
   const options = form.watch("options");
   const variants = form.watch("variants");
+  const productTiers = form.watch("prices") ?? [];
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const shared = variantPricing === "SHARED";
+  // Only tiers the admin has finished typing feed the "effective price"
+  // preview; a blank MRP/price box must never take the editor down.
+  const validProductTiers = productTiers.filter(
+    (t) => t && Number.isFinite(Number(t.price)) && Number(t.price) > 0 && Number.isFinite(Number(t.minQuantity)),
+  );
 
   const axes: OptionAxis[] = (options ?? []).map((o) => ({ name: o.name, values: o.values }));
   const comboCount = combinations(axes).length;
@@ -83,6 +91,9 @@ export function VariantsEditor({
     (typeof errors.variants?.message === "string" && errors.variants.message) ||
     (typeof errors.variants?.root?.message === "string" && errors.variants.root.message) ||
     null;
+  // Field-level problems inside rows (a blank stock, a tier without a price…)
+  // are summarised here so the admin knows *which* variant is red and why.
+  const rowProblems = collectRowProblems(errors.variants, variants ?? []);
   const optionsError =
     (typeof errors.options?.message === "string" && errors.options.message) ||
     (typeof errors.options?.root?.message === "string" && errors.options.root.message) ||
@@ -201,6 +212,106 @@ export function VariantsEditor({
             </datalist>
           </div>
 
+          {/* Pricing strategy */}
+          {pricingMode !== "ENQUIRY" && (
+            <FormField
+              control={form.control}
+              name="variantPricing"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <div>
+                    <p className="text-sm font-semibold">How are variants priced?</p>
+                    <p className="text-xs text-muted-foreground">
+                      Most apparel shares one price list — only a size surcharge differs. Switch to custom when
+                      every variant needs its own table.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Variant pricing">
+                    {(
+                      [
+                        {
+                          value: "SHARED",
+                          title: "Shared price list",
+                          text:
+                            pricingMode === "SINGLE"
+                              ? "The product price applies to every variant. Add a ₹ adjustment per variant if needed (e.g. +₹30 for XXL)."
+                              : "The product's tiers apply to every variant. Add a ₹ adjustment per variant if needed (e.g. +₹30 for XXL).",
+                        },
+                        {
+                          value: "CUSTOM",
+                          title: "Custom per variant",
+                          text: "Each variant has its own price table. Use “Copy to all variants” to start from one and tweak.",
+                        },
+                      ] as const
+                    ).map((opt) => {
+                      const selected = field.value === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => {
+                            field.onChange(opt.value);
+                            form.clearErrors(["variants", "prices"]);
+                            if (opt.value === "CUSTOM") {
+                              // Seed empty custom tables from the shared list so nothing starts blank.
+                              const current = (form.getValues("variants") ?? []) as VariantInput[];
+                              setVariants(
+                                current.map((v) =>
+                                  v.prices?.length
+                                    ? v
+                                    : { ...v, prices: resolveVariantTiers("SHARED", validProductTiers, v) },
+                                ),
+                              );
+                            }
+                          }}
+                          className={cn(
+                            "flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all",
+                            selected
+                              ? "border-primary bg-primary/[0.05] ring-2 ring-primary/20"
+                              : "border-border hover:border-primary/40 hover:bg-muted/40",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border-2",
+                              selected ? "border-primary" : "border-muted-foreground/40",
+                            )}
+                            aria-hidden
+                          >
+                            {selected && <span className="size-2 rounded-full bg-primary" />}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold">{opt.title}</span>
+                            <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{opt.text}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {shared && validProductTiers.length === 0 && (
+                    <p className="flex items-start gap-2 rounded-lg bg-brand-amber/10 px-3 py-2 text-xs text-amber-900 ring-1 ring-brand-amber/40">
+                      <AlertCircle className="mt-px size-3.5 shrink-0" aria-hidden />
+                      Enter the product price{pricingMode === "BULK" ? " tiers" : ""} in the Pricing card above — every
+                      variant will use {pricingMode === "BULK" ? "them" : "it"}.
+                    </p>
+                  )}
+                  {shared && validProductTiers.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Shared list:{" "}
+                      {validProductTiers
+                        .slice()
+                        .sort((a, b) => a.minQuantity - b.minQuantity)
+                        .map((t) => `${pricingMode === "SINGLE" ? "" : `${t.minQuantity}+ `}${formatCurrency(t.price)}`)
+                        .join(" · ")}
+                    </p>
+                  )}
+                </FormItem>
+              )}
+            />
+          )}
+
           {/* Generate */}
           <div
             className={cn(
@@ -241,13 +352,19 @@ export function VariantsEditor({
                       <th className="px-3 py-2.5">Variant</th>
                       <th className="w-40 px-3 py-2.5">SKU</th>
                       <th className="w-24 px-3 py-2.5">Stock</th>
-                      {pricingMode === "SINGLE" && (
+                      {pricingMode !== "ENQUIRY" && shared && (
+                        <>
+                          <th className="w-28 px-3 py-2.5">Adjust ₹</th>
+                          <th className="px-3 py-2.5">Effective price</th>
+                        </>
+                      )}
+                      {pricingMode === "SINGLE" && !shared && (
                         <>
                           <th className="w-28 px-3 py-2.5">Price ₹</th>
                           <th className="w-28 px-3 py-2.5">MRP ₹</th>
                         </>
                       )}
-                      {pricingMode === "BULK" && <th className="px-3 py-2.5">Tiers</th>}
+                      {pricingMode === "BULK" && !shared && <th className="px-3 py-2.5">Tiers</th>}
                       <th className="w-28 px-3 py-2.5">Weight g</th>
                       <th className="w-12 px-3 py-2.5">
                         <span className="sr-only">Details</span>
@@ -269,6 +386,9 @@ export function VariantsEditor({
                           tiers={tiers}
                           open={open}
                           pricingMode={pricingMode}
+                          shared={shared}
+                          productTiers={validProductTiers}
+                          problems={rowProblems.get(index)}
                           productWeightGrams={productWeightGrams}
                           onToggle={() => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))}
                           onCopyPricesToAll={() => {
@@ -289,11 +409,74 @@ export function VariantsEditor({
               </div>
             </div>
           )}
-          {variantsError && <p className="text-sm text-destructive">{variantsError}</p>}
+          {(variantsError || rowProblems.size > 0) && (
+            <div className="rounded-xl bg-destructive/[0.05] px-4 py-3 text-sm text-destructive ring-1 ring-destructive/25">
+              <p className="flex items-center gap-2 font-semibold">
+                <AlertCircle className="size-4" aria-hidden />
+                {variantsError ?? "Some variants need attention"}
+              </p>
+              {rowProblems.size > 0 && (
+                <ul className="mt-1.5 list-disc space-y-0.5 pl-6 text-[13px]">
+                  {Array.from(rowProblems.entries())
+                    .slice(0, 8)
+                    .map(([index, messages]) => (
+                      <li key={index}>
+                        <span className="font-medium">{variants?.[index]?.label ?? `Variant ${index + 1}`}:</span>{" "}
+                        {messages.join(" · ")}
+                      </li>
+                    ))}
+                  {rowProblems.size > 8 && <li>…and {rowProblems.size - 8} more</li>}
+                </ul>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
   );
+}
+
+/* -------------------------------------------------------------------------- */
+
+type RowErrors = Record<string, unknown> | undefined;
+
+/** Flatten RHF's nested error tree for `variants` into per-row human messages. */
+function collectRowProblems(errors: unknown, variants: { label: string }[]): Map<number, string[]> {
+  const out = new Map<number, string[]>();
+  if (!errors || typeof errors !== "object") return out;
+  const FIELD_LABELS: Record<string, string> = {
+    stock: "stock",
+    sku: "SKU",
+    priceDelta: "adjustment",
+    minQuantity: "min qty",
+    price: "price",
+    mrp: "MRP",
+    weightGrams: "weight",
+    image: "image",
+  };
+  const walk = (node: unknown, path: string[], sink: string[]) => {
+    if (!node || typeof node !== "object") return;
+    const rec = node as Record<string, unknown>;
+    if (typeof rec.message === "string" && path.length) {
+      const leaf = path.filter((p) => !/^\d+$/.test(p)).at(-1) ?? "";
+      const tierIndex = path.length >= 2 && path[0] === "prices" ? Number(path[1]) + 1 : null;
+      const where = tierIndex ? `tier ${tierIndex} ${FIELD_LABELS[leaf] ?? leaf}` : FIELD_LABELS[leaf] ?? leaf;
+      sink.push(`${where} — ${rec.message}`);
+      return;
+    }
+    for (const [key, value] of Object.entries(rec)) {
+      if (key === "ref" || key === "type" || key === "types") continue;
+      walk(value, [...path, key], sink);
+    }
+  };
+  variants.forEach((_, index) => {
+    const rowErrors = (errors as Record<string, RowErrors>)[index];
+    if (!rowErrors) return;
+    const sink: string[] = [];
+    walk(rowErrors, [], sink);
+    if (sink.length) out.set(index, Array.from(new Set(sink)));
+  });
+  return out;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -412,6 +595,9 @@ function VariantRows({
   tiers,
   open,
   pricingMode,
+  shared,
+  productTiers,
+  problems,
   productWeightGrams,
   onToggle,
   onCopyPricesToAll,
@@ -424,21 +610,31 @@ function VariantRows({
   tiers: VariantInput["prices"];
   open: boolean;
   pricingMode: PricingModeValue;
+  shared: boolean;
+  productTiers: VariantInput["prices"];
+  problems: string[] | undefined;
   productWeightGrams: number | undefined;
   onToggle: () => void;
   onCopyPricesToAll: () => void;
   onRemove: () => void;
 }) {
   const inactive = !variant.isActive;
-  const colSpan = 6 + (pricingMode === "SINGLE" ? 2 : pricingMode === "BULK" ? 1 : 0);
-  const rowErrors = form.formState.errors.variants?.[index];
+  const priceCols = pricingMode === "ENQUIRY" ? 0 : shared ? 2 : pricingMode === "SINGLE" ? 2 : 1;
+  const colSpan = 6 + priceCols;
+  const rowErrors = problems && problems.length > 0;
+  // The adjustment box may hold "" / "-" while the admin is typing — treat anything non-finite as 0.
+  const delta = Number.isFinite(Number(variant.priceDelta)) ? Number(variant.priceDelta) : 0;
+  const effective = shared && pricingMode !== "ENQUIRY" ? resolveVariantTiers("SHARED", productTiers, variant) : [];
 
   const setTiers = (next: VariantInput["prices"]) =>
     form.setValue(`variants.${index}.prices`, next as Values["variants"][number]["prices"], { shouldDirty: true });
 
   return (
     <>
-      <tr className={cn("align-top transition-colors", inactive && "bg-muted/30 text-muted-foreground", rowErrors && "bg-destructive/[0.04]")}>
+      <tr
+        className={cn("align-top transition-colors", inactive && "bg-muted/30 text-muted-foreground", rowErrors && "bg-destructive/[0.05]")}
+        title={rowErrors ? problems.join("\n") : undefined}
+      >
         <td className="px-3 py-2.5">
           <FormField
             control={form.control}
@@ -460,6 +656,11 @@ function VariantRows({
             )}
             <div className="min-w-0">
               <p className={cn("truncate font-semibold", inactive && "line-through decoration-muted-foreground/60")}>{variant.label}</p>
+              {rowErrors && (
+                <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-destructive">
+                  <AlertCircle className="size-3" aria-hidden /> {problems[0]}
+                </p>
+              )}
               <p className="mt-0.5 flex flex-wrap gap-1">
                 {axes.map((a) => {
                   const value = variant.attributes[a.name];
@@ -503,7 +704,51 @@ function VariantRows({
             )}
           />
         </td>
-        {pricingMode === "SINGLE" && (
+        {pricingMode !== "ENQUIRY" && shared && (
+          <>
+            <td className="px-3 py-2.5">
+              <FormField
+                control={form.control}
+                name={`variants.${index}.priceDelta`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <NumberField
+                        field={{ ...field, value: field.value === 0 ? undefined : field.value } as typeof field}
+                        allowNegative
+                        placeholder="0"
+                        className="h-9"
+                        aria-label={`Price adjustment for ${variant.label}`}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </td>
+            <td className="px-3 py-2.5">
+              {effective.length === 0 ? (
+                <span className="text-xs text-muted-foreground">Set the product price first</span>
+              ) : (
+                <span className="flex flex-wrap gap-1">
+                  {effective.map((t) => (
+                    <span key={t.minQuantity} className="rounded-md bg-surface px-1.5 py-0.5 text-[11px] tabular-nums ring-1 ring-foreground/[0.06]">
+                      {pricingMode === "BULK" ? `${t.minQuantity}+ ` : ""}
+                      {formatCurrency(t.price)}
+                      {delta !== 0 && (
+                        <span className={cn("ml-1", delta > 0 ? "text-amber-700" : "text-success")}>
+                          ({delta > 0 ? "+" : "−"}
+                          {formatCurrency(Math.abs(delta))})
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </td>
+          </>
+        )}
+        {pricingMode === "SINGLE" && !shared && (
           <>
             <td className="px-3 py-2.5">
               <FormField
@@ -535,7 +780,7 @@ function VariantRows({
             </td>
           </>
         )}
-        {pricingMode === "BULK" && (
+        {pricingMode === "BULK" && !shared && (
           <td className="px-3 py-2.5">
             <button type="button" onClick={onToggle} className="group/tiers text-left">
               {tiers.length === 0 ? (
@@ -544,7 +789,8 @@ function VariantRows({
                 <span className="flex flex-wrap gap-1">
                   {tiers.map((t, i) => (
                     <span key={i} className="rounded-md bg-surface px-1.5 py-0.5 text-[11px] tabular-nums ring-1 ring-foreground/[0.06] group-hover/tiers:ring-primary/40">
-                      {t.minQuantity}+ {Number.isFinite(t.price) ? formatCurrency(t.price) : "₹—"}
+                      {Number.isFinite(Number(t?.minQuantity)) ? t.minQuantity : "?"}+{" "}
+                      {Number.isFinite(Number(t?.price)) && Number(t?.price) > 0 ? formatCurrency(t.price) : "₹—"}
                     </span>
                   ))}
                 </span>
@@ -561,6 +807,7 @@ function VariantRows({
                 <FormControl>
                   <NumberField
                     field={{ ...field, value: field.value ?? undefined } as typeof field}
+                    emptyValue={null}
                     integer
                     min={0}
                     placeholder={productWeightGrams ? String(productWeightGrams) : "—"}
@@ -602,7 +849,7 @@ function VariantRows({
               />
 
               <div className="space-y-4">
-                {pricingMode === "BULK" && (
+                {pricingMode === "BULK" && !shared && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold">Price tiers for {variant.label}</p>
@@ -670,8 +917,8 @@ function VariantRows({
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        const last = tiers.at(-1);
-                        const nextMin = last && Number.isFinite(last.minQuantity) ? last.minQuantity * 5 : 10;
+                        const mins = tiers.map((t) => Number(t?.minQuantity)).filter((n) => Number.isFinite(n) && n >= 1);
+                        const nextMin = mins.length ? Math.max(...mins) * 5 : 10;
                         setTiers([...tiers, emptyTier(nextMin)]);
                       }}
                     >
@@ -696,7 +943,8 @@ function VariantRows({
                           <FormItem>
                             <FormLabel className="text-xs">{["Length", "Width", "Height"][i]} cm</FormLabel>
                             <FormControl>
-                              <NumberField field={{ ...field, value: field.value ?? undefined } as typeof field} min={0} placeholder="—" className="h-9" />
+                              <NumberField field={{ ...field, value: field.value ?? undefined } as typeof field}
+                    emptyValue={null} min={0} placeholder="—" className="h-9" />
                             </FormControl>
                           </FormItem>
                         )}

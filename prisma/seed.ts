@@ -1121,7 +1121,7 @@ const P: ProductSeed[] = [
     slug: "drinkware-gift-set-trio",
     brand: "Borosil",
     categories: ["drinkwares", "combo-gift-sets", "work-from-home"],
-    image: "/images/drinkwares.webp",
+    image: "/images/product/featured/drinkwares-78-2024-04.webp",
     introtext:
       "Bottle, tumbler and coaster trio for desk-to-commute hydration.",
     description:
@@ -1599,6 +1599,9 @@ async function main() {
         stock,
         isActive: override.isActive ?? true,
         sortOrder: vi,
+        // Shared pricing: the product tiers apply to every variant, shifted by
+        // `priceDelta` (XXL surcharge). No per-variant tier rows are stored.
+        priceDelta: delta,
         basePrice: prices[0]?.price ?? 0,
         baseMrp: prices[0]?.mrp ?? 0,
         // XXL pieces are a touch heavier — demonstrates per-variant weight.
@@ -1628,6 +1631,7 @@ async function main() {
         widthCm: lg.dims[1],
         heightCm: lg.dims[2],
         hasVariants,
+        variantPricing: "SHARED",
         isActive: true,
         isNew: seed.flags?.includes("new") ?? false,
         isFeatured: seed.flags?.includes("featured") ?? false,
@@ -1645,9 +1649,18 @@ async function main() {
           : undefined,
         variants: hasVariants
           ? {
-              create: variantRows.map(({ prices, ...v }) => ({
-                ...v,
-                prices: { create: prices },
+              create: variantRows.map((v) => ({
+                attributes: v.attributes,
+                label: v.label,
+                sku: v.sku,
+                image: v.image,
+                stock: v.stock,
+                isActive: v.isActive,
+                sortOrder: v.sortOrder,
+                priceDelta: v.priceDelta,
+                basePrice: v.basePrice,
+                baseMrp: v.baseMrp,
+                weightGrams: v.weightGrams,
               })),
             }
           : undefined,

@@ -84,58 +84,85 @@ export default async function CategoryDetailPage({
 
   return (
     <div>
-      {/* Category hero */}
-      <section className="relative overflow-hidden bg-brand-charcoal text-white">
-        {heroImage && (
-          <Image src={heroImage} alt="" fill priority sizes="100vw" className="object-cover opacity-40" />
-        )}
-        <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-black/20" />
-        <div aria-hidden className="dot-grid absolute inset-0 opacity-30" />
-        <div className="container relative mx-auto px-4 py-12 md:py-16">
-          <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1.5 text-xs text-white/60">
-            <Link href="/" className="hover:text-white">
-              Home
-            </Link>
-            <ChevronRight className="size-3" aria-hidden />
-            <Link href="/category" className="hover:text-white">
-              Categories
-            </Link>
-            {parent && (
-              <>
-                <ChevronRight className="size-3" aria-hidden />
-                <Link href={`/category/${parent.slug}`} className="hover:text-white">
-                  {parent.title}
-                </Link>
-              </>
-            )}
-            <ChevronRight className="size-3" aria-hidden />
-            <span className="font-medium text-white">{category.title}</span>
-          </nav>
+      {/* Category header — split: copy on the left, the category photograph on the right */}
+      <section className="container pt-6 md:pt-8">
+        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <Link href="/" className="hover:text-primary">
+            Home
+          </Link>
+          <ChevronRight className="size-3" aria-hidden />
+          <Link href="/category" className="hover:text-primary">
+            Categories
+          </Link>
+          {parent && (
+            <>
+              <ChevronRight className="size-3" aria-hidden />
+              <Link href={`/category/${parent.slug}`} className="hover:text-primary">
+                {parent.title}
+              </Link>
+            </>
+          )}
+          <ChevronRight className="size-3" aria-hidden />
+          <span className="font-medium text-foreground">{category.title}</span>
+        </nav>
 
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            <div className="max-w-2xl">
-              <p className="eyebrow flex items-center gap-1.5 text-brand-amber">
-                {category.isSpecial && <Sparkles className="size-3.5" aria-hidden />}
+        <div className="mt-5 grid gap-6 overflow-hidden rounded-2xl bg-brand-ink text-white lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+          <div className="flex flex-col justify-between px-7 py-8 md:px-10 md:py-10">
+            <div>
+              <span className="kicker flex items-center gap-2 text-brand-amber">
+                {category.isSpecial && <Sparkles className="size-4" aria-hidden />}
                 {category.isSpecial ? "Special programme" : parent ? parent.title : "Collection"}
-              </p>
-              <h1 className="mt-2 text-3xl font-extrabold tracking-tight md:text-5xl">{category.title}</h1>
-              <p className="mt-3 text-sm text-white/70 md:text-base">
-                {result.total} {result.total === 1 ? "product" : "products"} · bulk pricing · custom branding available
+              </span>
+              <h1 className="display mt-2 text-[2.25rem] text-white md:text-[3rem]">{category.title}</h1>
+              <p className="mt-4 max-w-md text-[15px] leading-relaxed text-white/65">
+                <span className="numeral text-white">{result.total}</span> {result.total === 1 ? "product" : "products"}{" "}
+                · bulk pricing · custom branding available on every piece.
               </p>
             </div>
-            <Button asChild variant="glass" size="lg">
-              <Link href="/contact-us">
-                Get a quote for this range <ArrowRight aria-hidden />
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link
+                href="/contact-us"
+                className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-[14px] font-semibold text-primary-foreground transition-colors hover:bg-brand-blue"
+              >
+                Get a quote for this range <ArrowRight className="size-4" aria-hidden />
               </Link>
-            </Button>
+              <Link
+                href="/product"
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-white/20 px-5 text-[14px] font-semibold text-white transition-colors hover:border-white/50 hover:bg-white/5"
+              >
+                All products
+              </Link>
+            </div>
+          </div>
+          {/* Category artwork is a square studio cut-out — sit it on a plate rather than
+              stretching it across the panel, so nothing is sliced off. */}
+          <div className="relative flex min-h-[14rem] items-center justify-center px-7 pb-8 lg:min-h-[19rem] lg:px-10 lg:py-8">
+            <span aria-hidden className="absolute inset-y-0 left-0 hidden w-px bg-white/10 lg:block" />
+            <span aria-hidden className="absolute top-1/2 left-1/2 size-[22rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/20 blur-[90px]" />
+            {heroImage ? (
+              <div className="studio relative aspect-square w-full max-w-[17rem] overflow-hidden rounded-2xl shadow-[0_30px_60px_-30px_rgb(0_0_0/0.8)] lg:max-w-[19rem]">
+                <Image
+                  src={heroImage}
+                  alt=""
+                  fill
+                  priority
+                  sizes="(max-width: 1024px) 272px, 304px"
+                  className="object-contain p-5 mix-blend-multiply dark:mix-blend-normal"
+                />
+              </div>
+            ) : (
+              <span className="display grid size-40 place-items-center rounded-2xl bg-white/[0.06] text-[5rem] text-white/20">
+                {category.title.charAt(0)}
+              </span>
+            )}
           </div>
         </div>
       </section>
 
-      <div className="container mx-auto px-4 py-8 md:py-10">
+      <div className="container py-8 md:py-10">
         {chips.length > 0 && (
-          <div className="no-scrollbar -mx-4 mb-8 flex gap-2 overflow-x-auto px-4 pb-1">
-            <span className="mr-1 hidden shrink-0 self-center text-xs font-semibold tracking-wide text-muted-foreground uppercase sm:inline">
+          <div className="no-scrollbar -mx-4 mb-8 flex gap-6 overflow-x-auto border-b border-foreground/[0.12] px-4">
+            <span className="hidden shrink-0 self-center pb-3 text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase sm:inline">
               {children.length > 0 ? "Sub-categories" : "Related"}
             </span>
             {chips.map((c) => (
@@ -144,10 +171,10 @@ export default async function CategoryDetailPage({
                 href={`/category/${c.slug}`}
                 aria-current={c.slug === slug ? "page" : undefined}
                 className={cn(
-                  "inline-flex h-9 shrink-0 items-center rounded-full border px-4 text-[13px] font-semibold transition-all",
+                  "-mb-px inline-flex h-10 shrink-0 items-center border-b-2 text-[13.5px] font-semibold whitespace-nowrap transition-colors",
                   c.slug === slug
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border bg-card text-foreground/80 hover:border-primary/40 hover:text-primary"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:border-foreground/30 hover:text-foreground"
                 )}
               >
                 {c.title}
@@ -168,7 +195,7 @@ export default async function CategoryDetailPage({
             }
           />
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-3 xl:grid-cols-4">
             {result.items.map((product, i) => (
               <ProductCard key={product.id} product={product} priority={i < 4} />
             ))}

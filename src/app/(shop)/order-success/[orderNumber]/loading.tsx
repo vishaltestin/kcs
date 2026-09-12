@@ -9,13 +9,13 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export default function OrderSuccessLoading() {
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-12" aria-busy aria-label="Loading order confirmation">
+    <div className="container max-w-3xl py-12" aria-busy aria-label="Loading order confirmation">
       <div className="mb-10 flex flex-col items-center text-center">
         <Skeleton className="mb-5 size-20 rounded-full" />
         <Skeleton className="mb-3 h-9 w-72 rounded-lg" />
         <Skeleton className="h-4 w-96 max-w-full rounded" />
       </div>
-      <div className="rounded-2xl bg-card p-6 ring-1 ring-foreground/[0.07]">
+      <div className="border-t border-foreground/[0.12] pt-6">
         <Skeleton className="mb-5 h-5 w-40 rounded" />
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (

@@ -62,21 +62,19 @@ export default async function OrderSuccessPage({
 
   return (
     <div className="relative overflow-hidden">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-gradient-to-b from-success/[0.07] to-transparent" />
-      <div className="container relative mx-auto max-w-3xl px-4 py-12 md:py-16">
+      <div className="container relative max-w-3xl py-12 md:py-16">
         {/* Hero */}
         <div className="mb-10 text-center">
           <span className="relative mx-auto mb-6 grid size-24 place-items-center">
-            <span aria-hidden className="animate-ring absolute inset-0 rounded-full border-2 border-success/40" />
-            <span aria-hidden className="absolute inset-2 rounded-full bg-success/10" />
-            <span className="relative grid size-16 place-items-center rounded-full bg-success text-white shadow-[0_14px_30px_-10px_rgb(22_163_74/0.6)]">
+            <span aria-hidden className="animate-ring absolute inset-0 rounded-full border border-success/40" />
+            <span className="relative grid size-16 place-items-center rounded-full bg-success text-white">
               <CheckCircle2 className="size-8" strokeWidth={2.25} aria-hidden />
             </span>
           </span>
-          <p className="eyebrow text-success">
+          <span className="kicker text-success">
             {cancelled ? "Order cancelled" : order.status === "DELIVERED" ? "Delivered" : shipped ? "On its way" : "Order confirmed"}
-          </p>
-          <h1 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">
+          </span>
+          <h1 className="display mt-3 text-[2.25rem] md:text-[2.9rem]">
             {isFresh ? `Thank you, ${order.customerName.split(" ")[0]}!` : `Order ${order.orderNumber}`}
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
@@ -107,16 +105,14 @@ export default async function OrderSuccessPage({
                 </a>
               </Button>
               {order.invoiceNumber && (
-                <span className="rounded-full bg-muted px-2.5 py-1 font-mono text-[11px] font-semibold text-muted-foreground">
-                  {order.invoiceNumber}
-                </span>
+                <span className="font-mono text-[11px] font-semibold text-muted-foreground">{order.invoiceNumber}</span>
               )}
             </div>
           )}
         </div>
 
         {/* Status timeline */}
-        <div className="mb-6 rounded-2xl bg-card p-5 ring-1 ring-foreground/[0.07] md:p-6">
+        <div className="mb-10 border-y border-foreground/[0.12] py-6">
           {cancelled ? (
             <p className="text-center text-sm font-semibold text-destructive">This order has been cancelled.</p>
           ) : (
@@ -130,15 +126,15 @@ export default async function OrderSuccessPage({
                       <span
                         aria-hidden
                         className={cn(
-                          "absolute top-5 right-1/2 left-[-50%] h-0.5",
-                          i <= stageIndex ? "bg-success" : "bg-border"
+                          "absolute top-5 right-1/2 left-[-50%] h-px",
+                          i <= stageIndex ? "bg-success" : "bg-foreground/15"
                         )}
                       />
                     )}
                     <span
                       className={cn(
-                        "relative z-10 grid size-10 place-items-center rounded-full ring-4 ring-card",
-                        done ? "bg-success text-white" : "bg-muted text-muted-foreground"
+                        "relative z-10 grid size-10 place-items-center rounded-full ring-4 ring-background",
+                        done ? "bg-success text-white" : "bg-surface text-muted-foreground"
                       )}
                     >
                       <Icon className="size-4.5" aria-hidden />
@@ -157,17 +153,17 @@ export default async function OrderSuccessPage({
         {!cancelled && (
           <div
             className={cn(
-              "mb-6 overflow-hidden rounded-2xl ring-1",
-              hasShipment ? "bg-brand-charcoal text-white ring-white/10" : "bg-card ring-foreground/[0.07]",
+              "mb-10 overflow-hidden",
+              hasShipment ? "rounded-xl bg-brand-ink text-white" : "border-l-2 border-primary",
             )}
           >
             {hasShipment ? (
               <div className="relative p-5 md:p-6">
-                <div aria-hidden className="dot-grid pointer-events-none absolute inset-0 opacity-30" />
+                <span aria-hidden className="absolute -top-20 -right-20 size-56 rounded-full bg-primary/25 blur-3xl" />
                 <div className="relative grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                   <div>
-                    <p className="eyebrow text-brand-amber">{order.status === "DELIVERED" ? "Delivered" : "Shipped via"}</p>
-                    <h2 className="mt-1 text-xl font-extrabold tracking-tight">{order.courierName ?? "Courier"}</h2>
+                    <span className="kicker text-brand-amber">{order.status === "DELIVERED" ? "Delivered" : "Shipped via"}</span>
+                    <h2 className="display mt-1.5 text-[1.6rem] text-white">{order.courierName ?? "Courier"}</h2>
                     <dl className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
                       {order.trackingNumber && (
                         <div>
@@ -220,10 +216,8 @@ export default async function OrderSuccessPage({
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-3 px-5 py-4 text-sm md:px-6">
-                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/[0.08] text-primary">
-                  <Truck className="size-4.5" aria-hidden />
-                </span>
+              <div className="flex items-start gap-3 py-1 pl-4 text-sm">
+                <Truck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
                 <div>
                   <p className="font-semibold">Courier details will appear here</p>
                   <p className="text-muted-foreground">
@@ -236,22 +230,20 @@ export default async function OrderSuccessPage({
         )}
 
         {/* Summary */}
-        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07]">
-          <div className="flex items-center justify-between border-b px-5 py-4 md:px-6">
-            <h2 className="flex items-center gap-2 text-base font-extrabold tracking-tight">
-              <Package className="size-4.5 text-primary" aria-hidden /> Order Summary
-            </h2>
-            <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+        <div>
+          <div className="flex items-end justify-between border-b border-foreground/[0.12] pb-3">
+            <h2 className="display text-[1.5rem]">Order summary</h2>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               {order.items.length} {order.items.length === 1 ? "item" : "items"} · {pieces} pcs
             </span>
           </div>
 
-          <ul className="divide-y px-5 md:px-6">
+          <ul className="divide-y divide-foreground/[0.08]">
             {order.items.map((item) => (
               <li key={item.id} className="flex items-center gap-4 py-4">
-                <span className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-foreground/5">
+                <span className="studio relative size-14 shrink-0 overflow-hidden rounded-lg">
                   {item.image ? (
-                    <Image src={item.image} alt="" fill sizes="56px" className="object-cover" />
+                    <Image src={item.image} alt="" fill sizes="56px" className="object-contain p-1 mix-blend-multiply dark:mix-blend-normal" />
                   ) : (
                     <span className="grid size-full place-items-center text-muted-foreground">
                       <Package className="size-5" aria-hidden />
@@ -259,25 +251,21 @@ export default async function OrderSuccessPage({
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">
+                  <p className="truncate text-[15px] font-semibold">
                     {item.name}
-                    {item.variantLabel && (
-                      <span className="ml-2 rounded-md bg-primary/[0.08] px-1.5 py-0.5 text-[11px] font-semibold text-primary">
-                        {item.variantLabel}
-                      </span>
-                    )}
+                    {item.variantLabel && <span className="ml-2 text-[13px] font-medium text-muted-foreground">{item.variantLabel}</span>}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {item.quantity} × {formatCurrency(item.unitPrice)}
                     {item.sku ? ` · SKU ${item.sku}` : ""}
                   </p>
                 </div>
-                <p className="text-sm font-bold tabular-nums">{formatCurrency(item.lineTotal)}</p>
+                <p className="numeral text-[15px]">{formatCurrency(item.lineTotal)}</p>
               </li>
             ))}
           </ul>
 
-          <div className="grid gap-6 border-t bg-surface px-5 py-5 md:grid-cols-2 md:px-6">
+          <div className="grid gap-6 rounded-xl bg-surface px-5 py-5 md:grid-cols-2 md:px-6">
             <div className="space-y-3 text-sm">
               <div className="flex items-start gap-2.5">
                 <MapPin className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
@@ -329,20 +317,18 @@ export default async function OrderSuccessPage({
                   {Number(order.shipping) === 0 ? "Free" : formatCurrency(order.shipping)}
                 </dd>
               </div>
-              <div className="flex justify-between border-t pt-2 text-base font-extrabold tracking-tight">
-                <dt>Total</dt>
-                <dd className="tabular-nums">{formatCurrency(order.total)}</dd>
+              <div className="flex items-baseline justify-between border-t border-foreground/[0.12] pt-2">
+                <dt className="text-[15px] font-semibold">Total</dt>
+                <dd className="numeral text-[1.5rem] leading-none">{formatCurrency(order.total)}</dd>
               </div>
             </dl>
           </div>
         </div>
 
         {/* Help + actions */}
-        <div className="mt-6 flex flex-col items-center justify-between gap-4 rounded-2xl border border-dashed p-5 sm:flex-row">
+        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-y border-foreground/[0.12] py-5 sm:flex-row">
           <div className="flex items-center gap-3">
-            <span className="grid size-10 place-items-center rounded-full bg-primary/[0.08] text-primary">
-              <Headset className="size-4.5" aria-hidden />
-            </span>
+            <Headset className="size-5 text-primary" aria-hidden />
             <div className="text-sm">
               <p className="font-semibold">Need to change something?</p>
               <p className="text-muted-foreground">

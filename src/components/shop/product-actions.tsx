@@ -139,29 +139,28 @@ export function ProductActions({ product }: { product: ProductDetail }) {
     <div className="space-y-4">
       {/* Variant-aware price block */}
       {hasVariants && (
-        <div className="relative overflow-hidden rounded-2xl bg-surface p-5 ring-1 ring-foreground/[0.06]">
-          <div aria-hidden className="pointer-events-none absolute -top-10 -right-10 size-32 rounded-full bg-primary/[0.07] blur-2xl" />
+        <div className="border-y border-foreground/[0.12] py-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="eyebrow text-muted-foreground">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {isQuoteOnly ? "Pricing" : needsSelection ? "Price" : isBulk ? "Starting at" : "Price"}
               </p>
-              <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 {isQuoteOnly ? (
-                  <p className="text-2xl font-extrabold tracking-tight md:text-3xl">Price on request</p>
+                  <p className="kicker text-[1.6rem] leading-none">Price on request</p>
                 ) : needsSelection ? (
-                  <p className="text-3xl font-extrabold tracking-tight tabular-nums">
+                  <p className="numeral text-[2rem] leading-none md:text-[2.25rem]">
                     {product.priceRange
                       ? `${formatCurrency(product.priceRange.min)} – ${formatCurrency(product.priceRange.max)}`
                       : formatCurrency(product.price ?? 0)}
                   </p>
                 ) : (
                   <>
-                    <p className="text-4xl font-extrabold tracking-tight tabular-nums">{formatCurrency(tiers[0]?.price ?? unitPrice)}</p>
+                    <p className="numeral text-[2.6rem] leading-none">{formatCurrency(tiers[0]?.price ?? unitPrice)}</p>
                     {isBulk && <span className="text-sm font-medium text-muted-foreground">/ piece</span>}
                     {unitMrp > unitPrice && (
                       <>
-                        <p className="text-base text-muted-foreground tabular-nums line-through">{formatCurrency(tiers[0]?.mrp ?? unitMrp)}</p>
+                        <p className="numeral text-lg text-muted-foreground line-through">{formatCurrency(tiers[0]?.mrp ?? unitMrp)}</p>
                         <Badge className="rounded-md bg-primary px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase">
                           {discount}% off
                         </Badge>
@@ -179,10 +178,10 @@ export function ProductActions({ product }: { product: ProductDetail }) {
               </p>
             </div>
             {variant && (
-              <div className="flex items-center gap-3 rounded-xl bg-background/80 p-2 pr-3 ring-1 ring-foreground/[0.06]">
+              <div className="flex items-center gap-3 rounded-xl bg-surface p-2 pr-3">
                 {variant.image && (
-                  <span className="relative size-12 overflow-hidden rounded-lg bg-muted">
-                    <Image src={variant.image} alt="" fill sizes="48px" className="object-cover" />
+                  <span className="studio relative size-12 overflow-hidden rounded-lg">
+                    <Image src={variant.image} alt="" fill sizes="48px" className="object-contain p-0.5 mix-blend-multiply dark:mix-blend-normal" />
                   </span>
                 )}
                 <div className="text-xs">
@@ -199,7 +198,7 @@ export function ProductActions({ product }: { product: ProductDetail }) {
       )}
 
       {hasVariants && (
-        <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/[0.07] sm:p-5">
+        <div>
           <VariantSelector
             options={product.options}
             variants={product.variants}
@@ -212,7 +211,7 @@ export function ProductActions({ product }: { product: ProductDetail }) {
       {hasVariants && isBulk && variant && tiers.length > 1 && <BulkInquiryTable prices={tiers} />}
 
       {inCart ? (
-        <div className="rounded-2xl bg-success/[0.07] p-4 ring-1 ring-success/20">
+        <div className="rounded-xl border border-success/30 bg-success/[0.06] p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <span className="grid size-8 place-items-center rounded-full bg-success text-white">
@@ -255,11 +254,11 @@ export function ProductActions({ product }: { product: ProductDetail }) {
           </div>
         </div>
       ) : isQuoteOnly ? (
-        <div className="relative overflow-hidden rounded-2xl bg-brand-charcoal p-5 text-white ring-1 ring-white/10">
-          <div aria-hidden className="dot-grid pointer-events-none absolute inset-0 opacity-40" />
+        <div className="relative overflow-hidden rounded-xl bg-brand-ink p-5 text-white">
+          <span aria-hidden className="absolute -top-16 -right-16 size-48 rounded-full bg-primary/25 blur-3xl" />
           <div className="relative">
-            <p className="eyebrow text-brand-amber">Quoted on request</p>
-            <h3 className="mt-1.5 text-lg font-extrabold tracking-tight">Tell us your quantity &amp; branding</h3>
+            <p className="kicker text-brand-amber">Quoted on request</p>
+            <h3 className="display mt-1.5 text-[1.35rem] text-white">Tell us your quantity &amp; branding</h3>
             <p className="mt-1.5 max-w-md text-sm text-white/70">
               Pricing for this product depends on quantity, customisation and delivery location. Share your brief and a
               gifting manager will send a quote within a few hours.
@@ -277,11 +276,11 @@ export function ProductActions({ product }: { product: ProductDetail }) {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/[0.07]">
+        <div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
-            <div className="flex h-12 items-center rounded-xl border bg-background">
+            <div className="flex h-12 items-center rounded-lg border border-foreground/20 bg-background">
               <button
-                className="grid size-12 place-items-center rounded-l-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+                className="grid size-12 place-items-center rounded-l-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
                 onClick={() => setQuantity(qty - 1)}
                 disabled={qty <= minQty}
                 aria-label="Decrease quantity"
@@ -299,10 +298,10 @@ export function ProductActions({ product }: { product: ProductDetail }) {
                 value={Number.isFinite(qty) ? qty : ""}
                 onChange={(e) => setQty(e.target.value === "" ? NaN : Number(e.target.value))}
                 onBlur={(e) => setQuantity(Number(e.target.value))}
-                className="h-full w-16 bg-transparent text-center text-base font-bold tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="numeral h-full w-16 bg-transparent text-center text-lg outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
               <button
-                className="grid size-12 place-items-center rounded-r-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="grid size-12 place-items-center rounded-r-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 onClick={() => setQuantity(qty + 1)}
                 aria-label="Increase quantity"
               >

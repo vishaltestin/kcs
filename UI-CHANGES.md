@@ -120,3 +120,56 @@ Everything below is server-authoritative: the client only *previews* prices/ship
 Also: admin breadcrumb no longer links record-id segments (was a 404 prefetch); admin products table shows a variant count badge and "∞" for untracked stock; `product-actions` import path fix.
 
 Round 4 gates: `tsc` clean · `eslint` 0 errors (17 pre-existing warnings) · `next build --webpack` OK · probe 20/20 · Playwright end-to-end: variant selection → cart (2 variants of one tee) → checkout with GSTIN + Karnataka → order placed (IGST, invoice #) → PDF 200/`attachment` (1 page, B2B) · B2C Delhi order (CGST+SGST, ₹49 Delhi NCR slab for 422 g) → PDF · anonymous → 401 · cancelled → 409 · admin shipment form → SHIPPED + tracking visible on customer order page and profile · zone edit (add slab) persists · settings save persists · admin edit of a variant product (add 3XL → refresh → 25 variants → save → stock persists → PDP shows new stock).
+
+## Round 5 — storefront redesign, 1280 px fixes, admin form fixes
+
+### Bug fixes (admin)
+- **Numeric inputs ate digits** (`NumberField`): typing into a number box emitted `undefined`, so react-hook-form snapped the field back to its default and the draft was lost. Rewritten: the focused draft is authoritative, the form value is only re-synced on blur, and an empty box emits `emptyValue` (`undefined` → zod "required", or `null` for nullable dimensions). Verified in the browser on product price/stock/weight fields and the variants table.
+- **Variant products could not be saved** without a clear reason: nested zod errors were reported against collapsed rows and hidden. The product form now has an `onInvalid` handler (toast "Can't save yet" + `Section › row N › field: message` + scroll to the offending section), the variants table shows the first problem per row plus a summary, and the server action returns `validationFailure` with path pointers.
+
+### Variant pricing modes (`Product.variantPricing`)
+- **SHARED** (default for new products): the product's price list applies to every variant, optionally shifted per variant by `ProductVariant.priceDelta` (₹; MRP shifts too). Admin table shows "Adjust ₹" + "Effective price" per variant.
+- **CUSTOM**: each variant keeps its own price tiers (falls back to the product tiers when empty) — this is the Round-4 behaviour. "Copy to all variants" helper retained.
+- One resolver (`resolveVariantTiers` in `src/lib/variants.ts`) is used by the storefront mapper, order placement and the admin save, so the PDP, cart, order and invoice always agree.
+- **Deploy:** run `prisma migrate deploy` (migration `20260911080000_variant_shared_pricing`). Existing variant products are migrated to **CUSTOM**, so their current price tables are untouched; new products default to **SHARED**.
+
+### Storefront redesign (every `(shop)` page + shared/layout components; admin untouched)
+Feedback was that the Round 1–4 look read as generic: the same eyebrow-label + rounded card with a hairline ring + charcoal dot-grid panel + pill chips repeated on every page. Round 5 keeps the brand colours, page structure and content, and replaces the repeated patterns with an editorial system:
+- **Type**: Fraunces (variable optical size, `--font-display`) for headlines, prices and folio numbers; Plus Jakarta Sans stays for UI/body. New utilities in `globals.css`: `display`, `kicker` (italic serif lead-in that replaces the eyebrow), `numeral` (tabular serif figures), `rule-top` (hairline with a short red tick), `studio` (warm neutral product backdrop).
+- **Layout language**: cards are replaced by hairline-divided lists, numbered folios (`01`, `01.2`), sticky "Contents" indexes, stat `dl`s with big numerals and ink-dark (`brand-ink`) split panels instead of charcoal dot-grid blocks. Pills are gone from quick filters / jump lists / sibling chips (now underlined tabs, numbered lists or plain links).
+- **Pages**: home (hero, value strip, promos, corporate gifting, drinkware, journal), /product (header tabs, de-carded filters), /product/[slug] (price block, trust list, delivery note, two-column reviews with inline form, related), /category (folio index + category spreads + special programmes + drinkware promo), /category/[slug] (split header, sibling tabs), cart, checkout (numbered sections), order-success, profile (masthead + numbered side nav + orders list), wishlist, blog, blog/[slug] (masthead + meta dl + sticky rail), faq (contents + numbered accordion), about-us, why-us, contact-us, 403/status pages, empty states, pagination, skeletons.
+- **Components**: navbar (mega-menu typography), mobile nav, cart sidebar, footer (dark ink, editorial columns), newsletter form, product card (studio tile + serif price), product gallery/specs/actions/variant selector/bulk table/review card, section header, content banner, video section, book-a-meeting + bulk-enquiry dialogs.
+- **1280 px** (the size the client reviews on): header rows no longer wrap — top-bar third promise hides below 1360 px, contact/wishlist/cart cluster is `shrink-0`, mini search collapses to an icon, nav gaps tightened; home grid, listing grids and the category index use widths that fit 1280 without horizontal overflow (checked at 1280 / 1440 / 390).
+
+### Quality gates (final code)
+- `tsc --noEmit` 0 errors · `next lint` 0 errors (15 pre-existing warnings) · `next build --webpack` EXIT 0.
+- 20/20 HTTP probes (bad slugs, junk params, XSS query, auth redirects, 403).
+- Playwright sweep of all storefront pages + PDP → cart → checkout → order-success → profile at 1280/1440/390: no ≥400 responses, no page errors, no console errors.
+- Admin NumberField probe and SHARED-pricing end-to-end (new product M ₹500 / XXL ₹530, order KCS-20260911-KAJY 10 × ₹939 with CGST/SGST ₹223.57 each) both pass.
+
+## Round 6 — font revert, un-cropped imagery, admin pricing crash, search dropdown
+
+### 1. Font restored (no Fraunces)
+The Round 5 serif display face was rejected. `layout.tsx` loads **Plus Jakarta Sans only** again; `--font-display` now resolves to `--font-sans`, so the `display` / `kicker` / `numeral` utilities keep working as *weight + tracking roles* of the one family (extra-bold, tight leading; small tracked uppercase kicker; tabular numerals). The italic hero word and italic pull-quote were removed with it. Structure and colours unchanged.
+
+### 2. Images are no longer cut
+Cause: every editorial image used `fill` + `object-cover` inside a frame whose ratio didn't match the source (380×265 promo art, 750×656 grid art, 1180×245 strips, 380×255 blog covers, square product cut-outs), so titles and products were sliced off. Fixes:
+- **`FramedImage`** (`src/components/shared/framed-image.tsx`): shows the whole picture (`object-contain`) over a heavily blurred wash of itself, so the frame stays a continuous surface with no letterbox bars. Used for: home hero grid tiles (their baked-in titles are now the caption — the duplicate overlay caption is gone), the Trade-Schemes strip, "Popular Gifting Categories" tiles (frames now match the art's 380:265 ratio), blog tiles / lead / cover, Why-Us and About images.
+- **Product imagery** (cards, wishlist, gallery thumbs, cart page, cart sidebar, checkout, order-success, search/mega-menu thumbs, variant chip): square `studio` plates with `object-contain` + padding and `mix-blend-multiply`, so white-background cut-outs sit on the warm plate without a visible white square — nothing is cropped.
+- **Category tiles / index** (`/category`): square plates, contained. **Category hero** (`/category/[slug]`): the square category cut-out sits on a plate beside the copy instead of being stretched across a 19 rem-tall panel.
+- **Drinkware band** (home + `/category`): the 1180×245 strip is shown whole as a panoramic header with the copy beneath (previously only the middle sky was visible).
+- **Showreel band**: the empty navy poster strip is replaced by a real still from the film (`/images/video-poster.jpg`, 3:2, extracted from `procter-promo-video.mp4`) in its own frame with the play control; the mobile "banner strip" under the header (a cropped slice of the hero banner) is removed; the mega-menu feature tile uses a text-free photo.
+- `next.config.ts`: `qualities` gains `30` for the blurred wash source (tiny). Seed/DB: the "Drinkware Gift Set — Trio" product used the 1180×245 banner as its product image — pointed at a real square product shot (`prisma/seed.ts` + a one-line data fix).
+
+### 3. Admin crash fixed + edge cases (`src/lib/variants.ts`, `variants-editor.tsx`, `product-form.tsx`)
+Reported: edit product → Single → Bulk → Add tier → type a price → `TypeError: Cannot read properties of undefined (reading 'toString')` at `variants.ts` `num()` via `resolveVariantTiers` ← `VariantRows` (error boundary).
+Root cause: a freshly added tier row is `{ minQuantity, price: undefined, mrp: undefined }` and the SHARED "effective price" preview re-ran the resolver on it, which assumed every field was a number/Decimal.
+- `resolveVariantTiers` is now null-safe: `coerceNumber()` treats `undefined`/`null`/`""`/`"-"`/NaN as 0, accepts Decimal-like objects and strings, skips falsy rows, clamps `minQuantity ≥ 1`, and treats `mrp < price` as `mrp = price`; `variant.prices` / `priceDelta` are optional.
+- Editor: the preview only uses finished tiers (finite `price > 0`); the per-variant Δ badge and BULK tier chips tolerate half-typed values; "Add tier" suggests the next slab from the largest *finished* min-qty (no more `NaN`); the pricing-mode switch drops empty rows, sets an empty table for ENQUIRY and clears stale `prices`/`variants` errors; switching to CUSTOM seeds only from finished tiers.
+- Verified with `shots/r6-admin-repro.mjs` on the SHARED variant tee (20 variant rows): the reported sequence plus clearing price/min-qty, typing `-5` into MRP, adding/removing tiers with a half-typed table, Enquiry → Bulk → Single, Shared → Custom → Shared, and a `-30` adjustment — no page errors, no error boundary. Unit cases for the resolver (undefined/strings/nulls/NaN/Decimal-like) all pass.
+
+### 4. Search dropdown
+The side column is reserved only when there are **category** matches; brands alone become a short chip row under the products, and a products-only result stretches edge to edge — no hollow right-hand panel.
+
+### Quality gates (final code)
+`tsc --noEmit` 0 errors · `eslint` 0 errors (15 pre-existing warnings) · `next build --webpack` EXIT 0 · probe 15×200 / 4×302 / 1×404 (expected) · Playwright storefront sweep at 1280/1440/390 incl. PDP → cart → checkout → profile → order-success and both search states: no ≥400, no page/console errors; every image on home, /category, /category/drinkwares, /blog, /product loads (0 incomplete).

@@ -28,7 +28,7 @@ export function NewsletterForm() {
 
   if (state?.ok) {
     return (
-      <p className="flex items-center gap-2 rounded-xl bg-success/[0.08] px-4 py-3 text-sm font-medium text-success" role="status">
+      <p className="flex items-center gap-2 rounded-xl bg-success/[0.12] px-4 py-3 text-sm font-medium text-success" role="status">
         <CheckCircle2 className="size-4" aria-hidden />
         {state.message ?? "You're on the list — see you in the next issue."}
       </p>
@@ -39,7 +39,7 @@ export function NewsletterForm() {
     <form
       ref={formRef}
       action={formAction}
-      className="flex h-12 w-full max-w-md items-center gap-1 rounded-xl border bg-background p-1 pl-3 transition-shadow focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10"
+      className="flex h-12 w-full max-w-md items-center gap-1 rounded-xl border bg-background p-1 pl-3 text-foreground transition-shadow focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10"
       aria-busy={isPending}
     >
       <Mail className="size-4 shrink-0 text-muted-foreground" aria-hidden />

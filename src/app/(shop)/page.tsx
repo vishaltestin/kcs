@@ -3,7 +3,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   ArrowUpRight,
-  BadgeCheck,
   Briefcase,
   BriefcaseBusiness,
   Building2,
@@ -21,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { FramedImage } from "@/components/shared/framed-image";
 import { getProductsByType } from "@/lib/queries/catalog";
 import { getLatestBlogPosts } from "@/lib/queries/content";
 import { getBrands } from "@/lib/queries/catalog";
@@ -57,7 +57,7 @@ export default async function HomePage() {
   ]);
 
   return (
-    <main className="mt-4 flex flex-col gap-16 md:mt-6 md:gap-24">
+    <main className="mt-4 flex flex-col gap-16 md:mt-6 md:gap-[6.5rem]">
       <TrustedCompanyBanner />
       <ImageGrid />
       <ValueStrip />
@@ -114,58 +114,90 @@ export default async function HomePage() {
 function TrustedCompanyBanner() {
   return (
     <section className="container" aria-label="Popular gifting categories">
-      <div className="relative isolate overflow-hidden rounded-3xl bg-brand-charcoal text-white shadow-[0_28px_56px_-28px_rgb(0_0_0/0.55)]">
-        <div className="dot-grid absolute inset-0 opacity-50" aria-hidden />
-        <span aria-hidden className="absolute -top-28 -left-16 size-80 rounded-full bg-primary/30 blur-3xl" />
-        <span aria-hidden className="absolute -right-24 -bottom-32 size-80 rounded-full bg-brand-amber/15 blur-3xl" />
+      <div className="relative isolate overflow-hidden rounded-2xl bg-brand-ink text-white shadow-[0_30px_60px_-30px_rgb(0_0_0/0.6)]">
+        {/* Faint radial warmth and a wide hairline grid instead of a dot texture */}
+        <span aria-hidden className="absolute -top-40 -left-32 size-[34rem] rounded-full bg-primary/25 blur-[110px]" />
+        <span aria-hidden className="absolute -right-24 -bottom-40 size-[26rem] rounded-full bg-brand-amber/10 blur-[100px]" />
+        <span
+          aria-hidden
+          className="absolute inset-0 opacity-[0.12] [background-image:linear-gradient(rgb(255_255_255/0.5)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.5)_1px,transparent_1px)] [background-size:96px_96px]"
+        />
 
-        <div className="relative grid gap-8 px-6 py-8 md:px-10 md:py-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] lg:items-center lg:gap-14">
-          <div>
-            <span className="eyebrow text-brand-amber">
-              <BadgeCheck className="size-4" aria-hidden /> India&apos;s trusted gifting partner
-            </span>
-            <h2 className="mt-3 text-2xl font-extrabold leading-tight tracking-tight sm:text-[1.75rem] lg:text-[2rem]">
-              Most Trusted Corporate Gifting Company in India
-            </h2>
-            <p className="mt-3 max-w-md text-[15px] leading-relaxed text-white/65">
-              500+ companies rely on us for festivals, onboarding kits and client appreciation —
-              with tiered bulk pricing and pan-India delivery.
+        <div className="relative grid gap-10 px-6 pt-8 pb-7 md:px-10 md:pt-10 md:pb-9 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-16 xl:px-14">
+          <div className="flex flex-col">
+            <span className="kicker text-brand-amber">India&apos;s trusted gifting partner</span>
+            <h1 className="display mt-3 text-[2.25rem] text-white sm:text-[2.75rem] xl:text-[3.25rem]">
+              Most <em className="not-italic text-brand-amber">Trusted</em> Corporate Gifting Company in India
+            </h1>
+            <p className="mt-5 max-w-md text-[15px] leading-relaxed text-white/65">
+              500+ companies rely on us for festivals, onboarding kits and client appreciation — with tiered bulk
+              pricing and pan-India delivery.
             </p>
 
-            <dl className="mt-6 grid grid-cols-3 gap-4 border-t border-white/10 pt-6">
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <Button asChild size="lg" className="h-11 rounded-lg px-6">
+                <Link href="/product">
+                  Browse the catalogue <ArrowRight aria-hidden />
+                </Link>
+              </Button>
+              <Link
+                href="/contact-us"
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-white/20 px-5 text-[14px] font-semibold text-white transition-colors hover:border-white/50 hover:bg-white/5"
+              >
+                Get a quote in hours
+              </Link>
+            </div>
+
+            <dl className="mt-8 grid grid-cols-3 gap-6 border-t border-white/10 pt-6 lg:mt-auto lg:pt-7">
               {[
                 { value: "500+", label: "Corporate clients" },
                 { value: "19k+", label: "PIN codes served" },
-                { value: "4.8★", label: "Client rating" },
+                { value: "4.8", label: "Average client rating", suffix: "/5" },
               ].map((stat) => (
                 <div key={stat.label}>
                   <dt className="sr-only">{stat.label}</dt>
-                  <dd className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">{stat.value}</dd>
-                  <dd className="mt-0.5 text-[11.5px] leading-tight text-white/55">{stat.label}</dd>
+                  <dd className="numeral text-[1.9rem] leading-none text-white sm:text-[2.25rem]">
+                    {stat.value}
+                    {stat.suffix && <span className="text-[1rem] text-white/50">{stat.suffix}</span>}
+                  </dd>
+                  <dd className="mt-2 text-[11px] uppercase tracking-[0.14em] text-white/50">{stat.label}</dd>
                 </div>
               ))}
             </dl>
           </div>
 
-          <div className="most-trusted grid grid-cols-3 gap-2.5 sm:grid-cols-5 lg:grid-cols-3 xl:grid-cols-5 md:gap-3">
-            {MOST_TRUSTED_ITEMS.map((item) => {
-              const Icon = TRUSTED_ICONS[item.key as keyof typeof TRUSTED_ICONS] ?? Gift;
-              const href = MOST_TRUSTED_HREFS[item.key] ?? "/product";
-              return (
-                <Link
-                  key={item.key}
-                  href={href}
-                  className="group/trusted flex flex-col items-center gap-2.5 rounded-2xl border border-white/[0.06] bg-white/[0.04] px-2 py-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-white/15 hover:bg-white/[0.09] lg:flex-row lg:items-center lg:gap-3 lg:px-3.5 lg:py-3 lg:text-left"
-                >
-                  <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-white/10 text-white transition-all duration-300 group-hover/trusted:bg-primary group-hover/trusted:shadow-[0_10px_24px_-8px_oklch(0.545_0.206_25.5/0.9)] lg:size-10">
-                    <Icon className="size-5" aria-hidden />
-                  </span>
-                  <p className="text-[11.5px] font-semibold leading-tight text-white/80 transition-colors group-hover/trusted:text-white">
-                    {item.label}
-                  </p>
-                </Link>
-              );
-            })}
+          {/* Category index — a numbered list rather than icon tiles */}
+          <div className="lg:border-l lg:border-white/10 lg:pl-12 xl:pl-16">
+            <p className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">
+              Shop by occasion
+              <span className="hidden font-normal normal-case tracking-normal text-white/35 sm:inline">
+                {MOST_TRUSTED_ITEMS.length} collections
+              </span>
+            </p>
+            <ol className="most-trusted mt-3 grid grid-cols-1 sm:grid-cols-2 sm:gap-x-8 lg:grid-cols-1 xl:grid-cols-2">
+              {MOST_TRUSTED_ITEMS.map((item, index) => {
+                const Icon = TRUSTED_ICONS[item.key as keyof typeof TRUSTED_ICONS] ?? Gift;
+                const href = MOST_TRUSTED_HREFS[item.key] ?? "/product";
+                return (
+                  <li key={item.key} className="border-b border-white/10">
+                    <Link
+                      href={href}
+                      className="group/trusted flex items-center gap-3.5 py-3 text-white/80 transition-colors hover:text-white"
+                    >
+                      <span className="numeral w-6 shrink-0 text-[12px] text-white/35 transition-colors group-hover/trusted:text-brand-amber">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <Icon className="size-4 shrink-0 text-white/50 transition-colors group-hover/trusted:text-brand-amber" strokeWidth={1.8} aria-hidden />
+                      <span className="flex-1 text-[14.5px] font-medium">{item.label}</span>
+                      <ArrowUpRight
+                        className="size-4 -translate-x-1 text-white/0 transition-all duration-300 group-hover/trusted:translate-x-0 group-hover/trusted:text-white"
+                        aria-hidden
+                      />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
           </div>
         </div>
       </div>
@@ -194,31 +226,19 @@ function GridTile({
   wide?: boolean;
 }) {
   return (
-    <Link
-      href={tile.href}
-      aria-label={tile.label}
-      className={cn("group/tile relative block h-full w-full overflow-hidden", tile.key)}
-    >
-      <Image
+    <Link href={tile.href} aria-label={tile.label} className={cn("group/tile block h-full w-full", tile.key)}>
+      {/* The artwork carries its own title, so it is shown whole — no crop, no second caption */}
+      <FramedImage
         src={tile.src}
         alt={tile.label}
-        fill
         sizes={wide ? "(max-width: 768px) 100vw, 50vw" : "(max-width: 768px) 50vw, 25vw"}
-        className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/tile:scale-[1.06]"
-      />
-      <span
-        aria-hidden
-        className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-80 transition-opacity duration-500 group-hover/tile:opacity-95"
-      />
-      <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4">
-        <span className="min-w-0">
-          <span className="block text-[10.5px] font-bold uppercase tracking-[0.16em] text-white/65">{tile.note}</span>
-          <span className="mt-0.5 block truncate text-[15px] font-bold text-white">{tile.label}</span>
-        </span>
-        <span className="grid size-8 shrink-0 translate-y-1 place-items-center rounded-full bg-white/15 text-white opacity-0 backdrop-blur transition-all duration-300 group-hover/tile:translate-y-0 group-hover/tile:opacity-100">
+        className="h-full min-h-[10rem] w-full"
+        imgClassName="transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/tile:scale-[1.03]"
+      >
+        <span className="absolute right-3 bottom-3 grid size-8 translate-y-1 place-items-center rounded-full bg-white text-foreground opacity-0 shadow-lg transition-all duration-300 group-hover/tile:translate-y-0 group-hover/tile:opacity-100">
           <ArrowUpRight className="size-4" aria-hidden />
         </span>
-      </span>
+      </FramedImage>
     </Link>
   );
 }
@@ -241,12 +261,12 @@ function ImageGrid() {
             aria-label="Trade schemes"
             className="group/tile relative block h-full min-h-[10rem] w-full overflow-hidden"
           >
-            <Image
+            <FramedImage
               src={IMAGES.homeGrid.trade}
               alt="Trade schemes"
-              fill
               sizes="(max-width: 768px) 100vw, 50vw"
-              className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/tile:scale-[1.05]"
+              className="absolute inset-0"
+              imgClassName="transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/tile:scale-[1.03]"
             />
             <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
             {/* The artwork already carries a "Trade Schemes" title on the left, so the
@@ -254,8 +274,8 @@ function ImageGrid() {
                 on wide tiles where there is clear space beneath the artwork text. */}
             <span className="absolute inset-x-0 bottom-0 flex items-end justify-end gap-3 p-4 md:justify-between md:p-5">
               <span className="hidden md:block">
-                <span className="block text-[10.5px] font-bold uppercase tracking-[0.16em] text-white/65">Channel programmes</span>
-                <span className="mt-0.5 block text-[15px] font-bold text-white">Dealer incentives &amp; loyalty rewards</span>
+                <span className="block text-[10.5px] font-semibold uppercase tracking-[0.16em] text-white/60">Channel programmes</span>
+                <span className="display mt-0.5 block text-[1.05rem] text-white">Dealer incentives &amp; loyalty rewards</span>
               </span>
               <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[12px] font-bold text-foreground shadow-lg transition-colors group-hover/tile:bg-primary group-hover/tile:text-primary-foreground">
                 Explore <ArrowRight className="size-3.5" aria-hidden />
@@ -286,19 +306,20 @@ function ValueStrip() {
   ];
   return (
     <section className="container" aria-label="Why companies choose KCS G-Mart">
-      <ul className="grid grid-cols-1 divide-y divide-border overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/[0.07] sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
-        {items.map(({ icon: Icon, title, text }) => (
-          <li key={title} className="group/value flex items-start gap-4 p-5 transition-colors hover:bg-surface sm:p-6">
-            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/[0.08] text-primary transition-all duration-300 group-hover/value:bg-primary group-hover/value:text-primary-foreground group-hover/value:shadow-[0_10px_20px_-8px_oklch(0.545_0.206_25.5/0.8)]">
-              <Icon className="size-5" strokeWidth={1.9} aria-hidden />
-            </span>
-            <div>
-              <p className="text-[15px] font-bold tracking-tight">{title}</p>
-              <p className="mt-0.5 text-[13px] leading-snug text-muted-foreground">{text}</p>
+      <ol className="grid grid-cols-1 gap-x-10 gap-y-6 border-y border-foreground/[0.12] py-7 sm:grid-cols-2 md:py-8 lg:grid-cols-4">
+        {items.map(({ icon: Icon, title, text }, index) => (
+          <li key={title} className="relative flex gap-4 lg:border-l lg:border-foreground/[0.1] lg:pl-6 lg:first:border-l-0 lg:first:pl-0">
+            <span className="numeral pt-0.5 text-[13px] text-primary">{String(index + 1).padStart(2, "0")}</span>
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+                <Icon className="size-4 text-foreground/70" strokeWidth={1.8} aria-hidden />
+                {title}
+              </p>
+              <p className="mt-1.5 text-[13px] leading-snug text-muted-foreground">{text}</p>
             </div>
           </li>
         ))}
-      </ul>
+      </ol>
     </section>
   );
 }
@@ -350,42 +371,39 @@ function PromoSection() {
         viewMoreHref="/category"
         viewMoreLabel="All categories"
       />
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6">
-        {IMAGES.featuredCategories.map((item, index) => (
-          <Link
-            key={item.src}
-            href={item.href}
-            className={cn(
-              "group/promo relative isolate block overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/[0.06] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_44px_-20px_rgb(17_24_39/0.3)]",
-              index === 0 && "col-span-2 md:col-span-1"
-            )}
-          >
-            <div className="relative aspect-[380/265] w-full">
-              <Image
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:grid-rows-2 md:gap-4">
+        {IMAGES.featuredCategories.map((item, index) => {
+          const feature = index === 0 || index === 3;
+          return (
+            <Link
+              key={item.src}
+              href={item.href}
+              aria-label={item.label}
+              className={cn(
+                "group/promo relative isolate block overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgb(17_24_39/0.06)]",
+                // The artwork is 380×265 and carries its own title, so every frame keeps
+                // that ratio — the feature tiles simply span two rows of it.
+                feature ? "col-span-2 aspect-[380/265] md:row-span-2 md:aspect-auto" : "aspect-[380/265]"
+              )}
+            >
+              <FramedImage
                 src={item.src}
                 alt={item.alt}
-                fill
-                sizes="(max-width: 768px) 50vw, 33vw"
-                className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/promo:scale-[1.06]"
+                sizes={feature ? "(max-width: 768px) 100vw, 50vw" : "(max-width: 768px) 50vw, 25vw"}
+                className="absolute inset-0 rounded-xl"
+                imgClassName="transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/promo:scale-[1.03]"
               />
-            </div>
-            <span
-              aria-hidden
-              className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent"
-            />
-            <span className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 p-4 md:p-5">
-              <span>
-                <span className="block text-[10.5px] font-bold uppercase tracking-[0.16em] text-white/60">
-                  Collection
+              <span className="absolute right-3 bottom-3 flex items-center gap-2 md:right-4 md:bottom-4">
+                <span className="numeral rounded-full bg-black/45 px-2.5 py-1 text-[11px] text-white/85 backdrop-blur-sm">
+                  {String(index + 1).padStart(2, "0")}
                 </span>
-                <span className="mt-0.5 block text-base font-bold text-white md:text-lg">{item.label}</span>
+                <span className="grid size-9 translate-y-1 place-items-center rounded-full bg-white text-foreground opacity-0 shadow-lg transition-all duration-300 group-hover/promo:translate-y-0 group-hover/promo:opacity-100">
+                  <ArrowUpRight className="size-4" aria-hidden />
+                </span>
               </span>
-              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-foreground shadow-lg transition-all duration-300 group-hover/promo:bg-primary group-hover/promo:text-primary-foreground">
-                <ArrowUpRight className="size-4" aria-hidden />
-              </span>
-            </span>
-          </Link>
-        ))}
+            </Link>
+          );
+        })}
       </div>
     </section>
   );
@@ -398,69 +416,76 @@ function PromoSection() {
 function CorporateGiftingSection() {
   return (
     <section className="container">
-      <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-        <div className="relative order-2 lg:order-1">
-          <div className="relative aspect-[4/3] overflow-hidden rounded-3xl shadow-[0_28px_56px_-28px_rgb(0_0_0/0.4)]">
-            <Image
-              src={IMAGES.panIndia}
-              alt="Corporate gifting with pan-India delivery"
-              fill
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              className="object-cover"
-            />
-          </div>
-          {/* floating stat card */}
-          <div className="absolute -bottom-5 right-4 flex items-center gap-3 rounded-2xl bg-background/95 p-4 shadow-[0_18px_40px_-16px_rgb(0_0_0/0.35)] ring-1 ring-foreground/[0.06] backdrop-blur md:-right-6">
-            <span className="grid size-11 place-items-center rounded-xl bg-primary/10 text-primary">
-              <MapPinned className="size-5" aria-hidden />
-            </span>
-            <div>
-              <p className="text-lg font-extrabold leading-none tracking-tight">19,000+</p>
-              <p className="mt-1 text-[11.5px] font-medium text-muted-foreground">PIN codes delivered</p>
+      <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-8">
+        {/* Image with an offset outline frame — reads like a mounted print, not a card */}
+        <div className="relative order-2 lg:order-1 lg:col-span-6">
+          <div className="relative mt-4 ml-4 sm:mt-6 sm:ml-6">
+            <span aria-hidden className="absolute -top-4 -left-4 h-full w-full rounded-xl border border-primary/40 sm:-top-6 sm:-left-6" />
+            <div className="relative aspect-[3/2] overflow-hidden rounded-xl bg-muted">
+              <Image
+                src={IMAGES.panIndia}
+                alt="Corporate gifting with pan-India delivery"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
+              />
             </div>
           </div>
-          <span aria-hidden className="absolute -top-6 -left-6 -z-10 size-40 rounded-full bg-primary/10 blur-2xl" />
+          <div className="absolute right-0 -bottom-6 flex items-center gap-4 rounded-xl bg-brand-ink px-5 py-4 text-white shadow-[0_24px_48px_-20px_rgb(0_0_0/0.5)] sm:right-4">
+            <MapPinned className="size-5 text-brand-amber" strokeWidth={1.8} aria-hidden />
+            <div>
+              <p className="numeral text-[1.5rem] leading-none">19,000+</p>
+              <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-white/55">PIN codes delivered</p>
+            </div>
+          </div>
         </div>
 
-        <div className="order-1 lg:order-2">
-          <span className="eyebrow text-primary">Who we are</span>
-          <h2 className="mt-3 text-[1.75rem] font-extrabold leading-[1.15] tracking-tight md:text-[2.25rem]">
+        <div className="order-1 lg:order-2 lg:col-span-6 lg:pl-8 xl:pl-14">
+          <span className="kicker text-primary">Who we are</span>
+          <h2 className="display mt-2 text-[2rem] md:text-[2.6rem]">
             Corporate Gifting Company with Pan-India Delivery
           </h2>
+          <blockquote className="mt-6 border-l-2 border-primary pl-5">
+            <p className="text-[1.05rem] font-medium leading-relaxed text-foreground/85 md:text-[1.15rem]">
+              Who doesn&apos;t like a nice, meaningful gift? We all love it when we receive a little surprise packed
+              in beautiful wrapping. The excitement of opening the box and discovering what&apos;s inside is an
+              experience everyone enjoys — and nobody wants the let-down of a gift that adds nothing to their lives.
+            </p>
+          </blockquote>
           <p className="mt-5 text-[15px] leading-relaxed text-muted-foreground md:text-base">
-            Who doesn&apos;t like a nice, meaningful gift? We all love it when we receive a little
-            surprise packed in beautiful wrapping. The excitement of opening the box and discovering
-            what&apos;s inside is an experience everyone enjoys — and nobody wants the let-down of a
-            gift that adds nothing to their lives.
-          </p>
-          <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground md:text-base">
-            That&apos;s why every KCS G-Mart hamper is curated for the recipient, branded in-house,
-            quality-checked and delivered anywhere in India.
+            That&apos;s why every KCS G-Mart hamper is curated for the recipient, branded in-house, quality-checked
+            and delivered anywhere in India.
           </p>
 
-          <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+          <ul className="mt-7 grid gap-x-8 gap-y-3 border-t border-foreground/[0.1] pt-6 sm:grid-cols-2">
             {[
               "Curated for every budget & brief",
               "Logo branding & custom packaging",
               "Sample approvals before bulk run",
               "Single GST invoice, multi-city dispatch",
-            ].map((point) => (
-              <li key={point} className="flex items-start gap-2.5 text-sm font-medium">
-                <BadgeCheck className="mt-0.5 size-4.5 shrink-0 text-primary" aria-hidden />
+            ].map((point, index) => (
+              <li key={point} className="flex items-start gap-3 text-[14px] font-medium">
+                <span className="numeral mt-px text-[12px] text-primary">{String(index + 1).padStart(2, "0")}</span>
                 {point}
               </li>
             ))}
           </ul>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Button asChild size="lg">
+            <Button asChild size="lg" className="h-11 rounded-lg px-6">
               <Link href="/product">
                 Browse products <ArrowRight aria-hidden />
               </Link>
             </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link href="/about-us">Our story</Link>
-            </Button>
+            <Link
+              href="/about-us"
+              className="group/story inline-flex h-11 items-center gap-2 px-2 text-[14px] font-semibold text-foreground transition-colors hover:text-primary"
+            >
+              <span className="underline decoration-foreground/25 underline-offset-[6px] transition-colors group-hover/story:decoration-primary">
+                Our story
+              </span>
+              <ArrowRight className="size-4 transition-transform duration-300 group-hover/story:translate-x-1" aria-hidden />
+            </Link>
           </div>
         </div>
       </div>
@@ -495,37 +520,49 @@ function BrandsSection({ brands }: { brands: Awaited<ReturnType<typeof getBrands
 function DrinkwareSection() {
   return (
     <section className="container">
-      <div className="relative isolate min-h-[20rem] overflow-hidden rounded-3xl shadow-[0_28px_56px_-28px_rgb(0_0_0/0.5)] md:min-h-[22rem]">
-        <Image
-          src={IMAGES.drinkware}
-          alt="Drinkware for corporate gifts"
-          fill
-          sizes="100vw"
-          className="object-cover"
-        />
-        <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/55 to-black/25" />
-        <div className="relative flex h-full min-h-[20rem] flex-col items-start justify-center gap-4 p-8 text-white md:min-h-[22rem] md:p-14">
-          <span className="eyebrow text-brand-amber">Best price &amp; high quality</span>
-          <h3 className="max-w-lg text-[1.75rem] font-extrabold leading-[1.1] tracking-tight md:text-[2.5rem]">
-            Drinkware for Corporate Gifts
-          </h3>
-          <p className="max-w-md text-[15px] leading-relaxed text-white/75">
-            Insulated bottles, tumblers and mugs from Borosil, Milton and more — laser-engraved with
-            your logo.
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            <Link
-              href="/category/drinkwares"
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-[15px] font-bold text-primary-foreground shadow-[0_12px_28px_-10px_oklch(0.545_0.206_25.5/0.8)] transition-all duration-300 hover:bg-brand-blue hover:shadow-[0_12px_28px_-10px_rgb(66_162_255/0.8)]"
-            >
-              Shop now <ArrowRight className="size-4" aria-hidden />
-            </Link>
-            <a
-              href={SITE.phoneHref}
-              className="inline-flex h-11 items-center gap-2 rounded-lg border border-white/25 bg-white/10 px-5 text-[15px] font-semibold text-white backdrop-blur transition-colors hover:bg-white/20"
-            >
-              Talk to a gifting manager
-            </a>
+      <div className="overflow-hidden rounded-2xl bg-brand-ink text-white">
+        {/* Panoramic strip shown whole — the bottles sit at both edges of the source */}
+        <div className="relative aspect-[1180/245] w-full">
+          <Image
+            src={IMAGES.drinkware}
+            alt="Drinkware for corporate gifts"
+            fill
+            sizes="(max-width: 1400px) 100vw, 1400px"
+            className="object-cover"
+          />
+          <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-ink via-brand-ink/10 to-transparent" />
+        </div>
+        <div className="grid gap-8 px-7 pt-2 pb-9 md:px-12 md:pb-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-end lg:gap-12">
+          <div>
+            <span className="kicker text-brand-amber">Best price &amp; high quality</span>
+            <h3 className="display mt-2 text-[2rem] text-white md:text-[2.5rem]">Drinkware for Corporate Gifts</h3>
+            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-white/65">
+              Insulated bottles, tumblers and mugs from Borosil, Milton and more — laser-engraved with your logo.
+            </p>
+          </div>
+          <div>
+            <ul className="flex flex-wrap gap-x-6 gap-y-2 border-t border-white/10 pt-5 text-[13px] text-white/70">
+              {["Insulated bottles", "Tumblers", "Mugs", "Laser engraving"].map((item, index) => (
+                <li key={item} className="flex items-center gap-2">
+                  <span className="numeral text-[11px] text-brand-amber">{String(index + 1).padStart(2, "0")}</span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link
+                href="/category/drinkwares"
+                className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-[14px] font-semibold text-primary-foreground transition-colors hover:bg-brand-blue"
+              >
+                Shop now <ArrowRight className="size-4" aria-hidden />
+              </Link>
+              <a
+                href={SITE.phoneHref}
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-white/20 px-5 text-[14px] font-semibold text-white transition-colors hover:border-white/50 hover:bg-white/5"
+              >
+                Talk to a gifting manager
+              </a>
+            </div>
           </div>
         </div>
       </div>

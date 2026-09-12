@@ -99,7 +99,7 @@ export function BookMeetingDialog({
       <DialogContent className="max-h-[92vh] gap-0 overflow-hidden p-0 sm:max-w-4xl">
         <div className="grid md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           {/* Left: branding */}
-          <aside className="relative hidden overflow-hidden bg-brand-charcoal text-white md:block">
+          <aside className="relative hidden overflow-hidden bg-brand-ink text-white md:block">
             <Image
               src={IMAGES.panIndia}
               alt=""
@@ -109,8 +109,8 @@ export function BookMeetingDialog({
             />
             <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20" />
             <div className="relative flex h-full flex-col p-8">
-              <p className="eyebrow text-brand-amber">Free consultation</p>
-              <h3 className="mt-2 text-2xl font-extrabold leading-tight tracking-tight">
+              <span className="kicker text-brand-amber">Free consultation</span>
+              <h3 className="display mt-2.5 text-[1.75rem] text-white">
                 Explore unique corporate gifting solutions.
               </h3>
               <p className="mt-3 text-sm text-white/75">
@@ -136,7 +136,7 @@ export function BookMeetingDialog({
           {/* Right: steps */}
           <div className="max-h-[92vh] overflow-y-auto p-6 md:p-8">
             <DialogHeader className="mb-5 text-left">
-              <DialogTitle className="text-xl font-extrabold tracking-tight md:text-2xl">
+              <DialogTitle className="display text-[1.5rem] md:text-[1.75rem]">
                 Book a Meeting
               </DialogTitle>
               <DialogDescription>
@@ -294,7 +294,7 @@ export function BookMeetingDialog({
                     <CheckCircle2 className="size-8" aria-hidden />
                   </span>
                 </span>
-                <h3 className="text-xl font-extrabold tracking-tight">Meeting booked!</h3>
+                <h3 className="display text-[1.5rem]">Meeting booked!</h3>
                 <p className="text-sm text-muted-foreground">
                   {selectedDate?.toLocaleDateString("en-IN", {
                     weekday: "long",

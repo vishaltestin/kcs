@@ -23,6 +23,13 @@ enum PricingMode {
   ENQUIRY
 }
 
+/// How variants are priced: SHARED = product tiers ± a per-variant adjustment,
+/// CUSTOM = every variant carries its own tier table.
+enum VariantPricing {
+  SHARED
+  CUSTOM
+}
+
 enum Role {
   CUSTOMER
   ADMIN
@@ -180,6 +187,7 @@ model Product {
   heightCm    Decimal  @default(0) @db.Decimal(7, 2)
   /// True when the product is sold in colour/size variants.
   hasVariants Boolean  @default(false)
+  variantPricing VariantPricing @default(SHARED)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -265,6 +273,8 @@ model ProductVariant {
   /// Denormalised first tier for quick display.
   basePrice  Decimal @default(0) @db.Decimal(10, 2)
   baseMrp    Decimal @default(0) @db.Decimal(10, 2)
+  /// Shared pricing: rupees added to every product tier for this variant (may be negative).
+  priceDelta Decimal @default(0) @db.Decimal(10, 2)
   /// Optional shipping overrides — fall back to the product values when 0/null.
   weightGrams Int?
   lengthCm    Decimal? @db.Decimal(7, 2)
