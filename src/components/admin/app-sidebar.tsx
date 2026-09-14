@@ -9,6 +9,7 @@ import {
   ExternalLink,
   FolderTree,
   GraduationCap,
+  Images,
   LayoutDashboard,
   Mail,
   MessageSquareText,
@@ -62,6 +63,7 @@ const NAV_SECTIONS = [
     label: "Content & People",
     items: [
       { title: "Blog Posts", href: "/admin/blogs", icon: BookOpen },
+      { title: "Home Bands", href: "/admin/home-bands", icon: Images },
       { title: "Contact Messages", href: "/admin/messages", icon: MessageSquareText },
       { title: "Users", href: "/admin/users", icon: Users },
       { title: "Subscribers", href: "/admin/subscribers", icon: Mail },

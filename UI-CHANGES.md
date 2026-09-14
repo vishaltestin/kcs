@@ -266,3 +266,206 @@ EXIT 0 (`/admin/guides/product` in the route table). Runtime sweep on the produc
 order edit) · PDP renders 14 variant radios, colour photos in the tile branch · compiled CSS carries the new
 `max-width` utilities and the cursor rules · `cn()` merge check proves the `sm:max-w-sm` cap is gone.
 (`npm run build` with the default Turbopack runner is OOM-killed on this 2 GB box — that is environmental, not code.)
+
+---
+
+# Round 8 — home page ported to the reference design
+
+**Ask:** “my senior want the home page design like in this site” → the live kcsgmart front page, whose
+source (`github.com/vishal32004/kcsgmart`, Next 14.2.7 + Tailwind v3) was cloned to `/home/user/ref-kcsgmart`
+and read class-by-class. This round replaces the Round 5/6 editorial restyle **on the home page only** with
+the reference’s flat, dense, boxed language — while keeping our data layer and every fix the client asked for
+in rounds 0–7.
+
+**Files:** `src/app/(shop)/page.tsx` (rewritten), `src/components/shared/carousels.tsx` (re-styled),
+`src/components/home/video-section.tsx` (rewritten), `src/app/globals.css` (mosaic + strip + play button).
+`section-header.tsx`, `product-card.tsx`, `framed-image.tsx` and every other page are untouched — the rails get
+their own flat header (`RailHeader`) and the boxed card is applied by the home carousel, so category / product
+/ PDP pages keep the styling they were signed off with.
+
+## What was copied
+
+- **Rhythm:** `<main className="mt-5 flex flex-col gap-20">`, section order trusted-strip → mosaic → New →
+  Featured → Best Sellers → promo grid → video band → story → blogs → brands → drinkware band.
+- **Trusted strip:** flat `bg-brand-charcoal` (`#444444`) bar, `rounded-[5px]`, one small centred
+  `font-extrabold` white title, nine 40 px lucide icon tiles in a horizontally scrolling rail. `.most-trusted`
+  carries the reference’s hover contract: tile → amber `#fcb819`, label → `#b91c1c`, icon `translateY(-4px)`,
+  plus the 7 px translucent scrollbar that tells mobile users the rail scrolls.
+- **Mosaic:** the reference’s `.parent` 4×3 grid with the banner slider in the 2×2 `.div1`, 1 rem gutters,
+  squared cells, `overflow: hidden` and a slow `transform 1s` 1.05 zoom on the artwork.
+- **Rails:** bare `text-3xl font-bold` title over a `border-b pb-3` hairline with uppercase “View More” +
+  `MoveRight`; four boxed white cards per view (`bg-card p-2.5 shadow-lg → hover:shadow-xl`); the reference’s
+  full-height white edge bars that fade in on rail hover replace our floating round buttons.
+- **Promo grid:** `grid md:grid-cols-3` of the six Featured-cat tiles, each with the `w-3/4` white label bar
+  sitting over the bottom of the image and turning red on hover.
+- **Video band:** full-bleed film still, centred white headline, `.play-modal` circle (border ring, red on
+  hover) opening the dialog.
+- **Story / blogs / brands / drinkware:** two-column `md:flex-row gap-8` with `Button variant="link"`
+  “Visit Products”; 3-up blog rail with a 233 px image, bold title and uppercase “Read More”; centred
+  `h3` brands row of 6-up 150×150 `border-2` logo tiles; full-bleed drinkware band with uppercase overlay copy
+  and a `rounded-[5px] bg-primary hover:bg-brand-blue` SHOP NOW.
+
+## What was deliberately *not* copied
+
+| Reference behaviour | Here |
+| --- | --- |
+| “View More”, promo and SHOP NOW links point at `href="#"` | real routes (`/product?filter=…`, `/category/…`) — all 17 verified 200 |
+| product photos hot-linked from `www.kcsgmart.in/photos/…` | our own `public/` assets only (0 external `src=` on the page) |
+| `.parent img { width:100%; height:100% }` with `object-fit` commented out → artwork stretched | cells sized by their own artwork ratio, so the mosaic assembles to the same shape with no crop and no letterbox (the 581×511 banner lands within ~2 px of its 2×2 slot) |
+| `truncateText(name, 7)` titles, hover-only “View Details” | full names; CTA also reachable by tap, not just hover |
+| `w-[88.5%]` strip (breaks container alignment) | `container` like every other band |
+| `<Image width={3840} q={75}>` per product card | our `ProductCard` image sizing |
+| `w-fll`, `basis-1/`, alternating `red-700`/`red-600` promo hovers, “utensilss” | fixed; hover red comes from `--primary` |
+| client-side `react-query` + `axios` against a `server.js` | our Prisma server components (no client data layer) |
+| its own 4-value USP strip / hero stats we had added in Round 5 | dropped — the reference has no such band; the four points moved into the story column as an icon list |
+
+## Quality gates (final code)
+
+`tsc --noEmit` 0 errors · `eslint .` 0 errors, 15 warnings (the same pre-existing set) · `next build --webpack`
+EXIT 0, 37 static pages, no `next/image` warnings. Production-server sweep: 17 public routes 200 (home,
+`/product` + the three rail filters, 12 category slugs the mosaic/promo bands link to, blog, cart, wishlist,
+FAQ, why-us, about, login, signup) and 8 admin routes 200 while logged in (`/admin`, products list/new/edit,
+`/admin/guides/product`, orders, enquiries). Compiled CSS carries `.parent`/`.div1…8`, the `.most-trusted`
+hover contract and `.play-modal`. This sandbox has no browser, so nothing above is a screenshot: what was checked
+here is the compiled markup (all eleven sections present, mosaic cells div1–div8 in order, boxed rail cards, promo
+label bars, no external image hosts, no `href="#"` in home content), the compiled CSS and the route statuses.
+The visual pass itself happens in the live preview.
+
+**Still open (not home-page):** `src/components/layout/footer.tsx` renders the four social icons as
+`href="#"`. Store settings have no social URLs to bind yet, so they were left alone this round.
+
+---
+
+# Round 9 — home page polish + admin-editable promo bands
+
+Five items from the client's review of the Round 8 port. All uncommitted.
+
+## 1. "Most Trusted" strip — hover colour, and heading spacing (`globals.css`, `page.tsx`)
+
+**Wrong:** the reference's rule painted the hovered label `#b91c1c` — dark red on the `#444444`
+bar, i.e. almost invisible (it was already poor in the source design; copying it faithfully was a
+mistake). Now the hovered tile — icon *and* label — goes to the site's amber `--brand-amber`
+(`#FCB819`, ~5.7:1 on charcoal), picks up a 7 % white pill and keeps the reference's `translateY(-4px)`
+icon lift. `:focus-visible` mirrors `:hover` so the keyboard path is not invisible either, and tiles
+got `padding: 6px 10px` + `border-radius: 8px` so the pill has something to wrap.
+The strip title moved off the bar's top edge (`my-2` → `pt-4 pb-1`).
+
+## 2. Mosaic hover snapped instead of gliding (`globals.css`)
+
+`.parent img` transitioned `transform` only, but Tailwind v4's `scale-*` utilities animate the
+standalone **`scale`** property — so the artwork jumped. Confirmed in the compiled CSS
+(`.scale-105{… scale:var(--tw-scale-x) …}`). The rule now transitions both:
+`transition: transform 1s ease-in-out, scale 1s ease-in-out`.
+
+## 3. Rail headers — title was tight on the rule (`page.tsx`)
+
+`RailHeader`: `pb-3` → `pb-4`, `gap-2` → `gap-3`, and the heading got `leading-[1.35]` (was the
+default 1.25 on a 3xl bold), so descenders no longer touch the hairline.
+
+## 4. Carousel arrows no longer sit on the cards (`carousels.tsx`)
+
+The reference's full-height `bg-[rgba(255,255,255,.8)]` bars were reproduced exactly, and they
+covered the first and last card on hover. Now: 36 px circles, always visible (nothing appears on
+hover, so nothing pops over a card), `inset-y-0 my-auto` at the rail's vertical centre, and pushed
+**into the page gutter** at `lg` (`left-1 md:-left-3 lg:-left-4`; the container has 40 px of
+gutter) — outside the card row entirely. Below `md`, where there is no gutter to borrow, they tuck
+against the edge instead. One `RAIL_ARROW` pair feeds the product, blog and brand rails, and
+`disabled:invisible` still hides them when a rail cannot scroll further.
+
+## 5. Filter checkboxes ticked instantly (`product-filters.tsx`)
+
+**Symptom:** ticking a category/brand/price box took half a second or more to show, and the same to
+untick. **Cause:** state was 100 % URL-driven — `router.push` to a dynamic listing, so the box only
+reflected the click once the server had re-rendered the page, and the click itself blocked the
+transition.
+
+- Each click parks an optimistic value for its param; the checkbox, the chips row and the "Refine (n)"
+  badge read from it immediately.
+- The override is dropped as soon as the URL carries what it asked for — compared per param, so a
+  server-side normalisation can't strand it. The check runs during render (React's "adjust state when
+  a value changes" pattern), not in an effect, which is what the `react-hooks` rule wants here.
+- Navigation moved into `startTransition`, so the click is never blocked while the listing loads.
+- "Clear all" is optimistic too. Kept `push` (not `replace`) so the back button still unwinds filters,
+  and the URL remains the single source of truth — listings are still server-rendered and shareable.
+
+## 6. Search box — the bare `/` badge explained itself (`navbar-client.tsx`)
+
+It was a keyboard-shortcut hint with no explanation: pressing `/` anywhere on the site focuses the
+search field (the handler in this same file ignores it while typing in another field). A lone `/` in a
+box is meaningless to a shopper, so it now reads `/ to search`, only shows while the field is empty,
+and carries a `title` tooltip spelling it out. The shortcut itself is unchanged.
+
+## 7. Home page promo bands are now admin content (`HomeBanner`)
+
+"Best Price & High Quality / Drinkwares for Corporate Gifts" was hard-coded; the client expects to
+rewrite it every season, so both full-bleed bands are now rows in the database.
+
+- **`prisma/schema.prisma`** — `HomeBanner`: one row per `slot` (`drinkware`, `video`) with `eyebrow`,
+  `title`, `subtitle`, `ctaLabel`, `ctaHref`, `image`, `videoUrl` (video slot only) and `isActive`.
+  Migration `20260914120000_home_bands` creates it **and inserts the copy the design shipped with**, so
+  the fields arrive pre-filled and no deploy is needed to change a headline. `prisma/seed.ts` recreates
+  the two rows on a fresh seed.
+- **`src/lib/home-bands.ts`** — the single source of truth both sides read: slot list, defaults,
+  `HOME_BAND_LIMITS` (kept next to the column widths), `resolveHomeBands()` and `toHomeBandFormValue()`.
+  Rules: no row → defaults; `isActive: false` → the band is not rendered at all; an empty field → that
+  field's default (a blank `image` falls back to the bundled file, so the strip is never an empty box).
+- **`/admin/home-bands`** ("Home Bands" in the sidebar, Content & People) — one panel per band, prefilled,
+  with the shared `ImagePicker` for artwork, a "Show on the home page" switch, and a how-it-works panel
+  (empty ≠ hole, hide ≠ delete, live on save, and: text baked into the artwork must be edited in the
+  artwork). Follows the existing `StoreSettingsForm` shape — `useActionState` + `ActionResult.fieldErrors`
+  + toast, no new dependency.
+- **`src/actions/admin/home-bands.ts`** — `updateHomeBandAction`: `assertAdmin()` → zod → `upsert` on
+  `slot` (a band can be rewritten, never duplicated) → empty strings to NULL → `revalidatePath("/")` +
+  the admin list, so saving is live without a rebuild. `ctaHref`/`videoUrl` accept only an internal path
+  or an `https?://` URL, which also rejects `javascript:` links.
+- Storefront: `page.tsx` fetches `getHomeBands()` in the same `Promise.all` and renders
+  `{bands.video && <VideoSection band={…} />}` / `{bands.drinkware && <DrinkwareSection band={…} />}`;
+  `video-section.tsx` takes the band as a prop instead of constants (copy, still, film source, CTA).
+  The drinkware band also gained the optional support line, since there is now a field for it.
+
+## Quality gates (final code)
+
+`tsc --noEmit` 0 errors · `eslint .` 0 errors, 15 pre-existing warnings · `next build --webpack` EXIT 0
+(38 static pages, `/admin/home-bands` in the route table, no `next/image` warnings). Production-server
+sweep: 18 storefront routes 200 (`/checkout` 302 = empty-cart redirect, as before) and 7 admin routes
+200 authenticated, including the new band editor. Compiled CSS verified to carry
+`transition:transform 1s ease-in-out,scale 1s ease-in-out` and the amber `:hover`/`:focus-visible`
+tile rules. **Band round-trip tested for real:** an admin-session request through
+`updateHomeBandAction` wrote a new title/eyebrow/CTA, the built home page served it on the next request
+with no rebuild, the empty `image` fell back to the bundled strip, `isActive:false` removed the band
+while every other section stayed (0 stray markup), and a bad `ctaHref` came back as field errors
+instead of writing. The probe route used for that test was deleted and the rows restored to their
+shipped copy. Interaction-level checks that need a real cursor — the mosaic glide, the gutter arrows,
+the instant checkbox — are verified in code, build and CSS only; the visual pass is on the preview.
+
+---
+
+# Round 10 — drinkware band spacing + framing
+
+**Feedback:** "too much space in text and button, content going too much close to border".
+
+**Cause 1 — the spacing.** The overlay was `absolute inset-0 grid place-items-center gap-4` with four
+children. `place-items-center` sets `align-items`, leaving `align-content: normal` → **stretch**, so the
+four auto rows each grew to a quarter of the band and the eyebrow / headline / line / button were pushed
+~90px apart instead of sitting on a real rhythm. Replaced with one flex column (`gap-2`, button `mt-1.5`)
+so the block holds its own height: 10.5/12px eyebrow → headline → one support line → 13px button.
+
+**Cause 2 — the edges.** `px-5` with the band's height coming from `h-[350px] lg:h-auto` meant the copy
+was centred inside a box only ~212px tall at 1024px, i.e. touching the top and bottom edges. Now `px-6
+md:px-10 py-7 lg:py-8` gives the block its own margin, and at `lg` and up the band takes the artwork's own
+ratio (`lg:aspect-[1180/245] lg:h-auto`), which is the one frame in which `object-cover` crops nothing —
+the bundled art is a panorama with bottle groups at both edges touching the top, so any other crop shaves
+a cap off (checked against the actual file, not assumed). Below `lg` it stays a 300px box, as before.
+
+**Guard for editable copy:** headline and support line are `line-clamp-2` (eyebrow `line-clamp-1`), so
+something long written in the admin stays inside the band rather than pushing past the scrim.
+
+Type went down a step (headline `1.3rem → 1.7rem → 1.95rem`, was up to `2.3rem`) because the reference's
+size was chosen for a two-line-tall box with nothing else in it; with an eyebrow, a support line and a
+button in the same column it no longer fit.
+
+Gates: `tsc --noEmit` 0 · `eslint` clean on the touched file · `next build --webpack` EXIT 0 (38 pages).
+Home renders the band from the DB row (`Drinkwares for Corporate Gifts`, `Best Price & High Quality`,
+`Shop Now`), and the new classes are in the served HTML. Authorisation re-checked while I was in there:
+`/admin` and `/admin/home-bands` → 200 for the admin user, **307** for the customer demo, 302 → `/login`
+for anonymous.

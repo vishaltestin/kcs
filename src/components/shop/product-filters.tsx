@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -46,33 +46,63 @@ export function ProductFilters({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
 
-  const multi = useCallback(
-    (key: string) => (searchParams.get(key)?.split(",").filter(Boolean) ?? []),
-    [searchParams]
+  type FilterKey = "cats" | "brands" | "price";
+
+  /**
+   * The URL is the source of truth (listings stay server-rendered and
+   * shareable), but a tick only landed once the filtered page had been
+   * re-rendered on the server — half a second or more of dead checkbox.
+   *
+   * So each click parks an *optimistic* value for its param and the control
+   * reads from that immediately; the override is dropped the moment the URL
+   * catches up with it (that check runs during render, which is React's
+   * "adjust state when a value changes" pattern rather than an effect).
+   * `startTransition` keeps the navigation from blocking the click at all.
+   */
+  type Override = { expected: string | null; values: string[] };
+  const [overrides, setOverrides] = useState<Partial<Record<FilterKey, Override>>>({});
+
+  const fromUrl = (key: FilterKey) => searchParams.get(key)?.split(",").filter(Boolean) ?? [];
+
+  const stale = (Object.keys(overrides) as FilterKey[]).filter(
+    (key) => (searchParams.get(key) ?? null) === overrides[key]?.expected
   );
+  if (stale.length > 0) {
+    const next = { ...overrides };
+    for (const key of stale) delete next[key];
+    setOverrides(next);
+  }
 
-  const selectedCategories = multi("cats");
-  const selectedBrands = multi("brands");
-  const selectedPrices = multi("price");
+  const selectedCategories = overrides.cats?.values ?? fromUrl("cats");
+  const selectedBrands = overrides.brands?.values ?? fromUrl("brands");
+  const selectedPrices = overrides.price?.values ?? fromUrl("price");
+  const selected: Record<FilterKey, string[]> = {
+    cats: selectedCategories,
+    brands: selectedBrands,
+    price: selectedPrices,
+  };
   const search = searchParams.get("q") ?? "";
 
-  const setParam = useCallback(
-    (key: string, values: string[]) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (values.length > 0) {
-        params.set(key, values.join(","));
-      } else {
-        params.delete(key);
-      }
-      params.delete("page"); // reset pagination when filters change
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
-    },
-    [pathname, router, searchParams]
-  );
+  const pushParams = (params: URLSearchParams) => {
+    startTransition(() => {
+      router.push(`${pathname}${params.size > 0 ? `?${params.toString()}` : ""}`, { scroll: false });
+    });
+  };
 
-  const toggle = (key: "cats" | "brands" | "price", current: string[], value: string) =>
-    setParam(key, current.includes(value) ? current.filter((v) => v !== value) : [...current, value]);
+  const toggle = (key: FilterKey, current: string[], value: string) => {
+    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+    const params = new URLSearchParams(searchParams.toString());
+    if (next.length > 0) {
+      params.set(key, next.join(","));
+    } else {
+      params.delete(key);
+    }
+    params.delete("page"); // reset pagination when filters change
+    setOverrides((prev) => ({ ...prev, [key]: { expected: next.length > 0 ? next.join(",") : null, values: next } }));
+    pushParams(params);
+  };
 
   const activeCount = selectedCategories.length + selectedBrands.length + selectedPrices.length;
   const hasActiveFilters = activeCount > 0 || Boolean(search);
@@ -80,7 +110,12 @@ export function ProductFilters({
   const clearAll = () => {
     const params = new URLSearchParams();
     if (search) params.set("q", search);
-    router.push(`${pathname}${params.size > 0 ? `?${params.toString()}` : ""}`, { scroll: false });
+    setOverrides({
+      cats: { expected: null, values: [] },
+      brands: { expected: null, values: [] },
+      price: { expected: null, values: [] },
+    });
+    pushParams(params);
   };
 
   // Human-readable chips for active filters
@@ -150,7 +185,7 @@ export function ProductFilters({
             </button>
           )}
         </div>
-        {chips.length > 0 && <ActiveChips chips={chips} onRemove={(c) => toggle(c.key, multi(c.key), c.value)} className="mt-3" />}
+        {chips.length > 0 && <ActiveChips chips={chips} onRemove={(c) => toggle(c.key, selected[c.key], c.value)} className="mt-3" />}
       </div>
 
       {/* Desktop sidebar */}
@@ -178,7 +213,7 @@ export function ProductFilters({
             {chips.length > 0 && (
               <ActiveChips
                 chips={chips}
-                onRemove={(c) => toggle(c.key, multi(c.key), c.value)}
+                onRemove={(c) => toggle(c.key, selected[c.key], c.value)}
                 className="border-b border-foreground/[0.08] py-3"
               />
             )}

@@ -6,6 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 import { parseDatabaseUrl } from "../src/lib/db-url";
+import { HOME_BANNER_SLOTS, HOME_BAND_DEFAULTS } from "../src/lib/home-bands";
 import { DEFAULT_ZONES, quoteShipping, type ShippingConfig } from "../src/lib/shipping";
 import { splitInclusive, summariseTax } from "../src/lib/tax";
 import { combinations, variantLabel, type OptionAxis } from "../src/lib/variants";
@@ -1436,6 +1437,7 @@ async function main() {
       prisma.category.deleteMany(),
       prisma.brand.deleteMany(),
       prisma.blogPost.deleteMany(),
+      prisma.homeBanner.deleteMany(),
       prisma.bulkEnquiry.deleteMany(),
       prisma.meetingBooking.deleteMany(),
       prisma.contactMessage.deleteMany(),
@@ -1765,6 +1767,26 @@ async function main() {
     });
   }
   console.log(`  ✓ ${BLOGS.length} blog posts`);
+
+  // Home page promo bands — the two blocks the marketing team rewrites per
+  // season. Kept identical to the storefront defaults (src/lib/home-bands.ts).
+  await prisma.homeBanner.createMany({
+    data: HOME_BANNER_SLOTS.map((slot) => {
+      const band = HOME_BAND_DEFAULTS[slot];
+      return {
+        slot,
+        eyebrow: band.eyebrow,
+        title: band.title,
+        subtitle: band.subtitle,
+        ctaLabel: band.ctaLabel,
+        ctaHref: band.ctaHref,
+        image: band.image,
+        videoUrl: band.videoUrl,
+        isActive: true,
+      };
+    }),
+  });
+  console.log(`  ✓ ${HOME_BANNER_SLOTS.length} home page bands`);
 
   // Demo orders for the dashboard
   const demoOrders = [

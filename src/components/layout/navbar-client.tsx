@@ -429,9 +429,19 @@ export function NavbarClient({
                 <X className="size-4" aria-hidden />
               </button>
             )}
-            <kbd className="mr-1 hidden h-6 items-center rounded-md border border-border bg-muted px-1.5 font-sans text-[11px] font-semibold text-muted-foreground md:inline-flex">
-              /
-            </kbd>
+            {/* The bare `/` badge confused the client — it is the keyboard
+                shortcut that jumps the caret into this box, so it now says so. */}
+            {!searchQuery && (
+              <span
+                className="mr-1 hidden items-center gap-1.5 text-[11px] font-medium text-muted-foreground md:inline-flex"
+                title="Keyboard shortcut: press the / key to jump to the search box"
+              >
+                <kbd className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-border bg-muted px-1 font-sans text-[10px] font-bold">
+                  /
+                </kbd>
+                to search
+              </span>
+            )}
             <button
               type="submit"
               className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-brand-deep px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-primary"

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { HOME_BAND_LIMITS, HOME_BANNER_SLOTS } from "@/lib/home-bands";
+
 // ---------------------------------------------------------------------------
 // Catalog
 // ---------------------------------------------------------------------------
@@ -326,3 +328,37 @@ export type ShippingZoneInput = z.infer<typeof shippingZoneSchema>;
 export const enquiryStatusSchema = z.enum(["NEW", "CONTACTED", "CLOSED"]);
 export const bookingStatusSchema = z.enum(["PENDING", "CONFIRMED", "CANCELLED"]);
 export const roleSchema = z.enum(["CUSTOMER", "ADMIN"]);
+
+// ---------------------------------------------------------------------------
+// Home page bands
+// ---------------------------------------------------------------------------
+
+/** Relative path or absolute URL — the bands link into the storefront. */
+const hrefOrPath = (label: string) =>
+  z
+    .string()
+    .trim()
+    .max(200, `${label} is too long.`)
+    .refine((v) => v === "" || v.startsWith("/") || /^https?:\/\//i.test(v), {
+      message: `Use an internal path (/category/…) or a full https:// URL for the ${label.toLowerCase()}.`,
+    });
+
+export const homeBandSchema = z.object({
+  slot: z.enum(HOME_BANNER_SLOTS),
+  eyebrow: z.string().trim().max(HOME_BAND_LIMITS.eyebrow, `Keep this under ${HOME_BAND_LIMITS.eyebrow} characters.`),
+  title: z
+    .string()
+    .trim()
+    .min(4, "The band needs a headline.")
+    .max(HOME_BAND_LIMITS.title, `Keep the headline under ${HOME_BAND_LIMITS.title} characters.`),
+  subtitle: z
+    .string()
+    .trim()
+    .max(HOME_BAND_LIMITS.subtitle, `Keep the support line under ${HOME_BAND_LIMITS.subtitle} characters.`),
+  ctaLabel: z.string().trim().max(HOME_BAND_LIMITS.ctaLabel, `Keep the button label under ${HOME_BAND_LIMITS.ctaLabel} characters.`),
+  ctaHref: hrefOrPath("button link"),
+  image: z.string().trim().max(300, "Image path is too long."),
+  videoUrl: hrefOrPath("video link"),
+  isActive: z.boolean(),
+});
+export type HomeBandInput = z.infer<typeof homeBandSchema>;

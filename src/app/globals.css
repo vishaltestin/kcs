@@ -359,6 +359,8 @@ body {
  * Home page image grid (banner + category tiles)
  * ------------------------------------------------------------------------- */
 
+/* Classic 4×3 mosaic: squared cells, 1rem gutters, artwork that eases up to
+ * full size on hover (`.parent img:hover`). Ported from the kcsgmart home page. */
 .parent {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -368,8 +370,17 @@ body {
 
 .parent > * {
   overflow: hidden;
-  border-radius: var(--radius-xl);
   background: var(--muted);
+}
+
+/* Unlayered, so it outranks the utility default and gives the mosaic its slow
+ * artwork zoom. Both `transform` and `scale` are listed because Tailwind v4's
+ * `scale-*` utilities drive the standalone `scale` property — transitioning
+ * only `transform` made the hover snap instead of glide. */
+.parent img {
+  transition:
+    transform 1s ease-in-out,
+    scale 1s ease-in-out;
 }
 
 .div1 { grid-area: 1 / 1 / 3 / 3; }
@@ -400,12 +411,78 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
- * "Most trusted" strip
+ * "Most trusted" strip — flat charcoal bar of icon tiles.
+ * Tiles are `min-width: max-content` so the rail simply scrolls sideways on
+ * small screens; hover lifts the icon and swaps the label to red.
  * ------------------------------------------------------------------------- */
 
+.most-trusted > * {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: center;
+  min-width: max-content;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  row-gap: 5px;
+  cursor: pointer;
+  transition:
+    color 0.25s ease,
+    background-color 0.25s ease;
+}
+
+.most-trusted > *:hover,
+.most-trusted > *:hover p,
+.most-trusted > *:focus-visible,
+.most-trusted > *:focus-visible p {
+  color: var(--brand-amber);
+}
+
+.most-trusted > * svg {
+  transition: transform 0.3s ease;
+}
+
+.most-trusted > *:hover svg,
+.most-trusted > *:focus-visible svg {
+  transform: translateY(-4px);
+}
+
+.most-trusted > *:hover,
+.most-trusted > *:focus-visible {
+  background-color: rgb(255 255 255 / 0.07);
+}
+
 .most-trusted::-webkit-scrollbar {
-  height: 0;
-  width: 0;
+  height: 7px;
+  width: 4px;
+}
+
+.most-trusted::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.2);
+  border-radius: 5px;
+}
+
+/* Circular play control that sits over the home video band. */
+.play-modal {
+  display: grid;
+  place-items: center;
+  padding: 15px;
+  margin-top: 1rem;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.play-modal:hover,
+.play-modal:focus-visible {
+  background-color: #b91c1c;
+  border-color: #b91c1c;
+  color: #fff;
+  outline: none;
 }
 
 /* ---------------------------------------------------------------------------

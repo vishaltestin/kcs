@@ -503,6 +503,36 @@ model BlogPost {
 }
 
 // ---------------------------------------------------------------------------
+// Home page promo bands
+// ---------------------------------------------------------------------------
+
+/// Copy and artwork for the home page's full-bleed promo bands, so a seasonal
+/// offer can be rewritten from the admin instead of waiting on a deploy.
+/// One row per `slot`; the storefront falls back to the bundled defaults
+/// (src/lib/home-bands.ts) when a row is missing or switched off.
+model HomeBanner {
+  id       Int     @id @default(autoincrement())
+  /// Storefront slot this row fills: "drinkware" | "video".
+  slot     String  @unique @db.VarChar(32)
+  eyebrow  String? @db.VarChar(120)
+  title    String  @db.VarChar(200)
+  subtitle String? @db.VarChar(400)
+  ctaLabel String? @db.VarChar(40)
+  ctaHref  String? @db.VarChar(200)
+  /// Banner art. Empty = the file bundled with the app.
+  image    String? @db.VarChar(300)
+  /// Video slot only — an mp4/webm URL. Empty = the bundled showreel.
+  videoUrl String? @db.VarChar(300)
+  /// Off = the band is hidden from the home page entirely.
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+// ---------------------------------------------------------------------------
 // Leads & engagement
 // ---------------------------------------------------------------------------
 

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import { resolveHomeBands } from "@/lib/home-bands";
 import type { BlogCard } from "@/types";
 
 export async function getLatestBlogPosts(limit = 6): Promise<BlogCard[]> {
@@ -45,4 +46,30 @@ export async function getBlogPostBySlug(slug: string) {
   return db.blogPost.findFirst({
     where: { slug, isPublished: true },
   });
+}
+
+/** Raw band rows, for the admin form pre-fill. */
+export async function getHomeBannerRows() {
+  return db.homeBanner.findMany();
+}
+
+/**
+ * Home page promo bands, resolved against their bundled defaults — see
+ * `src/lib/home-bands.ts` for what each shape means.
+ */
+export async function getHomeBands() {
+  const rows = await db.homeBanner.findMany({
+    select: {
+      slot: true,
+      eyebrow: true,
+      title: true,
+      subtitle: true,
+      ctaLabel: true,
+      ctaHref: true,
+      image: true,
+      videoUrl: true,
+      isActive: true,
+    },
+  });
+  return resolveHomeBands(rows);
 }
