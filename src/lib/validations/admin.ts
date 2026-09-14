@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { HOME_BAND_LIMITS, HOME_BANNER_SLOTS } from "@/lib/home-bands";
+import { parseVideoSource } from "@/lib/video";
 
 // ---------------------------------------------------------------------------
 // Catalog
@@ -28,6 +29,21 @@ export const usesSharedVariantPricing = (data: { hasVariants: boolean; variantPr
   data.hasVariants && data.variantPricing === "SHARED";
 
 const HSN_REGEX = /^\d{4}(\d{2})?(\d{2})?$/;
+
+/**
+ * A video for a product or a home band: a YouTube/Vimeo link, or a path/URL to
+ * a file. Deliberately permissive about *files* (an extensionless CDN link is
+ * still a video) because `src/lib/video.ts` renders anything it is given; what
+ * gets rejected is a value that is neither, which would render a dead player.
+ */
+const videoSource = (label: string) =>
+  z
+    .string()
+    .trim()
+    .max(300, `The ${label.toLowerCase()} is too long.`)
+    .refine((value) => value === "" || parseVideoSource(value) !== null || /^https?:\/\//i.test(value), {
+      message: `Paste a YouTube or Vimeo link, or the path to a video file (/video/…), for the ${label.toLowerCase()}.`,
+    });
 
 const optionAxisSchema = z.object({
   name: z.string().trim().min(1, "Option name is required.").max(40),
@@ -71,7 +87,7 @@ export const productSchema = z
     description: z.string().trim().max(10000),
     image: z.string().trim().min(1, "Main image is required."),
     images: z.array(z.string().trim().min(1)),
-    video: z.string().trim().url("Video must be a valid URL.").or(z.literal("")),
+    video: videoSource("product video"),
     delivery: z.string().trim().max(500),
     stock: z.number({ message: "Stock is required." }).int().min(0),
     isActive: z.boolean(),
@@ -358,7 +374,7 @@ export const homeBandSchema = z.object({
   ctaLabel: z.string().trim().max(HOME_BAND_LIMITS.ctaLabel, `Keep the button label under ${HOME_BAND_LIMITS.ctaLabel} characters.`),
   ctaHref: hrefOrPath("button link"),
   image: z.string().trim().max(300, "Image path is too long."),
-  videoUrl: hrefOrPath("video link"),
+  videoUrl: videoSource("band video"),
   isActive: z.boolean(),
 });
 export type HomeBandInput = z.infer<typeof homeBandSchema>;

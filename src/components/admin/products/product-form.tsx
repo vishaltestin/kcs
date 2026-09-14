@@ -42,6 +42,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { GalleryUploader, ImagePicker } from "@/components/admin/image-picker";
+import { VideoField } from "@/components/admin/video-field";
 import { NumberField } from "@/components/admin/number-field";
 import { SeoFields } from "@/components/admin/seo/seo-fields";
 import { SectionGuide, sectionGuide } from "@/components/admin/products/product-guide";
@@ -63,7 +64,7 @@ const FIELD_LABELS: Record<string, string> = {
   options: "Variant options",
   variants: "Variants",
   categoryIds: "Categories",
-  video: "Video URL",
+  video: "Video",
   metaTitle: "Meta title",
   metaDescription: "Meta description",
 };
@@ -633,9 +634,14 @@ export function ProductForm({
               name="video"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Video URL (YouTube or mp4)</FormLabel>
+                  <FormLabel>Video</FormLabel>
                   <FormControl>
-                    <Input type="url" placeholder="https://…" {...field} />
+                    <VideoField
+                      name="video"
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      hint="A YouTube or Vimeo link plays best: the player streams from them, so a long film costs you no storage or bandwidth. You can also upload an MP4/WebM under 40 MB, or paste a path to a file the app already serves (/video/…). Shown under the gallery on the product page."
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

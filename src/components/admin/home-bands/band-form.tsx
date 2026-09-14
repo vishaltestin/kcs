@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImagePicker } from "@/components/admin/image-picker";
+import { VideoField } from "@/components/admin/video-field";
 import { updateHomeBandAction } from "@/actions/admin/home-bands";
 import { HOME_BAND_LIMITS, type HomeBandFormValue } from "@/lib/home-bands";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,9 @@ export function HomeBandForm({ band }: { band: HomeBandFormValue }) {
   const [state, formAction, pending] = useActionState<ActionResult | null, FormData>(updateHomeBandAction, null);
   const [image, setImage] = useState(band.image);
   const [isActive, setIsActive] = useState(band.isActive);
+  // Controlled, unlike the text fields: the video slot previews what the saved
+  // value will actually become, and that needs the live string.
+  const [videoUrl, setVideoUrl] = useState(band.videoUrl ?? "");
 
   useEffect(() => {
     if (!state) return;
@@ -57,16 +61,20 @@ export function HomeBandForm({ band }: { band: HomeBandFormValue }) {
         <Textarea name="subtitle" defaultValue={band.subtitle} rows={2} maxLength={HOME_BAND_LIMITS.subtitle} />
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Button link" hint="Internal path (/category/drinkwares) or a full https:// URL." error={errors.ctaHref}>
-          <Input name="ctaHref" defaultValue={band.ctaHref} maxLength={HOME_BAND_LIMITS.ctaHref} placeholder="/category/drinkwares" className="font-mono text-[13px]" />
+      <Field label="Button link" hint="Internal path (/category/drinkwares) or a full https:// URL." error={errors.ctaHref}>
+        <Input name="ctaHref" defaultValue={band.ctaHref} maxLength={HOME_BAND_LIMITS.ctaHref} placeholder="/category/drinkwares" className="font-mono text-[13px]" />
+      </Field>
+
+      {isVideo && (
+        <Field label="Video" error={errors.videoUrl}>
+          <VideoField
+            name="videoUrl"
+            value={videoUrl}
+            onChange={setVideoUrl}
+            hint="Recommended: paste a YouTube or Vimeo link — the player streams from them, so a long film costs you no storage or bandwidth. You can also upload an MP4/WebM under 40 MB; it lands in public/uploads/, which survives a restart but not a redeploy on an ephemeral host (Vercel caps one request at 4.5 MB). Blank plays the showreel bundled with the app. The artwork above is what people see before they press play."
+          />
         </Field>
-        {isVideo && (
-          <Field label="Video file" hint="Blank plays the showreel bundled with the app." error={errors.videoUrl}>
-            <Input name="videoUrl" defaultValue={band.videoUrl ?? ""} maxLength={300} placeholder="/video/procter-promo-video.mp4" className="font-mono text-[13px]" />
-          </Field>
-        )}
-      </div>
+      )}
 
       <Field label="Background artwork" hint="Landscape art reads best — the band crops the sides, never the top." error={errors.image}>
         <input type="hidden" name="image" value={image} />

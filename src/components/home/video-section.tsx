@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Video } from "@/components/shop/video";
 import type { HomeBand } from "@/lib/home-bands";
 
 /**
@@ -20,7 +21,8 @@ import type { HomeBand } from "@/lib/home-bands";
  * control opens the video in a dialog sized to the viewport (not a postage
  * stamp — that was a client complaint we fixed once already).
  *
- * Copy, art and the film itself come from Admin → Home bands.
+ * Copy, art and the film itself come from Admin → Home bands, and the film can
+ * be a YouTube/Vimeo link or a file — see `src/lib/video.ts`.
  */
 export function VideoSection({ band }: { band: HomeBand }) {
   const videoSrc = band.videoUrl ?? "/video/procter-promo-video.mp4";
@@ -59,9 +61,19 @@ export function VideoSection({ band }: { band: HomeBand }) {
               <DialogTitle>{band.title}</DialogTitle>
               <DialogDescription>{band.subtitle || "Promo video"}</DialogDescription>
             </DialogHeader>
-            <video src={videoSrc} controls autoPlay playsInline className="block max-h-[86svh] w-full rounded-xl bg-black">
-              Your browser does not support the video tag.
-            </video>
+            {/*
+              One component for every source: YouTube/Vimeo become an iframe, a
+              file gets our own player. `max-w-[calc(86svh*16/9)]` caps the width
+              by the height budget, so the 16:9 box always fits the viewport
+              instead of overflowing the dialog on a short screen.
+            */}
+            <Video
+              src={videoSrc}
+              autoPlay
+              poster={band.image}
+              title={band.title}
+              className="mx-auto max-w-[calc(86svh*16/9)] rounded-xl"
+            />
           </DialogContent>
         </Dialog>
 

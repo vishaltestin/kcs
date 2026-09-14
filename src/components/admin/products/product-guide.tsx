@@ -295,8 +295,23 @@ export const PRODUCT_FORM_GUIDES = {
         label: "Videos",
         text: (
           <>
-            The <Mono>video</Mono> field (Content card) accepts a YouTube link — embedded as a player — or a direct{" "}
-            <Mono>.mp4</Mono> URL, which renders a native player under the gallery.
+            The <Mono>video</Mono> field (Content card) takes a YouTube or Vimeo link, or a video file. Link forms
+            understood: <Mono>youtube.com/watch?v=…</Mono>, <Mono>youtu.be/…</Mono>, <Mono>/embed/…</Mono>,{" "}
+            <Mono>/shorts/…</Mono>, <Mono>/live/…</Mono>, <Mono>vimeo.com/…</Mono> — and a start offset in{" "}
+            <Mono>?t=90</Mono>, <Mono>?t=1m30s</Mono> or <Mono>#t=1:30</Mono> is carried into the embed. A file is
+            anything the browser plays: <Mono>/video/clip.mp4</Mono> served by the app, a CDN URL, or one you upload
+            with the button in that field. Links embed the provider&rsquo;s player; files render a native player under
+            the gallery. Either way the field tells you what it recognised before you save.
+          </>
+        ),
+      },
+      {
+        label: "Links beat files",
+        text: (
+          <>
+            A YouTube link is the option that survives everything: nothing is stored on this server, no bandwidth is
+            billed to you, and it adapts to the visitor&rsquo;s connection. An uploaded file is capped at 40 MB here
+            and lives only as long as this server&rsquo;s disk does — see the next note.
           </>
         ),
       },

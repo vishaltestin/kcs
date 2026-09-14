@@ -189,7 +189,7 @@ export function ProductGallery({
             <PlayCircle className="size-3.5 text-primary" aria-hidden /> Product video
           </h3>
           <div className="mt-3 overflow-hidden rounded-xl">
-            <Video src={video} />
+            <Video src={video} title={`${name} product video`} />
           </div>
         </div>
       )}

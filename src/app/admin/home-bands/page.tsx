@@ -34,6 +34,11 @@ export default async function AdminHomeBandsPage() {
               on the next visit without a rebuild.
             </li>
             <li>
+              <strong className="text-foreground">The film can live elsewhere.</strong> The showreel field takes a
+              YouTube or Vimeo link — recommended, since nothing is stored here and it streams to the visitor — as well
+              as an uploaded file. What plays is shown under the field as you type.
+            </li>
+            <li>
               <strong className="text-foreground">Text baked into artwork stays baked.</strong> If a headline is part of the
               image, edit the image — typing it here too would show it twice.
             </li>

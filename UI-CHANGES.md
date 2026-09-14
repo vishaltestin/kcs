@@ -469,3 +469,86 @@ Home renders the band from the DB row (`Drinkwares for Corporate Gifts`, `Best P
 `Shop Now`), and the new classes are in the served HTML. Authorisation re-checked while I was in there:
 `/admin` and `/admin/home-bands` → 200 for the admin user, **307** for the customer demo, 302 → `/login`
 for anonymous.
+
+---
+
+# Round 11 — video: YouTube/Vimeo embeds + a real upload path
+
+**Feedback:** "there is no option to upload video or even better allow youtube video embed."
+
+**What was actually there.** A YouTube renderer already existed — `src/components/shop/video.tsx` — but it
+was wired to exactly one place (the product gallery), its regex understood only two URL shapes
+(`watch?v=` / `youtu.be`), and the home page's showreel band ignored it entirely: `video-section.tsx`
+hard-rendered `<video src={band.videoUrl ?? "/video/procter-promo-video.mp4"}>`. So pasting a YouTube link
+into the band's video field produced a broken media element. Meanwhile `/api/uploads` is an image factory —
+everything goes through `sharp().resize(1600).webp()` and only five image mimes are accepted — so "upload a
+video" had no path at all, and `public/uploads/` could not have served a video properly even if one got
+written: the static route buffered whole files and ignored `Range`, which is how a browser seeks.
+
+**1. One source parser — `src/lib/video.ts` (new).** `parseVideoSource()` returns a discriminated union
+(`youtube` | `vimeo` | `file`) and understands `youtube.com/watch?v=`, `youtu.be/`, `/embed/`, `/shorts/`,
+`/live/`, `m.youtube.com`, `youtube-nocookie.com`, `vimeo.com/<id>`, `player.vimeo.com/video/<id>`, any path
+starting with `/`, and any URL ending in mp4/webm/ogg/ogv/mov/m4v. A start offset in `?t=90`, `?t=1m30s`,
+`?start=45` or `#t=1:30` is parsed into seconds and carried into the embed. Unparseable → `null`, which is
+what the validation uses to reject junk; the *renderer* stays permissive and hands unknown strings to the
+file player, so an extensionless CDN link keeps working the way it did before.
+
+**2. `Video` upgraded, one component for every surface.** YouTube embeds now use
+`youtube-nocookie.com/embed/<id>?rel=0&modestbranding=1[&start=N]` (no tracking domain, no unrelated
+related-videos at the end of our reel), Vimeo uses `player.vimeo.com/video/<id>?dnt=1`, iframes are
+`loading="lazy"` with `referrerPolicy` and a real `title`, and the box owns its 16:9 ratio so the PDP and
+the band frame identically. `autoPlay` is opt-in and only the band asks for it (it opens on a click).
+`src/components/shop/product-gallery.tsx` now passes `title={name + " product video"}`.
+
+**3. The home band uses it.** `video-section.tsx` renders `<Video>` inside the dialog instead of `<video>`,
+with the artwork still as the poster. The dialog keeps the box inside the viewport with
+`max-w-[calc(86svh*16/9)]` — width capped by the height budget, so a 16:9 embed can never overflow a short
+screen the way the old `max-h` trick did.
+
+**4. Upload path, honestly bounded.** `POST /api/uploads/video` (new, admin-only) takes one MP4/WebM/OGG/MOV
+up to 40 MB, ignores the browser's mime claim in favour of sniffing the container's magic bytes (`ftyp` /
+EBML / `OggS`) so a renamed file is refused, and writes a randomised name under `public/uploads/`.
+`GET /api/uploads/[...path]` now streams video with `Accept-Ranges` and single-`Range` support (206 with
+`Content-Range`, suffix ranges, 416 past EOF, legal 200 fallback for multi-range) — images are untouched,
+still read in one block. Errors are written as sentences because each one has a different fix: a body that
+never parsed says "your host capped the request (Vercel: 4.5 MB)", an `EROFS` write says "this filesystem is
+read-only, use a YouTube link or commit the file into `public/video/`".
+
+**5. The field itself — `src/components/admin/video-field.tsx` (new), used by both forms.** A URL input, an
+*Upload a file* button with real XHR progress, *Clear*, and a live preview of what the value means: a
+YouTube thumbnail (`mqdefault` — always present, never letterboxed) with "YouTube · <id> · starts at 90s",
+or "Vimeo · <id> — embedded player, nothing stored here", or "Video file · plays in our own player". A value
+that is none of those gets an amber note saying it will still be saved and passed to the browser's player,
+rather than a silent maybe. Band form and product form share it, so a product's Content card now uploads and
+previews too.
+
+**6. Validation follows.** `videoSource(label)` in `src/lib/validations/admin.ts` accepts blank, anything
+`parseVideoSource` understands, or a plain `http(s)` URL, capped at 300 chars — the width of
+`HomeBanner.videoUrl`. This *relaxes* `Product.video` (previously `z.string().url()`, which rejected a
+`/video/clip.mp4` path even though the player handled it) and tightens it in one respect: `ftp://` no longer
+passes. No migration needed — the columns were already free-text URLs.
+
+**7. Guidance where it will be read.** The admin guide's media section ("Videos", new "Links beat files"),
+the Home Bands panel ("The film can live elsewhere") and both field hints now say the same thing: a YouTube
+or Vimeo link is the option that survives a deploy and costs no bandwidth; an uploaded file lands in
+`public/uploads/`, which an ephemeral host wipes on the next build.
+
+**Gates.** 17 URL cases + 7 behaviour assertions on the real `parseVideoSource`/`withAutoplay`/
+`parseStartOffset` (run with `tsx`, scratch file then deleted) · `tsc --noEmit` 0 · `eslint` 0 errors (1
+pre-existing react-hook-form warning in `product-form.tsx`) · `next build --webpack` EXIT 0, 39 pages,
+`ƒ /api/uploads/video` in the route table · served checks: PDP with `?t=1m30s` SSRs
+`<iframe src="…/youtube-nocookie.com/embed/<id>?rel=0&modestbranding=1&start=90" … title="Adidas Dry-Fit
+Round Neck T-Shirt product video">`; home page keeps its band copy and the stored link reaches the client
+component; 403 anonymous / 400 non-multipart / 400 no file / 415 wrong mime / 415 not-really-a-video /
+200 + path on a real 400 KB upload; range reads returned 206 with byte-identical payloads at offsets 0, 1000
+and 399000, plus 416 past EOF; image serving unchanged; 11 admin routes 200, customer demo 307 → `/403`,
+13 public routes 200 (`/checkout` 302 = empty-cart redirect, as before). Test rows and the uploaded probe
+file were cleaned up afterwards; both `HomeBanner` rows and the product are back to their shipped values.
+
+**Not verified here:** playback in a real browser (this sandbox has no browser tooling) — verification is
+rendered markup, HTTP semantics and the parser. The admin thumbnail is fetched by the editor's browser from
+`i.ytimg.com`, not by the server, so it is not covered by the site's `images.remotePatterns`.
+
+**Deploy note for the client:** nothing to migrate. If you want uploaded files to survive, mount persistent
+storage over `public/uploads` (or switch uploads to S3/R2/Vercel Blob) — the same caveat already applies to
+uploaded images.
