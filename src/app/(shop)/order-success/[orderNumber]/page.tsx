@@ -162,7 +162,7 @@ export default async function OrderSuccessPage({
                 <span aria-hidden className="absolute -top-20 -right-20 size-56 rounded-full bg-primary/25 blur-3xl" />
                 <div className="relative grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                   <div>
-                    <span className="kicker text-brand-amber">{order.status === "DELIVERED" ? "Delivered" : "Shipped via"}</span>
+                    <span className="kicker text-brand-teal-light">{order.status === "DELIVERED" ? "Delivered" : "Shipped via"}</span>
                     <h2 className="display mt-1.5 text-[1.6rem] text-white">{order.courierName ?? "Courier"}</h2>
                     <dl className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
                       {order.trackingNumber && (
@@ -184,7 +184,7 @@ export default async function OrderSuccessPage({
                         <div>
                           <dt className="text-xs text-white/60">Expected delivery</dt>
                           <dd className="mt-0.5 flex items-center gap-1.5 font-semibold">
-                            <CalendarClock className="size-4 text-brand-amber" aria-hidden /> {formatDate(order.expectedAt)}
+                            <CalendarClock className="size-4 text-brand-teal-light" aria-hidden /> {formatDate(order.expectedAt)}
                           </dd>
                         </div>
                       )}

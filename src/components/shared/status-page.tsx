@@ -35,10 +35,10 @@ export function StatusPage({
         </span>
       )}
       <div className="relative flex max-w-lg flex-col items-center text-center">
-        <span className={cn("mb-7 grid size-16 place-items-center rounded-full border", tone === "amber" ? "border-brand-amber/40 text-brand-amber" : "border-primary/30 text-primary")}>
+        <span className={cn("mb-7 grid size-16 place-items-center rounded-full border", tone === "amber" ? "border-warning/45 text-warning" : "border-primary/30 text-primary")}>
           <Icon className="size-7" strokeWidth={1.75} aria-hidden />
         </span>
-        <span className={cn("kicker", tone === "amber" ? "text-brand-amber" : "text-primary")}>{eyebrow}</span>
+        <span className={cn("kicker", tone === "amber" ? "text-warning" : "text-primary")}>{eyebrow}</span>
         <h1 className="display mt-3 text-[2.25rem] md:text-[3rem]">{title}</h1>
         <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">{description}</p>
         {actions && <div className="mt-8 flex flex-wrap justify-center gap-3">{actions}</div>}

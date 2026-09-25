@@ -118,7 +118,7 @@ export function ProductCard({
             </span>
           )}
           {product.isBestSeller && (
-            <span className="rounded-r-md bg-brand-amber px-2.5 py-1.5 text-[10.5px] font-bold leading-none tracking-[0.08em] text-[#3d2a00]">
+            <span className="rounded-r-md bg-brand-magenta px-2.5 py-1.5 text-[10.5px] font-bold leading-none tracking-[0.08em] text-white">
               BESTSELLER
             </span>
           )}
@@ -199,7 +199,7 @@ export function ProductCard({
             </span>
           )}
           {isEnquiry && (
-            <span className="shrink-0 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-amber-700">
+            <span className="shrink-0 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-primary">
               Quote only
             </span>
           )}

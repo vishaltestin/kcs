@@ -1,24 +1,40 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Clock, Mail, MapPin, PhoneCall, ShieldCheck, Truck } from "lucide-react";
+import {
+  ArrowUpRight,
+  Clock,
+  Headset,
+  Mail,
+  MapPin,
+  PhoneCall,
+  ShieldCheck,
+  Truck,
+} from "lucide-react";
 
 import { Logo } from "@/components/shared/logo";
 import { NewsletterForm } from "./newsletter-form";
 import { IMAGES, SITE } from "@/lib/constants";
 
+const SHOP_LINKS = [
+  { label: "All Products", href: "/product" },
+  { label: "Shop by Category", href: "/category" },
+  { label: "Corporate Gifting", href: "/category/corporate-gifting" },
+  { label: "Curated Gift Hampers", href: "/category/curated-gift-hampers" },
+  { label: "Joining Kits", href: "/category/joining-kits" },
+];
+
 const COMPANY_LINKS = [
   { label: "About Us", href: "/about-us" },
   { label: "Why Choose Us", href: "/why-us" },
   { label: "Blog", href: "/blog" },
-  { label: "Contact Us", href: "/contact-us" },
   { label: "FAQ", href: "/faq" },
 ];
 
-const SHOP_LINKS = [
-  { label: "All Products", href: "/product" },
-  { label: "Corporate Gifting", href: "/category/corporate-gifting" },
+const SERVICE_LINKS = [
   { label: "Bulk Enquiry", href: "/contact-us" },
   { label: "Book a Meeting", href: "/contact-us" },
+  { label: "Contact Us", href: "/contact-us" },
+  { label: "Track an Order", href: "/profile?tab=orders" },
 ];
 
 const ACCOUNT_LINKS = [
@@ -28,132 +44,247 @@ const ACCOUNT_LINKS = [
   { label: "Become a Member", href: "/signup" },
 ];
 
+/** Social proof / service promises that sit in the strip above the footer. */
+const PROMISES = [
+  {
+    icon: Truck,
+    title: "Pan-India delivery",
+    text: "Serving 500+ cities and towns",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Quality assured",
+    text: "Verified vendors, brand-new stock",
+  },
+  {
+    icon: Clock,
+    title: "Quotes in hours",
+    text: "Not days — one dedicated manager",
+  },
+  {
+    icon: Headset,
+    title: "Bulk & custom",
+    text: "Branding, packing, kitting, dispatch",
+  },
+];
+
+const SOCIALS = [
+  { src: IMAGES.socials.facebook, label: "Facebook", href: "#" },
+  { src: IMAGES.socials.instagram, label: "Instagram", href: "#" },
+  { src: IMAGES.socials.linkedin, label: "LinkedIn", href: "#" },
+  { src: IMAGES.socials.whatsapp, label: "WhatsApp", href: "#" },
+];
+
 export function Footer() {
   return (
-    <footer className="mt-24 bg-brand-ink text-white/75">
-      {/* Trust strip */}
-      <div className="border-b border-white/10">
-        <div className="container grid grid-cols-1 divide-y divide-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-          {[
-            { icon: Truck, title: "Pan-India delivery", text: "Serving 500+ cities and towns" },
-            { icon: ShieldCheck, title: "Quality assured", text: "Verified vendors, brand-new stock" },
-            { icon: Clock, title: "Fast responses", text: "Quotes within a few hours" },
-          ].map(({ icon: Icon, title, text }) => (
-            <div key={title} className="flex items-center gap-4 py-6 sm:px-8 sm:first:pl-0 sm:last:pr-0">
-              <Icon className="size-5 shrink-0 text-brand-amber" strokeWidth={1.7} aria-hidden />
-              <div>
-                <p className="text-[14.5px] font-semibold text-white">{title}</p>
-                <p className="text-[13px] text-white/55">{text}</p>
+    <footer className="relative mt-24 bg-brand-ink text-white/70">
+      {/* Signature rule — mirrors the hairline that caps the sticky nav rail. */}
+      <span
+        aria-hidden
+        className="brand-gradient absolute inset-x-0 top-0 h-[3px]"
+      />
+      {/* Brand glow: a quiet teal/magenta wash so the ink panel isn't flat. */}
+      <span
+        aria-hidden
+        className="brand-glow pointer-events-none absolute inset-x-0 top-0 h-56 opacity-70"
+      />
+
+      {/* ── Service strip ─────────────────────────────────────────────────── */}
+      <div className="relative border-b border-white/10">
+        <div className="container grid grid-cols-1 divide-y divide-white/10 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
+          {PROMISES.map(({ icon: Icon, title, text }) => (
+            <div
+              key={title}
+              className="flex items-center gap-3.5 py-5 sm:px-6 sm:first:pl-0 lg:px-7"
+            >
+              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/[0.06] ring-1 ring-white/10">
+                <Icon
+                  className="size-[18px] text-brand-teal-light"
+                  strokeWidth={1.7}
+                  aria-hidden
+                />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[14px] font-semibold text-white">{title}</p>
+                <p className="text-[12.5px] leading-snug text-white/55">
+                  {text}
+                </p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Main footer */}
-      <div className="container grid gap-12 py-14 lg:grid-cols-12 lg:py-16">
-        {/* Brand */}
-        <div className="lg:col-span-4">
-          <div className="inline-block rounded-xl bg-white p-3">
-            <Logo size={110} />
+      {/* ── Main footer ───────────────────────────────────────────────────── */}
+      <div className="container relative grid gap-x-10 gap-y-12 py-14 lg:grid-cols-12 lg:py-16">
+        {/* Brand block */}
+        <div className="pb-2 lg:col-span-4">
+          <div className="inline-flex items-center rounded-2xl bg-white p-3 shadow-[0_10px_30px_-16px_rgb(0_0_0/0.6)]">
+            <Logo size={104} />
           </div>
-          <p className="display mt-6 max-w-sm text-[1.35rem] text-white">{SITE.tagline}</p>
+          <p className="display mt-6 max-w-sm text-[1.3rem] text-white">
+            {SITE.tagline}
+          </p>
           <p className="mt-3 max-w-sm text-[14px] leading-relaxed text-white/55">
-            Branded gifts, hampers, joining kits and promotional merchandise — curated, customised and delivered
-            pan-India.
+            Branded gifts, hampers, joining kits and promotional merchandise —
+            curated, customised and delivered pan-India.
           </p>
 
-          <div className="mt-7 space-y-3 text-[14px]">
+          <div className="mt-7 space-y-3.5 text-[14px]">
             <p className="flex gap-x-3">
-              <MapPin className="mt-0.5 size-4 shrink-0 text-brand-amber" aria-hidden />
-              <span>{SITE.address}</span>
+              <MapPin
+                className="mt-0.5 size-4 shrink-0 text-brand-magenta-light"
+                aria-hidden
+              />
+              <span className="text-white/70">{SITE.address}</span>
             </p>
             <p className="flex items-center gap-x-3">
-              <Mail className="size-4 shrink-0 text-brand-amber" aria-hidden />
-              <a href={`mailto:${SITE.email}`} className="transition-colors hover:text-white">
+              <Mail
+                className="size-4 shrink-0 text-brand-magenta-light"
+                aria-hidden
+              />
+              <a
+                href={`mailto:${SITE.email}`}
+                className="text-white/70 transition-colors hover:text-brand-teal-light"
+              >
                 {SITE.email}
               </a>
             </p>
             <p className="flex items-center gap-x-3">
-              <PhoneCall className="size-4 shrink-0 text-brand-amber" aria-hidden />
-              <a href={SITE.phoneHref} className="transition-colors hover:text-white">
-                78381 52753
+              <PhoneCall
+                className="size-4 shrink-0 text-brand-magenta-light"
+                aria-hidden
+              />
+              <a
+                href={SITE.phoneHref}
+                className="text-white/70 transition-colors hover:text-brand-teal-light"
+              >
+                {SITE.phone}
               </a>
             </p>
           </div>
-
-          <div className="mt-7 flex gap-2.5" aria-label="Social media">
-            {[
-              { src: IMAGES.socials.facebook, label: "Facebook" },
-              { src: IMAGES.socials.instagram, label: "Instagram" },
-              { src: IMAGES.socials.linkedin, label: "LinkedIn" },
-              { src: IMAGES.socials.whatsapp, label: "WhatsApp" },
-            ].map((social) => (
-              <a
-                key={social.label}
-                href="#"
-                aria-label={`KCS G-Mart on ${social.label}`}
-                className="grid size-10 place-items-center rounded-full bg-white/[0.06] ring-1 ring-white/10 transition-colors hover:bg-white hover:ring-white"
-              >
-                <Image src={social.src} alt="" width={20} height={20} />
-              </a>
-            ))}
-          </div>
         </div>
 
-        {/* Link columns */}
-        <div className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3 lg:col-span-8 lg:pl-12">
-          {[
-            { label: "Company", links: COMPANY_LINKS },
-            { label: "Shop", links: SHOP_LINKS },
-            { label: "Account", links: ACCOUNT_LINKS },
-          ].map((group) => (
-            <nav key={group.label} aria-label={group.label} className="last:col-span-2 sm:last:col-span-1">
-              <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">{group.label}</h3>
-              <ul className="mt-5 space-y-2.5">
-                {group.links.map((link) => (
-                  <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="text-[14.5px] text-white/80 transition-colors hover:text-white hover:underline hover:decoration-brand-amber hover:underline-offset-4"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          ))}
+        {/* Link rail */}
+        <div className="lg:col-span-8">
+          <nav
+            aria-label="Footer"
+            className="grid grid-cols-1 gap-x-6 gap-y-9 sm:grid-cols-4"
+          >
+            {[
+              { label: "Shop", links: SHOP_LINKS },
+              { label: "Company", links: COMPANY_LINKS },
+              { label: "Get in touch", links: SERVICE_LINKS },
+              { label: "Account", links: ACCOUNT_LINKS },
+            ].map((group) => (
+              <div key={group.label}>
+                <h3 className="flex items-center gap-2 text-[11px] font-bold tracking-[0.16em] text-white uppercase">
+                  <span
+                    aria-hidden
+                    className="h-1.5 w-1.5 rounded-full bg-brand-teal"
+                  />
+                  {group.label}
+                </h3>
+                <ul className="mt-5 space-y-3">
+                  {group.links.map((link) => (
+                    <li key={link.label}>
+                      <Link
+                        href={link.href}
+                        className="group/fl inline-flex items-center gap-1 text-[14px] text-white/70 transition-colors hover:text-white"
+                      >
+                        <span className="border-b border-transparent pb-px transition-colors group-hover/fl:border-brand-magenta">
+                          {link.label}
+                        </span>
+                        <ArrowUpRight
+                          className="size-3 translate-y-px opacity-0 transition-all group-hover/fl:translate-y-0 group-hover/fl:opacity-100"
+                          aria-hidden
+                        />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </nav>
 
-          {/* Newsletter */}
-          <div className="col-span-2 border-t border-white/10 pt-8 sm:col-span-3">
-            <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:items-center">
+          {/* Newsletter card */}
+          <div className="mt-11 rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-sm sm:p-7">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center">
               <div>
-                <h3 className="display text-[1.5rem] text-white">Stay in the loop</h3>
-                <p className="mt-2 text-[14px] leading-relaxed text-white/55">
-                  Gifting trends, festival calendars and exclusive bulk offers — once a month, no spam.
+                <span className="kicker text-brand-teal-light">Newsletter</span>
+                <h3 className="display mt-2 text-[1.35rem] text-white">
+                  Festival calendar, straight to your inbox
+                </h3>
+                <p className="mt-2 text-[13.5px] leading-relaxed text-white/55">
+                  Gifting trends, festival dates and exclusive bulk offers —
+                  once a month, no spam.
                 </p>
               </div>
-              <div className="footer-newsletter">
+              <div className="footer-newsletter min-w-0 w-full">
                 <NewsletterForm />
               </div>
+            </div>
+          </div>
+
+          {/* Socials */}
+          <div className="mt-9 flex flex-wrap items-center gap-3">
+            <span className="text-[12px] font-semibold tracking-[0.14em] text-white/40 uppercase">
+              Follow us
+            </span>
+            <span aria-hidden className="h-px w-6 bg-white/15" />
+            <div className="flex gap-2.5" aria-label="Social media">
+              {SOCIALS.map((social) => (
+                <a
+                  key={social.label}
+                  href={social.href}
+                  aria-label={`KCS G-Mart on ${social.label}`}
+                  className="grid size-10 place-items-center rounded-full bg-white/[0.06] ring-1 ring-white/10 transition-colors hover:bg-brand-teal hover:ring-brand-teal"
+                >
+                  <Image src={social.src} alt="" width={18} height={18} />
+                </a>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom bar */}
-      <div className="border-t border-white/10">
-        <div className="container flex flex-col items-center justify-between gap-4 py-6 sm:flex-row">
-          <p className="text-[13px] text-white/50">© {new Date().getFullYear()} KCS G-Mart. All rights reserved.</p>
-          <div className="flex items-center gap-3" aria-label="Accepted payment methods">
-            {IMAGES.paymentIcons.map((icon, index) => (
-              <span key={icon} className="grid h-7 w-11 place-items-center rounded-md bg-white/90">
-                <Image src={icon} width={26} height={26} alt={`Payment method ${index + 1}`} className="max-h-5 w-auto" />
-              </span>
-            ))}
+      {/* ── Bottom bar ────────────────────────────────────────────────────── */}
+      <div className="relative border-t border-white/10 bg-black/20">
+        <div className="container flex flex-col items-center justify-between gap-4 py-6 lg:flex-row">
+          <p className="text-[13px] text-white/50">
+            © {new Date().getFullYear()} KCS G-Mart. All rights reserved.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <div
+              className="flex items-center gap-2"
+              aria-label="Accepted payment methods"
+            >
+              {IMAGES.paymentIcons.map((icon, index) => (
+                <span
+                  key={icon}
+                  className="grid h-7 w-11 place-items-center rounded-md bg-white/90"
+                >
+                  <Image
+                    src={icon}
+                    width={26}
+                    height={26}
+                    alt={`Payment method ${index + 1}`}
+                    className="max-h-5 w-auto"
+                  />
+                </span>
+              ))}
+            </div>
           </div>
-          <p className="text-[13px] text-white/50">Corporate Gifting Company · Made in India</p>
+          <div className="flex items-center gap-4 text-[13px] text-white/50">
+            <span>Corporate Gifting Company · Made in India</span>
+            <a
+              href="#top"
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 font-semibold text-white/70 transition-colors hover:border-brand-teal hover:text-white"
+            >
+              Back to top
+              <ArrowUpRight className="size-3.5 -rotate-45" aria-hidden />
+            </a>
+          </div>
         </div>
       </div>
     </footer>

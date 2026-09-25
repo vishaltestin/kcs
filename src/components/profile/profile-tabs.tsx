@@ -65,11 +65,11 @@ type OrderSummary = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  PENDING: "bg-brand-amber/15 text-[#7a5200] ring-brand-amber/30",
+  PENDING: "bg-warning/15 text-warning-foreground ring-warning/30",
   CONFIRMED: "bg-brand-blue/10 text-[#1d5fa3] ring-brand-blue/30",
   SHIPPED: "bg-violet-50 text-violet-800 ring-violet-200",
   DELIVERED: "bg-success/10 text-success ring-success/25",
-  CANCELLED: "bg-primary/[0.08] text-primary ring-primary/20",
+  CANCELLED: "bg-destructive/[0.08] text-destructive ring-destructive/25",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -113,7 +113,7 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
         <div className="flex items-center gap-5">
           <span className="display relative grid size-16 shrink-0 place-items-center rounded-full bg-brand-ink text-[1.5rem] text-white sm:size-20 sm:text-[1.75rem]">
             {initials(`${user.firstName} ${user.lastName}`)}
-            <span className="absolute -right-0.5 -bottom-0.5 grid size-6 place-items-center rounded-full bg-brand-amber text-[#3d2a00] ring-2 ring-background">
+            <span className="absolute -right-0.5 -bottom-0.5 grid size-6 place-items-center rounded-full bg-brand-magenta text-white ring-2 ring-background">
               <Sparkles className="size-3" aria-hidden />
             </span>
           </span>

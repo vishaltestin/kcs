@@ -62,7 +62,7 @@ export default function FaqPage() {
           </nav>
 
           <div className="mt-8 hidden rounded-xl bg-brand-ink p-5 text-white lg:block">
-            <span className="kicker text-brand-amber">Still stuck?</span>
+            <span className="kicker text-brand-teal-light">Still stuck?</span>
             <p className="display mt-1.5 text-[1.2rem] leading-snug text-white">Talk to a gifting manager</p>
             <p className="mt-1 text-xs text-white/70">Mon–Sat, 10 am – 7 pm IST</p>
             <div className="mt-4 grid gap-2">
@@ -100,7 +100,7 @@ export default function FaqPage() {
             <span aria-hidden className="absolute -top-24 -right-16 size-72 rounded-full bg-primary/30 blur-3xl" />
             <div className="relative grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
               <div className="max-w-xl">
-                <span className="kicker text-brand-amber">Didn&apos;t find your answer?</span>
+                <span className="kicker text-brand-teal-light">Didn&apos;t find your answer?</span>
                 <h2 className="display mt-3 text-[1.9rem] text-white md:text-[2.4rem]">
                   We reply to every enquiry within a few working hours.
                 </h2>

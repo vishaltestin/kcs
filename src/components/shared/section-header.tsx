@@ -36,7 +36,7 @@ export function SectionHeader({
   if (center) {
     return (
       <div className={cn("mx-auto mb-9 flex max-w-2xl flex-col items-center text-center md:mb-12", className)}>
-        {eyebrow && <span className={cn("kicker", dark ? "text-brand-amber" : "text-primary")}>{eyebrow}</span>}
+        {eyebrow && <span className={cn("kicker", dark ? "text-brand-teal-light" : "text-primary")}>{eyebrow}</span>}
         <h2 className={cn("display mt-2 text-[2rem] md:text-[2.5rem]", dark ? "text-white" : "text-foreground")}>
           {title}
         </h2>
@@ -58,13 +58,13 @@ export function SectionHeader({
     <div
       className={cn(
         "rule-top mb-7 pt-5 md:mb-9 md:pt-6",
-        dark && "border-white/15 before:bg-brand-amber",
+        dark && "border-white/15 before:bg-brand-magenta-light",
         className
       )}
     >
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:items-end md:gap-10">
         <div className="min-w-0">
-          {eyebrow && <span className={cn("kicker", dark ? "text-brand-amber" : "text-primary")}>{eyebrow}</span>}
+          {eyebrow && <span className={cn("kicker", dark ? "text-brand-teal-light" : "text-primary")}>{eyebrow}</span>}
           <h2
             className={cn(
               "display text-[1.85rem] sm:text-[2.1rem] md:text-[2.4rem]",

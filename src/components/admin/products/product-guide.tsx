@@ -98,7 +98,7 @@ export function SectionGuide({
       </dl>
       {content.example && <GuideExample {...content.example} />}
       {content.watchOut && (
-        <p className="mt-3 rounded-lg bg-brand-amber/10 px-3 py-2 text-[12.5px] leading-relaxed text-amber-900 ring-1 ring-brand-amber/30">
+        <p className="mt-3 rounded-lg bg-warning/10 px-3 py-2 text-[12.5px] leading-relaxed text-warning-foreground ring-1 ring-warning/30">
           <Strong>Watch out: </Strong>
           {content.watchOut}
         </p>

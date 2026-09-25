@@ -68,8 +68,8 @@ export type InvoiceOrder = {
 };
 
 const ASSETS = path.join(process.cwd(), "src", "lib", "invoice-assets");
-const BRAND_RED = "#C31C18";
-const CHARCOAL = "#444444";
+const BRAND_TEAL = "#0099B5";
+const CHARCOAL = "#3A4045";
 const INK = "#1f2937";
 const MUTED = "#6b7280";
 const RULE = "#e5e7eb";
@@ -111,7 +111,7 @@ export async function renderInvoicePdf(order: InvoiceOrder, seller: InvoiceSelle
   const isB2B = !!order.gstNo;
 
   // ── Header band ────────────────────────────────────────────────────────
-  doc.rect(0, 0, pageW, 6).fill(BRAND_RED);
+  doc.rect(0, 0, pageW, 6).fill(BRAND_TEAL);
   let y = 28;
   try {
     doc.image(path.join(ASSETS, "logo.png"), left, y, { height: 44 });
@@ -127,7 +127,7 @@ export async function renderInvoicePdf(order: InvoiceOrder, seller: InvoiceSelle
 
   // Invoice meta block (right)
   const metaX = right - 200;
-  doc.font("Bold").fontSize(18).fillColor(BRAND_RED).text(isB2B ? "TAX INVOICE" : "INVOICE", metaX, y, { width: 200, align: "right" });
+  doc.font("Bold").fontSize(18).fillColor(BRAND_TEAL).text(isB2B ? "TAX INVOICE" : "INVOICE", metaX, y, { width: 200, align: "right" });
   doc.font("Body").fontSize(8.5).fillColor(MUTED).text(isB2B ? "B2B · Recipient registered under GST" : "B2C · Unregistered recipient", metaX, y + 22, { width: 200, align: "right" });
   const meta: [string, string][] = [
     ["Invoice No.", order.invoiceNumber],
@@ -150,7 +150,7 @@ export async function renderInvoicePdf(order: InvoiceOrder, seller: InvoiceSelle
   // ── Bill to / Ship to ──────────────────────────────────────────────────
   const colW = width / 2 - 10;
   const party = (title: string, x: number, lines: string[]) => {
-    doc.font("Bold").fontSize(7.5).fillColor(BRAND_RED).text(title.toUpperCase(), x, y, { characterSpacing: 1 });
+    doc.font("Bold").fontSize(7.5).fillColor(BRAND_TEAL).text(title.toUpperCase(), x, y, { characterSpacing: 1 });
     let py = y + 12;
     lines.forEach((line, i) => {
       doc.font(i === 0 ? "Bold" : "Body").fontSize(i === 0 ? 10 : 8.5).fillColor(i === 0 ? INK : CHARCOAL).text(line, x, py, { width: colW });
@@ -288,7 +288,7 @@ export async function renderInvoicePdf(order: InvoiceOrder, seller: InvoiceSelle
   const totalsX = left + leftW + 20;
   const totalsW = right - totalsX;
 
-  doc.font("Bold").fontSize(7.5).fillColor(BRAND_RED).text("HSN-WISE TAX SUMMARY", left, y, { characterSpacing: 1 });
+  doc.font("Bold").fontSize(7.5).fillColor(BRAND_TEAL).text("HSN-WISE TAX SUMMARY", left, y, { characterSpacing: 1 });
   let hy = y + 13;
   const hCols = interState
     ? [["HSN", 70, "left"], ["Taxable", 80, "right"], ["Rate", 40, "right"], ["IGST", 70, "right"]]
@@ -335,7 +335,7 @@ export async function renderInvoicePdf(order: InvoiceOrder, seller: InvoiceSelle
   let ty = y;
   for (const [k, v, strong] of totalRows) {
     if (strong) {
-      doc.rect(totalsX, ty - 2, totalsW, 22).fill(BRAND_RED);
+      doc.rect(totalsX, ty - 2, totalsW, 22).fill(BRAND_TEAL);
       doc.font("Bold").fontSize(10).fillColor("#ffffff").text(k, totalsX + 8, ty + 4, { width: totalsW / 2 });
       doc.font("Bold").fontSize(11).fillColor("#ffffff").text(v, totalsX, ty + 3, { width: totalsW - 8, align: "right" });
       ty += 26;
@@ -357,7 +357,7 @@ export async function renderInvoicePdf(order: InvoiceOrder, seller: InvoiceSelle
   // ── Footer: notes, declaration, signature ─────────────────────────────
   doc.moveTo(left, y).lineTo(right, y).lineWidth(0.8).strokeColor(RULE).stroke();
   y += 10;
-  doc.font("Bold").fontSize(7.5).fillColor(BRAND_RED).text("DECLARATION", left, y, { characterSpacing: 1 });
+  doc.font("Bold").fontSize(7.5).fillColor(BRAND_TEAL).text("DECLARATION", left, y, { characterSpacing: 1 });
   doc
     .font("Body")
     .fontSize(7.5)

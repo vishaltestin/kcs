@@ -109,7 +109,7 @@ export function BookMeetingDialog({
             />
             <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20" />
             <div className="relative flex h-full flex-col p-8">
-              <span className="kicker text-brand-amber">Free consultation</span>
+              <span className="kicker text-brand-teal-light">Free consultation</span>
               <h3 className="display mt-2.5 text-[1.75rem] text-white">
                 Explore unique corporate gifting solutions.
               </h3>
@@ -124,7 +124,7 @@ export function BookMeetingDialog({
                 ].map((item) => (
                   <li key={item.text} className="flex items-center gap-2.5">
                     <span className="grid size-7 place-items-center rounded-full bg-white/10 ring-1 ring-white/15">
-                      <item.icon className="size-3.5 text-brand-amber" aria-hidden />
+                      <item.icon className="size-3.5 text-brand-teal-light" aria-hidden />
                     </span>
                     {item.text}
                   </li>

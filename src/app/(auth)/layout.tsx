@@ -54,13 +54,13 @@ export default function AuthLayout({
         <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
 
         <div className="absolute top-10 left-12 flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white ring-1 ring-white/20 backdrop-blur">
-          <span className="size-1.5 rounded-full bg-brand-amber" aria-hidden />
+          <span className="size-1.5 rounded-full bg-brand-magenta-light" aria-hidden />
           India&apos;s trusted gifting partner
         </div>
 
         <div className="absolute right-12 bottom-12 left-12 text-white">
           <h2 className="max-w-lg text-4xl font-extrabold leading-[1.05] tracking-tight">
-            Gifts that say the right thing — <span className="text-brand-amber">at scale.</span>
+            Gifts that say the right thing — <span className="text-brand-teal-light">at scale.</span>
           </h2>
           <p className="mt-4 max-w-md text-white/80">
             Branded gifts, curated hampers and joining kits with pan-India delivery and tiered bulk
@@ -72,7 +72,7 @@ export default function AuthLayout({
                 key={p.text}
                 className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-2 text-[13px] font-medium ring-1 ring-white/15 backdrop-blur"
               >
-                <p.icon className="size-4 text-brand-amber" aria-hidden />
+                <p.icon className="size-4 text-brand-teal-light" aria-hidden />
                 {p.text}
               </li>
             ))}

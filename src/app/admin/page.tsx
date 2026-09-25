@@ -122,7 +122,7 @@ export default async function AdminDashboardPage() {
       {/* Attention strip */}
       {attention.length > 0 && (
         <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl bg-brand-charcoal px-4 py-3 text-white ring-1 ring-white/10">
-          <span className="mr-1 inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-brand-amber">
+          <span className="mr-1 inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-brand-teal-light">
             <BellRing className="size-4" aria-hidden /> Needs attention
           </span>
           {attention.map((item) => (
@@ -308,7 +308,7 @@ export default async function AdminDashboardPage() {
                       className={
                         product.stock < 50
                           ? "shrink-0 rounded-full bg-primary/[0.08] px-2.5 py-1 text-[11px] font-bold text-primary ring-1 ring-primary/20"
-                          : "shrink-0 rounded-full bg-brand-amber/15 px-2.5 py-1 text-[11px] font-bold text-[#7a5200] ring-1 ring-brand-amber/30"
+                          : "shrink-0 rounded-full bg-warning/15 px-2.5 py-1 text-[11px] font-bold text-warning-foreground ring-1 ring-warning/30"
                       }
                     >
                       {product.stock} left

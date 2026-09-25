@@ -36,7 +36,7 @@ export function BulkEnquiryDialog({
           <aside className="relative hidden overflow-hidden bg-brand-ink p-7 text-white md:block">
             <div aria-hidden className="absolute -bottom-20 -left-20 size-56 rounded-full bg-primary/40 blur-3xl" />
             <div className="relative flex h-full flex-col">
-              <span className="kicker text-brand-amber">Bulk enquiry</span>
+              <span className="kicker text-brand-teal-light">Bulk enquiry</span>
               <h3 className="display mt-2.5 text-[1.5rem] text-white">
                 Get a tailored quote for your team.
               </h3>
@@ -44,7 +44,7 @@ export function BulkEnquiryDialog({
                 {PERKS.map((p) => (
                   <li key={p.text} className="flex items-start gap-2.5 text-sm text-white/85">
                     <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-white/10">
-                      <p.icon className="size-3.5 text-brand-amber" aria-hidden />
+                      <p.icon className="size-3.5 text-brand-teal-light" aria-hidden />
                     </span>
                     {p.text}
                   </li>

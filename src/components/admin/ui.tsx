@@ -91,7 +91,7 @@ export function StatCard({
         className={cn(
           "pointer-events-none absolute -top-10 -right-10 size-28 rounded-full blur-2xl transition-opacity duration-500",
           tone === "primary" && "bg-primary/20",
-          tone === "warning" && "bg-brand-amber/30",
+          tone === "warning" && "bg-warning/25",
           tone === "default" && "bg-foreground/[0.05]"
         )}
       />
@@ -107,7 +107,7 @@ export function StatCard({
           className={cn(
             "grid size-11 shrink-0 place-items-center rounded-xl",
             tone === "primary" && "bg-primary text-primary-foreground shadow-[0_10px_20px_-10px_oklch(0.545_0.206_25.5/0.9)]",
-            tone === "warning" && "bg-brand-amber/20 text-[#7a5200]",
+            tone === "warning" && "bg-warning/20 text-warning-foreground",
             tone === "default" && "bg-primary/[0.08] text-primary"
           )}
         >
@@ -119,11 +119,11 @@ export function StatCard({
 }
 
 const STATUS_TONES: Record<string, string> = {
-  PENDING: "bg-brand-amber/15 text-[#7a5200] ring-brand-amber/30",
+  PENDING: "bg-warning/15 text-warning-foreground ring-warning/30",
   CONFIRMED: "bg-brand-blue/10 text-[#1d5fa3] ring-brand-blue/30",
   SHIPPED: "bg-violet-50 text-violet-800 ring-violet-200",
   DELIVERED: "bg-success/10 text-success ring-success/25",
-  CANCELLED: "bg-primary/[0.08] text-primary ring-primary/20",
+  CANCELLED: "bg-destructive/[0.08] text-destructive ring-destructive/25",
   NEW: "bg-primary/[0.08] text-primary ring-primary/20",
   CONTACTED: "bg-brand-blue/10 text-[#1d5fa3] ring-brand-blue/30",
   CLOSED: "bg-muted text-muted-foreground ring-border",

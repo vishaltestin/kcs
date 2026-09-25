@@ -144,7 +144,7 @@ export default function WhyUsPage() {
           <span aria-hidden className="absolute -top-24 -right-24 size-72 rounded-full bg-primary/30 blur-3xl" />
           <div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
             <div className="max-w-xl">
-              <span className="kicker text-brand-amber">Experience it first-hand</span>
+              <span className="kicker text-brand-teal-light">Experience it first-hand</span>
               <h2 className="display mt-3 text-[1.9rem] text-white md:text-[2.4rem]">
                 Let&apos;s plan your next gifting drive.
               </h2>

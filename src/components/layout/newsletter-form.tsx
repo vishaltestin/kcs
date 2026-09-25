@@ -28,7 +28,7 @@ export function NewsletterForm() {
 
   if (state?.ok) {
     return (
-      <p className="flex items-center gap-2 rounded-xl bg-success/[0.12] px-4 py-3 text-sm font-medium text-success" role="status">
+      <p className="flex items-center gap-2 rounded-xl bg-brand-teal/15 px-4 py-3 text-sm font-semibold text-brand-teal-light ring-1 ring-brand-teal/30" role="status">
         <CheckCircle2 className="size-4" aria-hidden />
         {state.message ?? "You're on the list — see you in the next issue."}
       </p>
@@ -39,10 +39,10 @@ export function NewsletterForm() {
     <form
       ref={formRef}
       action={formAction}
-      className="flex h-12 w-full max-w-md items-center gap-1 rounded-xl border bg-background p-1 pl-3 text-foreground transition-shadow focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10"
+      className="flex h-12 w-full items-center gap-1 rounded-full border border-white/15 bg-white/[0.07] p-1 pl-4 text-white transition-shadow focus-within:border-brand-teal/60 focus-within:ring-4 focus-within:ring-brand-teal/20"
       aria-busy={isPending}
     >
-      <Mail className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+      <Mail className="size-4 shrink-0 text-brand-teal-light" aria-hidden />
       <label htmlFor="newsletter-email" className="sr-only">
         Email address
       </label>
@@ -52,10 +52,14 @@ export function NewsletterForm() {
         type="email"
         required
         placeholder="Your work email"
-        className="h-full min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground/80"
+        className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-sm text-white outline-none placeholder:text-white/45"
         aria-invalid={state && !state.ok ? true : undefined}
       />
-      <Button type="submit" disabled={isPending} className="h-10 shrink-0 rounded-lg px-4">
+      <Button
+        type="submit"
+        disabled={isPending}
+        className="h-10 shrink-0 rounded-full bg-secondary px-4 font-bold text-secondary-foreground shadow-accent hover:bg-brand-magenta-strong"
+      >
         {isPending ? (
           <Loader2 className="animate-spin" aria-hidden />
         ) : (

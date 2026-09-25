@@ -108,13 +108,13 @@ export default function ContactUsPage() {
             <div className="relative overflow-hidden rounded-xl bg-brand-ink p-6 text-white">
               <span aria-hidden className="absolute -top-16 -right-16 size-48 rounded-full bg-primary/30 blur-3xl" />
               <div className="relative">
-                <span className="kicker flex items-center gap-1.5 text-brand-amber">
+                <span className="kicker flex items-center gap-1.5 text-brand-teal-light">
                   <Zap className="size-4" aria-hidden /> In a hurry?
                 </span>
                 <p className="display mt-2.5 text-[1.4rem] text-white">Book a 15-minute call with a gifting manager.</p>
                 <p className="mt-1.5 text-sm text-white/70">Pick a slot that suits you — we&apos;ll come prepared with ideas.</p>
                 <BookMeetingButton
-                  className="mt-5 bg-white text-foreground hover:bg-brand-amber hover:text-foreground"
+                  className="mt-5 bg-white text-foreground hover:bg-brand-teal-light hover:text-brand-ink"
                 />
               </div>
             </div>

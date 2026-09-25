@@ -129,7 +129,7 @@ export function ZonesEditor({ zones, states }: { zones: AdminZone[]; states: str
                   </td>
                   <td className="max-w-[14rem] min-w-40 px-3 py-3">
                     {zone.states.length === 0 ? (
-                      <span className="rounded-md bg-brand-amber/15 px-1.5 py-0.5 text-[11px] font-semibold text-[#7a5200]">Catch-all · rest of India</span>
+                      <span className="rounded-md bg-warning/15 px-1.5 py-0.5 text-[11px] font-semibold text-warning-foreground">Catch-all · rest of India</span>
                     ) : (
                       <p className="truncate text-xs" title={zone.states.join(", ")}>
                         {zone.states.slice(0, 3).join(", ")}

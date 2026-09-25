@@ -42,24 +42,37 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
-  /* Brand tokens (KCS palette) */
-  --color-brand-red: var(--brand-red);
-  --color-brand-deep: var(--brand-deep);
+  /* Brand tokens (KCS palette) — teal leads, magenta accents */
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-teal-strong: var(--brand-teal-strong);
+  --color-brand-teal-deep: var(--brand-teal-deep);
+  --color-brand-teal-light: var(--brand-teal-light);
+  --color-brand-teal-soft: var(--brand-teal-soft);
+  --color-brand-magenta: var(--brand-magenta);
+  --color-brand-magenta-strong: var(--brand-magenta-strong);
+  --color-brand-magenta-deep: var(--brand-magenta-deep);
+  --color-brand-magenta-light: var(--brand-magenta-light);
+  --color-brand-magenta-soft: var(--brand-magenta-soft);
   --color-brand-charcoal: var(--brand-charcoal);
   --color-brand-ink: var(--brand-ink);
-  --color-brand-amber: var(--brand-amber);
   --color-brand-blue: var(--brand-blue);
   --color-surface: var(--surface);
   --color-surface-strong: var(--surface-strong);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  /* Semantic extras — warning keeps a warm hue so it never reads as brand */
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-star: var(--star);
 
   /* Elevation scale */
   --shadow-card: 0 1px 2px 0 rgb(17 24 39 / 0.04), 0 1px 3px 0 rgb(17 24 39 / 0.06);
-  --shadow-card-hover: 0 18px 36px -14px rgb(17 24 39 / 0.18), 0 4px 10px -4px rgb(17 24 39 / 0.06);
-  --shadow-soft: 0 10px 30px -12px rgb(17 24 39 / 0.14);
-  --shadow-float: 0 24px 48px -20px rgb(17 24 39 / 0.25);
-  --shadow-primary: 0 10px 24px -10px oklch(0.545 0.206 25.5 / 0.55);
+  --shadow-card-hover: 0 18px 36px -14px rgb(10 42 51 / 0.18), 0 4px 10px -4px rgb(10 42 51 / 0.06);
+  --shadow-soft: 0 10px 30px -12px rgb(10 42 51 / 0.14);
+  --shadow-float: 0 24px 48px -20px rgb(10 42 51 / 0.25);
+  --shadow-primary: 0 10px 24px -10px oklch(0.526 0.095 218.4 / 0.5);
+  --shadow-accent: 0 10px 24px -10px oklch(0.586 0.224 358.6 / 0.45);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -77,89 +90,108 @@
 
 /*
  * KCS G-Mart brand palette
- * Primary red #C31C18, deep red #B91C1C, charcoal #444444,
- * amber #FCB819, hover blue #42A2FF.
+ * Primary teal #0099B5 (links, actions, active states), secondary magenta
+ * #DA1E7A (accents, promos, highlights), deep teal #00637A for text/contrast,
+ * ink #1C2226 for dark panels. Teal leads; magenta is the accent voice.
+ * Amber survives only as the rating star + semantic warning hue.
  */
 :root {
   --background: oklch(1 0 0);
-  --foreground: oklch(0.2 0.02 260);
+  --foreground: oklch(0.248 0.012 237.2);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.02 260);
+  --card-foreground: oklch(0.248 0.012 237.2);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.02 260);
-  --primary: oklch(0.545 0.206 25.5);
-  --primary-foreground: oklch(0.985 0.002 260);
-  --secondary: oklch(0.96 0.003 260);
-  --secondary-foreground: oklch(0.28 0.02 260);
-  --muted: oklch(0.96 0.003 260);
-  --muted-foreground: oklch(0.51 0.015 260);
-  --accent: oklch(0.955 0.005 260);
-  --accent-foreground: oklch(0.28 0.02 260);
-  --destructive: oklch(0.577 0.245 27.3);
-  --border: oklch(0.912 0.005 260);
-  --input: oklch(0.88 0.006 260);
-  --ring: oklch(0.545 0.206 25.5);
-  --chart-1: oklch(0.545 0.206 25.5);
-  --chart-2: oklch(0.65 0.17 42);
-  --chart-3: oklch(0.55 0.12 260);
-  --chart-4: oklch(0.6 0.11 180);
-  --chart-5: oklch(0.72 0.15 85);
+  --popover-foreground: oklch(0.248 0.012 237.2);
+  --primary: oklch(0.526 0.095 218.4);
+  --primary-foreground: oklch(0.985 0.006 213);
+  --secondary: oklch(0.586 0.224 358.6);
+  --secondary-foreground: oklch(0.99 0.005 350);
+  --muted: oklch(0.968 0.006 220);
+  --muted-foreground: oklch(0.522 0.017 235);
+  --accent: oklch(0.962 0.019 213.4);
+  --accent-foreground: oklch(0.463 0.085 221);
+  --destructive: oklch(0.596 0.213 26.5);
+  --border: oklch(0.918 0.009 224);
+  --input: oklch(0.888 0.011 224);
+  --ring: oklch(0.526 0.095 218.4);
+  --chart-1: oklch(0.526 0.095 218.4);
+  --chart-2: oklch(0.586 0.224 358.6);
+  --chart-3: oklch(0.63 0.112 216.9);
+  --chart-4: oklch(0.734 0.187 354.5);
+  --chart-5: oklch(0.6 0.09 245);
   --radius: 0.5rem;
-  --sidebar: oklch(0.985 0.001 260);
-  --sidebar-foreground: oklch(0.2 0.02 260);
-  --sidebar-primary: oklch(0.545 0.206 25.5);
-  --sidebar-primary-foreground: oklch(0.985 0.002 260);
-  --sidebar-accent: oklch(0.955 0.005 260);
-  --sidebar-accent-foreground: oklch(0.28 0.02 260);
-  --sidebar-border: oklch(0.905 0.005 260);
-  --sidebar-ring: oklch(0.545 0.206 25.5);
+  --sidebar: oklch(0.985 0.004 220);
+  --sidebar-foreground: oklch(0.248 0.012 237.2);
+  --sidebar-primary: oklch(0.526 0.095 218.4);
+  --sidebar-primary-foreground: oklch(0.985 0.006 213);
+  --sidebar-accent: oklch(0.962 0.019 213.4);
+  --sidebar-accent-foreground: oklch(0.463 0.085 221);
+  --sidebar-border: oklch(0.914 0.009 224);
+  --sidebar-ring: oklch(0.526 0.095 218.4);
 
-  --brand-red: #c31c18;
-  --brand-deep: #b91c1c;
-  --brand-charcoal: #444444;
-  --brand-ink: #262626;
-  --brand-amber: #fcb819;
-  --brand-blue: #42a2ff;
-  --surface: oklch(0.982 0.002 80);
-  --surface-strong: oklch(0.962 0.003 80);
-  --success: oklch(0.6 0.15 155);
+  /* Brand scale — teal */
+  --brand-teal: #0099b5;
+  --brand-teal-strong: #00778f;
+  --brand-teal-deep: #00637a;
+  --brand-teal-light: #5ad1e6;
+  --brand-teal-soft: #e5f6fa;
+  /* Brand scale — magenta */
+  --brand-magenta: #da1e7a;
+  --brand-magenta-strong: #b81866;
+  --brand-magenta-deep: #931352;
+  --brand-magenta-light: #ff6fb0;
+  --brand-magenta-soft: #fdeaf3;
+  /* Neutrals */
+  --brand-charcoal: #3a4045;
+  --brand-ink: #1c2226;
+  --brand-blue: #1d7fa8;
+  --surface: oklch(0.978 0.005 220);
+  --surface-strong: oklch(0.955 0.008 220);
+  --success: oklch(0.6 0.12 168);
   --success-foreground: oklch(0.985 0 0);
+  /* Semantic */
+  --warning: #d97706;
+  --warning-soft: #fef3c7;
+  --warning-foreground: #7a5200;
+  --star: #f5a524;
 }
 
 .dark {
-  --background: oklch(0.145 0.01 260);
-  --foreground: oklch(0.985 0.002 260);
-  --card: oklch(0.205 0.012 260);
-  --card-foreground: oklch(0.985 0.002 260);
-  --popover: oklch(0.205 0.012 260);
-  --popover-foreground: oklch(0.985 0.002 260);
-  --primary: oklch(0.62 0.21 25.5);
-  --primary-foreground: oklch(0.985 0.002 260);
-  --secondary: oklch(0.269 0.012 260);
-  --secondary-foreground: oklch(0.985 0.002 260);
-  --muted: oklch(0.269 0.012 260);
-  --muted-foreground: oklch(0.708 0.01 260);
-  --accent: oklch(0.269 0.012 260);
-  --accent-foreground: oklch(0.985 0.002 260);
+  --background: oklch(0.185 0.014 235);
+  --foreground: oklch(0.972 0.005 214);
+  --card: oklch(0.232 0.016 235);
+  --card-foreground: oklch(0.972 0.005 214);
+  --popover: oklch(0.232 0.016 235);
+  --popover-foreground: oklch(0.972 0.005 214);
+  --primary: oklch(0.63 0.112 216.9);
+  --primary-foreground: oklch(0.16 0.02 232);
+  --secondary: oklch(0.65 0.2 358.6);
+  --secondary-foreground: oklch(0.16 0.02 232);
+  --muted: oklch(0.276 0.016 235);
+  --muted-foreground: oklch(0.72 0.014 220);
+  --accent: oklch(0.3 0.026 220);
+  --accent-foreground: oklch(0.9 0.05 210);
   --destructive: oklch(0.704 0.191 22.2);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.62 0.21 25.5);
-  --chart-1: oklch(0.62 0.21 25.5);
-  --chart-2: oklch(0.7 0.16 42);
-  --chart-3: oklch(0.65 0.12 260);
-  --chart-4: oklch(0.7 0.11 180);
-  --chart-5: oklch(0.78 0.15 85);
-  --sidebar: oklch(0.205 0.012 260);
-  --sidebar-foreground: oklch(0.985 0.002 260);
-  --sidebar-primary: oklch(0.62 0.21 25.5);
-  --sidebar-primary-foreground: oklch(0.985 0.002 260);
-  --sidebar-accent: oklch(0.269 0.012 260);
-  --sidebar-accent-foreground: oklch(0.985 0.002 260);
+  --ring: oklch(0.63 0.112 216.9);
+  --chart-1: oklch(0.63 0.112 216.9);
+  --chart-2: oklch(0.65 0.2 358.6);
+  --chart-3: oklch(0.8 0.11 211);
+  --chart-4: oklch(0.734 0.187 354.5);
+  --chart-5: oklch(0.66 0.09 245);
+  --sidebar: oklch(0.232 0.016 235);
+  --sidebar-foreground: oklch(0.972 0.005 214);
+  --sidebar-primary: oklch(0.63 0.112 216.9);
+  --sidebar-primary-foreground: oklch(0.16 0.02 232);
+  --sidebar-accent: oklch(0.3 0.026 220);
+  --sidebar-accent-foreground: oklch(0.9 0.05 210);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.62 0.21 25.5);
-  --surface: oklch(0.17 0.01 260);
-  --surface-strong: oklch(0.21 0.01 260);
+  --sidebar-ring: oklch(0.63 0.112 216.9);
+  --surface: oklch(0.21 0.015 235);
+  --surface-strong: oklch(0.25 0.017 235);
+  --warning-soft: oklch(0.35 0.07 75);
+  --warning-foreground: oklch(0.88 0.13 82);
 }
 
 /* ---------------------------------------------------------------------------
@@ -289,9 +321,10 @@
   }
 }
 
-/* Warm studio backdrop for product imagery */
+/* Cool studio backdrop for product imagery — a whisper of brand teal so white
+   product shots sit on the page instead of floating on plain white. */
 @utility studio {
-  background: oklch(0.968 0.006 80);
+  background: oklch(0.972 0.007 220);
 }
 
 @utility no-scrollbar {
@@ -437,7 +470,7 @@ body {
 .most-trusted > *:hover p,
 .most-trusted > *:focus-visible,
 .most-trusted > *:focus-visible p {
-  color: var(--brand-amber);
+  color: var(--brand-teal-light);
 }
 
 .most-trusted > * svg {
@@ -479,8 +512,8 @@ body {
 
 .play-modal:hover,
 .play-modal:focus-visible {
-  background-color: #b91c1c;
-  border-color: #b91c1c;
+  background-color: var(--brand-magenta);
+  border-color: var(--brand-magenta);
   color: #fff;
   outline: none;
 }
@@ -507,7 +540,7 @@ body {
 }
 
 .underline-animation:hover {
-  color: var(--brand-deep);
+  color: var(--primary);
 }
 
 .underline-animation::after {
@@ -518,7 +551,7 @@ body {
   width: 100%;
   height: 2px;
   border-radius: 999px;
-  background-color: var(--brand-deep);
+  background-image: linear-gradient(90deg, var(--brand-teal), var(--brand-magenta));
   transform: scaleX(0);
   transform-origin: bottom right;
   transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
@@ -559,6 +592,147 @@ body {
 
 .marquee:hover .marquee-inner {
   animation-play-state: paused;
+}
+
+/* ---------------------------------------------------------------------------
+ * Brand flourishes
+ * ------------------------------------------------------------------------- */
+
+/* The signature teal → magenta gradient. Used for hairlines, active-state
+   indicators and the thin bars that tie the header and footer together. */
+@utility brand-gradient {
+  background-image: linear-gradient(90deg, var(--brand-teal), var(--brand-magenta));
+}
+
+@utility brand-gradient-vertical {
+  background-image: linear-gradient(180deg, var(--brand-teal), var(--brand-magenta));
+}
+
+/* Gradient type — for one or two highlighted words on dark panels. */
+@utility brand-gradient-text {
+  background-image: linear-gradient(92deg, var(--brand-teal-light), var(--brand-magenta-light));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Soft brand glow used behind dark panels (hero, footer, admin stat tiles). */
+@utility brand-glow {
+  background-image:
+    radial-gradient(38rem 20rem at 12% -10%, color-mix(in oklch, var(--brand-teal) 34%, transparent), transparent 70%),
+    radial-gradient(30rem 18rem at 92% 8%, color-mix(in oklch, var(--brand-magenta) 22%, transparent), transparent 72%);
+}
+
+/* ---------------------------------------------------------------------------
+ * Navbar links — pill hit areas
+ *
+ * Active and hover share the tinted pill; only the current route also gets the
+ * teal → magenta indicator, so "where am I" never depends on colour alone.
+ * `data-active` is set by the navbar, `data-state` comes from Radix.
+ * ------------------------------------------------------------------------- */
+
+@layer components {
+  .nav-pill {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    height: 2.5rem;
+    padding-inline: 0.8rem;
+    border-radius: 999px;
+    font-size: 13.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    color: color-mix(in oklch, var(--foreground) 84%, transparent);
+    transition:
+      color 0.18s ease,
+      background-color 0.18s ease;
+  }
+
+  .nav-pill:hover,
+  .nav-pill[data-state="open"],
+  .nav-pill[data-active="true"] {
+    color: var(--primary);
+    background-color: color-mix(in oklch, var(--brand-teal) 9%, transparent);
+  }
+
+  .nav-pill::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0.8rem;
+    bottom: 0.35rem;
+    height: 2px;
+    border-radius: 999px;
+    background-image: linear-gradient(90deg, var(--brand-teal), var(--brand-magenta));
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .nav-pill[data-active="true"]::after {
+    transform: scaleX(1);
+  }
+
+  /* The Radix trigger renders a <button>; strip its default chrome so it reads
+     exactly like the sibling links. */
+  .nav-pill[data-slot="navigation-menu-trigger"] {
+    background-color: transparent;
+  }
+
+  .nav-pill[data-slot="navigation-menu-trigger"]:hover,
+  .nav-pill[data-slot="navigation-menu-trigger"][data-state="open"] {
+    background-color: color-mix(in oklch, var(--brand-teal) 9%, transparent);
+  }
+
+  .nav-pill .nav-pill__chevron {
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .nav-pill[data-state="open"] .nav-pill__chevron {
+    transform: rotate(180deg);
+  }
+
+  /* Top-level link icons: teal at rest, they take the link colour on hover/open. */
+  .nav-pill__icon {
+    color: var(--brand-teal);
+    transition: color 0.18s ease;
+  }
+
+  .nav-pill:hover .nav-pill__icon,
+  .nav-pill[data-state="open"] .nav-pill__icon,
+  .nav-pill[data-active="true"] .nav-pill__icon {
+    color: currentColor;
+  }
+
+  /* Round icon button used for search / wishlist / account in the header rail. */
+  .icon-btn {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--background);
+    color: var(--foreground);
+    transition:
+      color 0.18s ease,
+      border-color 0.18s ease,
+      background-color 0.18s ease;
+  }
+
+  .icon-btn:hover {
+    border-color: color-mix(in oklch, var(--brand-teal) 45%, transparent);
+    background-color: color-mix(in oklch, var(--brand-teal) 8%, transparent);
+    color: var(--brand-teal-deep);
+  }
+
+  @media (max-width: 1023px) {
+    .icon-btn {
+      width: 2.375rem;
+      height: 2.375rem;
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -652,7 +826,7 @@ body {
 }
 
 .play-modal:hover {
-  background-color: #b91c1c;
+  background-color: var(--brand-magenta);
   color: #fff;
 }
 
@@ -666,8 +840,8 @@ body {
 
 /* Accessible focus outline reset for the branded search bar */
 .search-bar:focus-within {
-  border-color: var(--brand-deep);
-  box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 12%, transparent);
+  border-color: var(--brand-teal);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--brand-teal) 16%, transparent);
 }
 
 /* ── Admin console ─────────────────────────────────────────────────────
@@ -804,12 +978,12 @@ body {
   --kcs-toast-accent-soft: color-mix(in oklch, var(--destructive) 10%, white);
 }
 .kcs-toast--warning {
-  --kcs-toast-accent: #d97706;
-  --kcs-toast-accent-soft: color-mix(in oklch, #f59e0b 14%, white);
+  --kcs-toast-accent: var(--warning);
+  --kcs-toast-accent-soft: color-mix(in oklch, var(--warning) 14%, white);
 }
 .kcs-toast--info {
-  --kcs-toast-accent: var(--brand-blue);
-  --kcs-toast-accent-soft: color-mix(in oklch, var(--brand-blue) 12%, white);
+  --kcs-toast-accent: var(--brand-teal);
+  --kcs-toast-accent-soft: color-mix(in oklch, var(--brand-teal) 12%, white);
 }
 .kcs-toast--loading {
   --kcs-toast-accent: var(--muted-foreground);

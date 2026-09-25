@@ -36,10 +36,11 @@ export default function Banner({
     <section className={cn("container mt-4 md:mt-6", className)} aria-label={`${title} banner`}>
       <div
         className={cn(
-          "relative isolate overflow-hidden rounded-2xl bg-brand-ink text-white shadow-[0_24px_48px_-24px_rgb(0_0_0/0.45)]",
+          "relative isolate overflow-hidden rounded-2xl bg-brand-ink text-white shadow-[0_24px_48px_-24px_rgb(10_42_51/0.45)]",
           height
         )}
       >
+        <span aria-hidden className="brand-gradient absolute inset-x-0 top-0 z-10 h-[3px]" />
         {/* Photograph — right half, feathered into the charcoal */}
         <div className="absolute inset-y-0 right-0 w-full md:w-[58%]" aria-hidden>
           <Image
@@ -55,7 +56,7 @@ export default function Banner({
         </div>
         <span
           aria-hidden
-          className="absolute -top-32 -left-24 size-[26rem] rounded-full bg-primary/25 blur-[100px]"
+          className="absolute -top-32 -left-24 size-[26rem] rounded-full bg-brand-teal/30 blur-[100px]"
         />
 
         <div className="relative px-6 py-12 sm:px-10 md:px-14 md:py-16 lg:py-20">
@@ -79,7 +80,7 @@ export default function Banner({
             </ol>
           </nav>
 
-          {eyebrow && <span className="kicker block text-brand-amber">{eyebrow}</span>}
+          {eyebrow && <span className="kicker block text-brand-teal-light">{eyebrow}</span>}
           <h1 className={cn("display max-w-2xl text-[2.25rem] text-white sm:text-[2.75rem] md:text-[3.25rem]", eyebrow && "mt-2")}>
             {title}
           </h1>

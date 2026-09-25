@@ -194,8 +194,8 @@ export function VariantsEditor({
       />
 
       {!hasVariants && retainedCount > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-amber/10 px-4 py-3 text-sm ring-1 ring-brand-amber/40">
-          <p className="min-w-0 flex-1 text-amber-900">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-warning/10 px-4 py-3 text-sm ring-1 ring-warning/35">
+          <p className="min-w-0 flex-1 text-warning-foreground">
             <strong className="font-semibold">
               {retainedCount} variant{retainedCount === 1 ? "" : "s"} {retainedCount === 1 ? "is" : "are"} hidden, not
               deleted.
@@ -362,7 +362,7 @@ export function VariantsEditor({
                     })}
                   </div>
                   {shared && validProductTiers.length === 0 && (
-                    <p className="flex items-start gap-2 rounded-lg bg-brand-amber/10 px-3 py-2 text-xs text-amber-900 ring-1 ring-brand-amber/40">
+                    <p className="flex items-start gap-2 rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning-foreground ring-1 ring-warning/35">
                       <AlertCircle className="mt-px size-3.5 shrink-0" aria-hidden />
                       Enter the product price{pricingMode === "BULK" ? " tiers" : ""} in the Pricing card above — every
                       variant will use {pricingMode === "BULK" ? "them" : "it"}.
@@ -387,7 +387,7 @@ export function VariantsEditor({
           <div
             className={cn(
               "flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3",
-              outOfSync ? "bg-brand-amber/10 ring-1 ring-brand-amber/40" : "bg-surface ring-1 ring-foreground/[0.06]",
+              outOfSync ? "bg-warning/10 ring-1 ring-warning/35" : "bg-surface ring-1 ring-foreground/[0.06]",
             )}
           >
             <p className="text-sm">

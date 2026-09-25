@@ -186,7 +186,7 @@ export default async function BlogDetailPage({ params }: { params: Params }) {
             <div className="relative overflow-hidden rounded-xl bg-brand-ink p-6 text-white">
               <span aria-hidden className="absolute -top-16 -right-10 size-44 rounded-full bg-primary/30 blur-3xl" />
               <div className="relative">
-                <span className="kicker text-brand-amber">Put it into practice</span>
+                <span className="kicker text-brand-teal-light">Put it into practice</span>
                 <h2 className="display mt-2.5 text-[1.5rem] leading-tight text-white">
                   Planning your next gifting campaign?
                 </h2>

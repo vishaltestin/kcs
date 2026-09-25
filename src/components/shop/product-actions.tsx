@@ -287,7 +287,7 @@ export function ProductActions({ product }: { product: ProductDetail }) {
         <div className="relative overflow-hidden rounded-xl bg-brand-ink p-5 text-white">
           <span aria-hidden className="absolute -top-16 -right-16 size-48 rounded-full bg-primary/25 blur-3xl" />
           <div className="relative">
-            <p className="kicker text-brand-amber">Quoted on request</p>
+            <p className="kicker text-brand-teal-light">Quoted on request</p>
             <h3 className="display mt-1.5 text-[1.35rem] text-white">Tell us your quantity &amp; branding</h3>
             <p className="mt-1.5 max-w-md text-sm text-white/70">
               Pricing for this product depends on quantity, customisation and delivery location. Share your brief and a

@@ -109,7 +109,7 @@ export default async function CategoryDetailPage({
         <div className="mt-5 grid gap-6 overflow-hidden rounded-2xl bg-brand-ink text-white lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
           <div className="flex flex-col justify-between px-7 py-8 md:px-10 md:py-10">
             <div>
-              <span className="kicker flex items-center gap-2 text-brand-amber">
+              <span className="kicker flex items-center gap-2 text-brand-teal-light">
                 {category.isSpecial && <Sparkles className="size-4" aria-hidden />}
                 {category.isSpecial ? "Special programme" : parent ? parent.title : "Collection"}
               </span>

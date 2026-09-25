@@ -119,7 +119,7 @@ export default async function CategoryListingPage() {
             <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-ink via-brand-ink/10 to-transparent" />
           </div>
           <div className="flex flex-col px-7 pt-2 pb-9 md:px-12 md:pb-12">
-            <span className="kicker text-brand-amber">Best price &amp; high quality</span>
+            <span className="kicker text-brand-teal-light">Best price &amp; high quality</span>
             <h2 className="display mt-2 text-[1.9rem] text-white md:text-[2.4rem]">Drinkware for Corporate Gifts</h2>
             <p className="mt-3 max-w-md text-[15px] leading-relaxed text-white/65">
               Insulated bottles, tumblers and mugs from Borosil, Milton and more — laser-engraved with your logo.

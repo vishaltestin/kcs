@@ -126,11 +126,11 @@ export default function AboutUsPage() {
         <div className="container relative grid grid-cols-1 divide-y divide-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           {STATS.map((stat, index) => (
             <div key={stat.label} className="flex items-start gap-5 py-6 sm:px-8 sm:py-2 sm:first:pl-0 sm:last:pr-0">
-              <span className="numeral pt-1 text-[12px] text-brand-amber">{String(index + 1).padStart(2, "0")}</span>
+              <span className="numeral pt-1 text-[12px] text-brand-teal-light">{String(index + 1).padStart(2, "0")}</span>
               <div>
                 <p className="numeral text-[3rem] leading-none md:text-[3.5rem]">{stat.value}</p>
                 <p className="mt-2 flex items-center gap-1.5 text-sm text-white/70">
-                  <stat.icon className="size-3.5 text-brand-amber" aria-hidden /> {stat.label}
+                  <stat.icon className="size-3.5 text-brand-teal-light" aria-hidden /> {stat.label}
                 </p>
               </div>
             </div>

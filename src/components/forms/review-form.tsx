@@ -92,7 +92,7 @@ export function ReviewForm({ productId }: { productId: string }) {
                 <Star
                   className={cn(
                     "size-8 transition-colors",
-                    value <= rating ? "fill-brand-amber text-brand-amber" : "text-muted-foreground/30 group-hover/star:text-brand-amber/60"
+                    value <= rating ? "fill-star text-star" : "text-muted-foreground/30 group-hover/star:text-star/60"
                   )}
                   aria-hidden
                 />

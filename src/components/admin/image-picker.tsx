@@ -497,7 +497,7 @@ export function GalleryUploader({
                   <button
                     type="button"
                     onClick={() => onMakeMain(path)}
-                    className="grid size-7 place-items-center rounded-md bg-white/90 text-foreground hover:bg-brand-amber"
+                    className="grid size-7 place-items-center rounded-md bg-white/90 text-foreground hover:bg-brand-teal hover:text-white"
                     aria-label="Use as main image"
                     title="Use as main image"
                   >
