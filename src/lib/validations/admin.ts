@@ -73,6 +73,9 @@ export type VariantFormInput = z.infer<typeof variantSchema>;
 export const productSchema = z
   .object({
     pricingMode: z.enum(PRICING_MODES),
+    /// Owning vendor. Optional at schema level: the admin form selects one,
+    /// the vendor portal injects it from the session.
+    vendorId: z.string().trim().max(40).optional().or(z.literal("")),
     name: z.string().trim().min(3, "Product name must be at least 3 characters."),
     slug: z
       .string()
@@ -232,6 +235,90 @@ export const brandSchema = z.object({
 });
 
 export type BrandInput = z.infer<typeof brandSchema>;
+
+// ---------------------------------------------------------------------------
+// Vendors (multi-vendor marketplace)
+// ---------------------------------------------------------------------------
+
+export const VENDOR_STATUSES = ["ACTIVE", "SUSPENDED"] as const;
+export type VendorStatusValue = (typeof VENDOR_STATUSES)[number];
+
+const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const PHONE_REGEX = /^(\+91[\s-]?)?[6-9]\d{9}$/;
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+
+export const vendorSchema = z.object({
+  name: z.string().trim().min(2, "Vendor name must be at least 2 characters.").max(120),
+  slug: z
+    .string()
+    .trim()
+    .regex(SLUG_REGEX, "Slug must be lowercase letters, numbers and dashes.")
+    .min(2)
+    .max(140),
+  legalName: z.string().trim().max(160),
+  email: z.string().trim().email("Enter a valid contact email.").max(160),
+  phone: z
+    .string()
+    .trim()
+    .regex(PHONE_REGEX, "Enter a valid 10-digit Indian mobile number.")
+    .or(z.literal("")),
+  gstin: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(GSTIN_REGEX, "Enter a valid 15-character GSTIN.")
+    .or(z.literal("")),
+  pan: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(PAN_REGEX, "Enter a valid PAN (e.g. ABCDE1234F).")
+    .or(z.literal("")),
+  address: z.string().trim().max(300),
+  city: z.string().trim().max(80),
+  state: z.string().trim().max(80),
+  pincode: z.string().trim().regex(/^\d{6}$/, "PIN code must be 6 digits.").or(z.literal("")),
+  /// Two-digit GST state code — decides CGST/SGST vs IGST for this vendor.
+  stateCode: z.string().regex(/^[0-9]{2}$/, "Pick the vendor's GST state code."),
+  logo: z.string().trim(),
+  description: z.string().trim().max(5000),
+  status: z.enum(VENDOR_STATUSES),
+  sortOrder: z.number().int().min(0),
+});
+
+export type VendorInput = z.infer<typeof vendorSchema>;
+
+/** Login account created alongside a vendor (admin-managed onboarding). */
+export const vendorUserSchema = z.object({
+  firstName: z.string().trim().min(2, "First name must be at least 2 characters."),
+  lastName: z.string().trim().min(1, "Last name is required."),
+  email: z.string().trim().email("Enter a valid login email.").max(160),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters long.")
+    .regex(/[A-Za-z]/, "Password must contain a letter.")
+    .regex(/\d/, "Password must contain a number."),
+});
+
+export type VendorUserInput = z.infer<typeof vendorUserSchema>;
+
+/** Vendor profile fields the vendor themselves may edit from the portal. */
+export const vendorProfileSchema = vendorSchema
+  .pick({
+    phone: true,
+    address: true,
+    city: true,
+    state: true,
+    pincode: true,
+    logo: true,
+    description: true,
+  })
+  .extend({
+    name: z.string().trim().min(2).max(120),
+  });
+
+export type VendorProfileInput = z.infer<typeof vendorProfileSchema>;
 
 // ---------------------------------------------------------------------------
 // Content

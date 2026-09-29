@@ -26,9 +26,29 @@ type Shipment = {
  * public tracking link; a custom URL can override it. "Save & mark shipped"
  * moves the order to SHIPPED and stamps shippedAt.
  */
-export function ShipmentForm({ orderId, status, shipment }: { orderId: string; status: string; shipment: Shipment }) {
+type ShipmentAction = (
+  orderId: string,
+  prev: ActionResult | null,
+  formData: FormData,
+) => Promise<ActionResult>;
+
+export function ShipmentForm({
+  orderId,
+  status,
+  shipment,
+  action = updateShipmentAction,
+  formId = "shipment",
+}: {
+  orderId: string;
+  status: string;
+  shipment: Shipment;
+  /** The server action that persists the shipment (admin vs vendor portal). */
+  action?: ShipmentAction;
+  /** Unique form id — lets several shipment forms coexist on one page. */
+  formId?: string;
+}) {
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
-    updateShipmentAction.bind(null, orderId),
+    action.bind(null, orderId),
     null,
   );
   const handled = useRef<typeof state>(null);
@@ -57,7 +77,7 @@ export function ShipmentForm({ orderId, status, shipment }: { orderId: string; s
 
   return (
     <form
-      id="shipment"
+      id={formId}
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);

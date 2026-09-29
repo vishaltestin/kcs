@@ -1,12 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 import { useFieldArray, useForm, type FieldErrors } from "react-hook-form";
-import { ArrowLeft, Layers, Loader2, MessageSquareQuote, Plus, Save, Tag, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronsUpDown, Layers, Loader2, MessageSquareQuote, Plus, Save, Search, Tag, Trash2, X } from "lucide-react";
 import { VariantsEditor } from "@/components/admin/products/variants-editor";
 import { formatGrams, volumetricGrams } from "@/lib/shipping";
 import { splitInclusive } from "@/lib/tax";
@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Form,
   FormControl,
@@ -45,10 +46,10 @@ import { GalleryUploader, ImagePicker } from "@/components/admin/image-picker";
 import { VideoField } from "@/components/admin/video-field";
 import { NumberField } from "@/components/admin/number-field";
 import { SeoFields } from "@/components/admin/seo/seo-fields";
-import { SectionGuide, sectionGuide } from "@/components/admin/products/product-guide";
 import { createProductAction, updateProductAction } from "@/actions/admin/products";
 import { productSchema, type PricingModeValue, type VariantPricingValue } from "@/lib/validations/admin";
 import { slugify } from "@/lib/utils";
+import type { ActionResult } from "@/types";
 
 export type ProductFormValues = z.infer<typeof productSchema>;
 
@@ -95,9 +96,11 @@ function firstErrorMessage(errors: FieldErrors<ProductFormValues>): string | nul
 
 type BrandOption = { id: number; name: string };
 type CategoryOption = { id: number; title: string; parentId: number | null };
+export type VendorOption = { id: string; name: string };
 
 export interface ProductFormProduct {
   id: string;
+  vendorId?: string;
   name: string;
   slug: string;
   sku: string | null;
@@ -166,16 +169,35 @@ const PRICING_MODE_OPTIONS: {
   },
 ];
 
+type ProductFormAction = (
+  prev: ActionResult | null,
+  formData: FormData,
+) => Promise<ActionResult>;
+
 export function ProductForm({
   mode,
   product,
   brands,
   categories,
+  vendors = [],
+  context = "admin",
+  createAction = createProductAction,
+  updateAction = updateProductAction,
+  backHref = "/admin/products",
 }: {
   mode: "create" | "edit";
   product?: ProductFormProduct;
   brands: BrandOption[];
   categories: CategoryOption[];
+  /** Vendor choices — admin picks the owner; the vendor portal omits this. */
+  vendors?: VendorOption[];
+  /** "vendor" hides admin-only controls (owner select, marketing badges). */
+  context?: "admin" | "vendor";
+  /** Server actions to submit through (the vendor portal swaps in its own). */
+  createAction?: ProductFormAction;
+  updateAction?: ProductFormAction;
+  /** Where Cancel/success navigates back to. */
+  backHref?: string;
 }) {
   const router = useRouter();
   const isEdit = mode === "edit";
@@ -184,6 +206,7 @@ export function ProductForm({
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
     defaultValues: {
+      vendorId: product?.vendorId ?? "",
       name: product?.name ?? "",
       slug: product?.slug ?? "",
       sku: product?.sku ?? "",
@@ -262,6 +285,7 @@ export function ProductForm({
   const imageValue = form.watch("image");
   const selectedCategories = form.watch("categoryIds");
 
+
   const toggleCategory = (id: number, checked: boolean) => {
     const current = form.getValues("categoryIds");
     form.setValue(
@@ -274,6 +298,7 @@ export function ProductForm({
   const onSubmit = async (values: ProductFormValues) => {
     const formData = new FormData();
     if (isEdit) formData.set("id", product!.id);
+    formData.set("vendorId", values.vendorId ?? "");
     formData.set("name", values.name);
     formData.set("slug", values.slug);
     formData.set("sku", values.sku ?? "");
@@ -332,13 +357,11 @@ export function ProductForm({
     formData.set("metaKeywords", values.metaKeywords ?? "");
     formData.set("ogImage", values.ogImage ?? "");
 
-    const result = isEdit
-      ? await updateProductAction(null, formData)
-      : await createProductAction(null, formData);
+    const result = isEdit ? await updateAction(null, formData) : await createAction(null, formData);
 
     if (result.ok) {
       toast.success(result.message ?? "Saved!");
-      router.push("/admin/products");
+      router.push(backHref);
     } else {
       toast.error("Couldn't save the product", { description: result.message });
       if (result.fieldErrors) {
@@ -357,6 +380,18 @@ export function ProductForm({
 
   const { isSubmitting } = form.formState;
   const parentCategories = categories.filter((c) => c.parentId === null);
+  // Category picker popover state + search filtering.
+  const [catOpen, setCatOpen] = useState(false);
+  const [catQuery, setCatQuery] = useState("");
+  const visibleParents = useMemo(() => {
+    const q = catQuery.trim().toLowerCase();
+    if (!q) return parentCategories;
+    return parentCategories.filter(
+      (p) =>
+        p.title.toLowerCase().includes(q) ||
+        categories.some((c) => c.parentId === p.id && c.title.toLowerCase().includes(q))
+    );
+  }, [catQuery, parentCategories, categories]);
 
   /**
    * Client-side validation failed: say what is wrong instead of silently
@@ -430,6 +465,34 @@ export function ProductForm({
                 </FormItem>
               )}
             />
+            {context === "admin" && vendors.length > 0 && (
+              <FormField
+                control={form.control}
+                name="vendorId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sold by (vendor) *</FormLabel>
+                    <Select value={field.value || "none"} onValueChange={(v) => field.onChange(v === "none" ? "" : v)}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select vendor" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">Select vendor…</SelectItem>
+                        {vendors.map((vendor) => (
+                          <SelectItem key={vendor.id} value={vendor.id}>
+                            {vendor.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>Which seller owns and fulfils this product.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <FormField
               control={form.control}
               name="brandId"
@@ -487,7 +550,6 @@ export function ProductForm({
                 </FormItem>
               )}
             />
-                      <SectionGuide content={sectionGuide("basics")} />
 </CardContent>
         </Card>
 
@@ -506,42 +568,110 @@ export function ProductForm({
                 No categories exist yet — create some first.
               </p>
             ) : (
-              <div className="space-y-4">
-                {parentCategories.map((parent) => {
-                  const children = categories.filter((c) => c.parentId === parent.id);
-                  return (
-                    <div key={parent.id}>
-                      <label className="flex items-start gap-2.5 text-sm font-semibold cursor-pointer">
-                        <Checkbox
-                          checked={selectedCategories.includes(parent.id)}
-                          onCheckedChange={(v) => toggleCategory(parent.id, v === true)}
-                          aria-label={parent.title}
-                        />
-                        {parent.title}
-                      </label>
-                      {children.length > 0 && (
-                        <div className="mt-2 ml-6 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <Popover open={catOpen} onOpenChange={setCatOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-xl border border-input bg-background px-3 py-2 text-left text-sm shadow-xs transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-brand-teal/40 focus:outline-none"
+                  >
+                    {selectedCategories.length === 0 ? (
+                      <span className="text-muted-foreground">Select categories…</span>
+                    ) : (
+                      selectedCategories.map((id) => {
+                        const cat = categories.find((c) => c.id === id);
+                        if (!cat) return null;
+                        return (
+                          <span
+                            key={id}
+                            className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[12px] font-semibold text-primary"
+                          >
+                            {cat.title}
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Remove ${cat.title}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleCategory(id, false);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  toggleCategory(id, false);
+                                }
+                              }}
+                              className="rounded-sm hover:opacity-70"
+                            >
+                              <X className="size-3" aria-hidden />
+                            </span>
+                          </span>
+                        );
+                      })
+                    )}
+                    <ChevronsUpDown className="ml-auto size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[min(24rem,calc(100vw-2rem))] p-0" align="start">
+                  <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2.5">
+                    <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <input
+                      value={catQuery}
+                      onChange={(e) => setCatQuery(e.target.value)}
+                      placeholder="Search categories…"
+                      className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto p-1.5">
+                    {visibleParents.length === 0 && (
+                      <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+                        No categories match.
+                      </p>
+                    )}
+                    {visibleParents.map((parent) => {
+                      const children = categories.filter((c) => c.parentId === parent.id);
+                      return (
+                        <div key={parent.id} className="mb-1">
+                          <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm font-semibold hover:bg-accent/60">
+                            <Checkbox
+                              checked={selectedCategories.includes(parent.id)}
+                              onCheckedChange={(v) => toggleCategory(parent.id, v === true)}
+                              aria-label={parent.title}
+                            />
+                            {parent.title}
+                          </label>
                           {children.map((child) => (
                             <label
                               key={child.id}
-                              className="flex items-start gap-2.5 text-sm text-muted-foreground cursor-pointer"
+                              className="ml-6 flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                             >
                               <Checkbox
                                 checked={selectedCategories.includes(child.id)}
                                 onCheckedChange={(v) => toggleCategory(child.id, v === true)}
                                 aria-label={child.title}
                               />
-                              <span>{child.title}</span>
+                              {child.title}
                             </label>
                           ))}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center justify-between border-t border-border/60 px-3 py-2 text-xs text-muted-foreground">
+                    <span>{selectedCategories.length} selected</span>
+                    {selectedCategories.length > 0 && (
+                      <button
+                        type="button"
+                        className="font-semibold text-primary hover:underline"
+                        onClick={() => form.setValue("categoryIds", [], { shouldDirty: true })}
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             )}
-                      <SectionGuide content={sectionGuide("categories")} />
 </CardContent>
         </Card>
 
@@ -592,7 +722,6 @@ export function ProductForm({
                 </FormItem>
               )}
             />
-                      <SectionGuide content={sectionGuide("images")} />
 </CardContent>
         </Card>
 
@@ -647,7 +776,6 @@ export function ProductForm({
                 </FormItem>
               )}
             />
-                      <SectionGuide content={sectionGuide("content")} />
 </CardContent>
         </Card>
 
@@ -863,7 +991,6 @@ export function ProductForm({
                 </Button>
               </div>
             )}
-                      <SectionGuide content={sectionGuide("pricing")} />
 </CardContent>
         </Card>
 
@@ -981,7 +1108,6 @@ export function ProductForm({
                 </p>
               </div>
             </div>
-                      <SectionGuide content={sectionGuide("tax")} />
 </CardContent>
         </Card>
 
@@ -1000,7 +1126,6 @@ export function ProductForm({
               productWeightGrams={Number(weightGrams) || undefined}
               productId={product?.id}
             />
-                      <SectionGuide content={sectionGuide("variants")} />
 </CardContent>
         </Card>
 
@@ -1062,7 +1187,6 @@ export function ProductForm({
             >
               <Plus aria-hidden /> Add spec
             </Button>
-                      <SectionGuide content={sectionGuide("specs")} />
 </CardContent>
         </Card>
 
@@ -1103,49 +1227,51 @@ export function ProductForm({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="isFeatured"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start gap-3 space-y-0 rounded-lg border p-3">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
-                  </FormControl>
-                  <div>
-                    <FormLabel className="font-normal">Featured</FormLabel>
-                    <FormDescription>Highlighted on the home page</FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="isBestSeller"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start gap-3 space-y-0 rounded-lg border p-3">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
-                  </FormControl>
-                  <div>
-                    <FormLabel className="font-normal">Best Seller</FormLabel>
-                    <FormDescription>Shows the BESTSELLER badge</FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
-                      <SectionGuide content={sectionGuide("badges")} className="sm:col-span-2 lg:col-span-4" />
+            {context === "admin" && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="isFeatured"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start gap-3 space-y-0 rounded-lg border p-3">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
+                      </FormControl>
+                      <div>
+                        <FormLabel className="font-normal">Featured</FormLabel>
+                        <FormDescription>Highlighted on the home page</FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="isBestSeller"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start gap-3 space-y-0 rounded-lg border p-3">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
+                      </FormControl>
+                      <div>
+                        <FormLabel className="font-normal">Best Seller</FormLabel>
+                        <FormDescription>Shows the BESTSELLER badge</FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
 </CardContent>
         </Card>
 
         {/* Actions */}
         <SeoFields
           control={form.control}
-          footer={<SectionGuide content={sectionGuide("seo")} />}
         />
 
         <div className="sticky bottom-4 z-10 flex items-center justify-end gap-2 rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur">
           <Button type="button" variant="outline" asChild>
-            <a href="/admin/products">
+            <a href={backHref}>
               <ArrowLeft aria-hidden /> Cancel
             </a>
           </Button>

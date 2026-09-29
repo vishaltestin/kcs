@@ -5,7 +5,6 @@ import {
   Clock,
   Headset,
   Mail,
-  MapPin,
   PhoneCall,
   ShieldCheck,
   Truck,
@@ -26,6 +25,7 @@ const SHOP_LINKS = [
 const COMPANY_LINKS = [
   { label: "About Us", href: "/about-us" },
   { label: "Why Choose Us", href: "/why-us" },
+  { label: "Our Sellers", href: "/sellers" },
   { label: "Blog", href: "/blog" },
   { label: "FAQ", href: "/faq" },
 ];
@@ -91,13 +91,13 @@ export function Footer() {
 
       {/* ── Service strip ─────────────────────────────────────────────────── */}
       <div className="relative border-b border-white/10">
-        <div className="container grid grid-cols-1 divide-y divide-white/10 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
+        <div className="container grid grid-cols-2 lg:grid-cols-4">
           {PROMISES.map(({ icon: Icon, title, text }) => (
             <div
               key={title}
-              className="flex items-center gap-3.5 py-5 sm:px-6 sm:first:pl-0 lg:px-7"
+              className="flex items-center gap-3 border-white/10 py-4 pr-3 sm:gap-3.5 sm:px-6 sm:py-5 sm:first:pl-0 lg:px-7 max-lg:[&:nth-child(even)]:border-l max-lg:[&:nth-child(even)]:pl-4 max-lg:[&:nth-child(n+3)]:border-t lg:[&:nth-child(n+2)]:border-l"
             >
-              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/[0.06] ring-1 ring-white/10">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white/[0.06] ring-1 ring-white/10 sm:size-10">
                 <Icon
                   className="size-[18px] text-brand-teal-light"
                   strokeWidth={1.7}
@@ -131,13 +131,6 @@ export function Footer() {
           </p>
 
           <div className="mt-7 space-y-3.5 text-[14px]">
-            <p className="flex gap-x-3">
-              <MapPin
-                className="mt-0.5 size-4 shrink-0 text-brand-magenta-light"
-                aria-hidden
-              />
-              <span className="text-white/70">{SITE.address}</span>
-            </p>
             <p className="flex items-center gap-x-3">
               <Mail
                 className="size-4 shrink-0 text-brand-magenta-light"
@@ -169,7 +162,7 @@ export function Footer() {
         <div className="lg:col-span-8">
           <nav
             aria-label="Footer"
-            className="grid grid-cols-1 gap-x-6 gap-y-9 sm:grid-cols-4"
+            className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-4"
           >
             {[
               { label: "Shop", links: SHOP_LINKS },

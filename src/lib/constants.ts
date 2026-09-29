@@ -16,6 +16,7 @@ export const SITE = {
 
 export const IMAGES = {
   logo: "/images/logo.webp",
+  logoMark: "/images/logo-mark.png",
   panIndia: "/images/PAN-India.jpg",
   drinkware: "/images/apprals.jpeg",
   videoPoster: "/images/video-poster.jpg",

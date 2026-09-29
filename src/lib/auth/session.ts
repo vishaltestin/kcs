@@ -8,8 +8,10 @@ export interface SessionUser {
   email: string;
   firstName: string;
   lastName: string;
-  role: "CUSTOMER" | "ADMIN";
+  role: "CUSTOMER" | "ADMIN" | "VENDOR";
   emailVerifiedAt: Date | null;
+  /** Set for VENDOR users — the vendor account this login controls. */
+  vendorId: string | null;
 }
 
 /**
@@ -39,6 +41,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       lastName: true,
       role: true,
       emailVerifiedAt: true,
+      vendorId: true,
     },
   });
 

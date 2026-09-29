@@ -6,7 +6,12 @@ import { BookOpenText } from "lucide-react";
 import { PageHeader } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import { ProductForm } from "@/components/admin/products/product-form";
-import { getAdminBrands, getAdminCategories, getAdminProductForEdit } from "@/lib/queries/admin";
+import {
+  getAdminBrands,
+  getAdminCategories,
+  getAdminProductForEdit,
+  getVendorOptions,
+} from "@/lib/queries/admin";
 
 export const metadata: Metadata = { title: "Edit Product" };
 
@@ -16,10 +21,11 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [product, brands, categoryRows] = await Promise.all([
+  const [product, brands, categoryRows, vendors] = await Promise.all([
     getAdminProductForEdit(id),
     getAdminBrands(),
     getAdminCategories(),
+    getVendorOptions(),
   ]);
   if (!product) notFound();
 
@@ -29,6 +35,7 @@ export default async function EditProductPage({
     parentId: c.parentId,
   }));
   const brandOptions = brands.map((b) => ({ id: b.id, name: b.name }));
+  const vendorOptions = vendors.map((v) => ({ id: v.id, name: v.name }));
 
   return (
     <div>
@@ -43,7 +50,13 @@ export default async function EditProductPage({
           </Button>
         }
       />
-      <ProductForm mode="edit" product={product} brands={brandOptions} categories={categories} />
+      <ProductForm
+        mode="edit"
+        product={product}
+        brands={brandOptions}
+        categories={categories}
+        vendors={vendorOptions}
+      />
     </div>
   );
 }

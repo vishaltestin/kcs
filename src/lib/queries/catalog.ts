@@ -19,6 +19,7 @@ import { priceRange, resolveVariantTiers, variantLabel, type StorefrontVariant }
 
 const productInclude = {
   brand: true,
+  vendor: { select: { id: true, name: true, slug: true, logo: true } },
   images: true,
   prices: true,
   specs: true,
@@ -27,6 +28,10 @@ const productInclude = {
   options: true,
   variants: { include: { prices: true } },
 } satisfies Prisma.ProductInclude;
+
+/// Storefront reads only ever surface products of ACTIVE vendors — a suspended
+/// seller's catalogue disappears everywhere in one clause.
+const ACTIVE_VENDOR: Prisma.ProductWhereInput = { vendor: { status: "ACTIVE" } };
 
 // ---------------------------------------------------------------------------
 // Mappers
@@ -73,6 +78,8 @@ export function toProductListItem(p: ProductWithRelations): ProductListItem {
     p.pricingMode === "ENQUIRY" || (variants.length === 0 && !base && Number(p.basePrice) <= 0);
   const hasBasePrice = !isEnquiry && Number(p.basePrice) > 0;
 
+  const vendor = p.vendor ? { name: p.vendor.name, slug: p.vendor.slug } : null;
+
   if (range) {
     // Variant products: card price is the cheapest variant; stock is the sum.
     const cheapest = variants.find((v) => v.price === range.min);
@@ -87,6 +94,7 @@ export function toProductListItem(p: ProductWithRelations): ProductListItem {
       introtext: p.introtext,
       brand: p.brand?.name ?? null,
       brandId: p.brandId,
+      vendor,
       isNew: p.isNew,
       isFeatured: p.isFeatured,
       isBestSeller: p.isBestSeller,
@@ -109,6 +117,7 @@ export function toProductListItem(p: ProductWithRelations): ProductListItem {
     introtext: p.introtext,
     brand: p.brand?.name ?? null,
     brandId: p.brandId,
+    vendor,
     isNew: p.isNew,
     isFeatured: p.isFeatured,
     isBestSeller: p.isBestSeller,
@@ -242,10 +251,10 @@ export async function getProductsByType(
 ): Promise<ProductListItem[]> {
   const where =
     type === "New"
-      ? { isActive: true, isNew: true }
+      ? { isActive: true, isNew: true, ...ACTIVE_VENDOR }
       : type === "Featured"
-        ? { isActive: true, isFeatured: true }
-        : { isActive: true, isBestSeller: true };
+        ? { isActive: true, isFeatured: true, ...ACTIVE_VENDOR }
+        : { isActive: true, isBestSeller: true, ...ACTIVE_VENDOR };
 
   const products = await db.product.findMany({
     where,
@@ -263,6 +272,7 @@ export async function getRelatedProducts(productId: string, categoryIds: number[
       isActive: true,
       id: { not: productId },
       categories: categoryIds.length > 0 ? { some: { categoryId: { in: categoryIds } } } : undefined,
+      ...ACTIVE_VENDOR,
     },
     include: productInclude,
     take: limit,
@@ -285,6 +295,8 @@ export type ProductFilters = {
   sort?: "newest" | "price-asc" | "price-desc" | "name-asc";
   page?: number;
   perPage?: number;
+  /// Limit the listing to one vendor's storefront.
+  vendorSlug?: string;
 };
 
 export function parsePriceRangeParams(values: string[]): { min: number; max: number | null }[] {
@@ -315,6 +327,8 @@ export async function getFilteredProducts(rawFilters: ProductFilters) {
 
   const where: Prisma.ProductWhereInput = {
     isActive: true,
+    ...ACTIVE_VENDOR,
+    ...(filters.vendorSlug ? { vendor: { slug: filters.vendorSlug, status: "ACTIVE" } } : {}),
     ...(filters.productType === "new"
       ? { isNew: true }
       : filters.productType === "featured"
@@ -383,12 +397,36 @@ export async function getFilteredProducts(rawFilters: ProductFilters) {
 }
 
 // ---------------------------------------------------------------------------
+// Sellers (multi-vendor storefront)
+// ---------------------------------------------------------------------------
+
+export async function getActiveVendors() {
+  return db.vendor.findMany({
+    where: { status: "ACTIVE" },
+    orderBy: [{ isDefault: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
+    include: {
+      _count: { select: { products: { where: { isActive: true } } } },
+    },
+  });
+}
+
+export async function getVendorBySlug(slug: string) {
+  return db.vendor.findFirst({
+    where: { slug, status: "ACTIVE" },
+    include: {
+      _count: { select: { products: { where: { isActive: true } } } },
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Product detail
 // ---------------------------------------------------------------------------
 
 export async function getProductBySlug(slug: string): Promise<ProductDetail | null> {
-  const product = await db.product.findUnique({
-    where: { slug },
+  // findFirst (not findUnique) so suspended vendors' products 404 too.
+  const product = await db.product.findFirst({
+    where: { slug, ...ACTIVE_VENDOR },
     include: productInclude,
   });
 
@@ -428,6 +466,7 @@ export async function searchSuggestions(query: string, limit = 6): Promise<Searc
     db.product.findMany({
       where: {
         isActive: true,
+        ...ACTIVE_VENDOR,
         OR: [
           { name: { contains: q } },
           { sku: { equals: q } },

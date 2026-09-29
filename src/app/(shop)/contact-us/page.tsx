@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Clock, Mail, MapPin, MessageSquareText, Phone, Zap } from "lucide-react";
+import { Clock, Mail, MessageSquareText, Phone, Zap } from "lucide-react";
 
 import Banner from "@/components/shared/content-banner";
 import { ContactForm } from "@/components/forms/contact-form";
@@ -26,12 +26,6 @@ const CHANNELS = [
     body: SITE.email,
     href: `mailto:${SITE.email}`,
     note: "Replies within one business day",
-  },
-  {
-    icon: MapPin,
-    title: "Office",
-    body: SITE.address,
-    note: "Visits by appointment",
   },
   {
     icon: Clock,

@@ -10,6 +10,11 @@ import { HOME_BANNER_SLOTS, HOME_BAND_DEFAULTS } from "../src/lib/home-bands";
 import { DEFAULT_ZONES, quoteShipping, type ShippingConfig } from "../src/lib/shipping";
 import { splitInclusive, summariseTax } from "../src/lib/tax";
 import { combinations, variantLabel, type OptionAxis } from "../src/lib/variants";
+import {
+  allocateProRata,
+  deriveParentStatus,
+  generateSubOrderNumber,
+} from "../src/lib/sub-orders";
 
 function requireDatabaseUrl(): string {
   const url = process.env.DATABASE_URL;
@@ -29,6 +34,9 @@ const dbConfig = parseDatabaseUrl(requireDatabaseUrl(), 5);
 const prisma = new PrismaClient({
   adapter: new PrismaMariaDb(dbConfig),
 });
+
+/** Platform's own vendor row — created by the multi_vendor migration. */
+const DEFAULT_VENDOR_ID = "vnd_kcs_default";
 
 type CategorySeed = {
   title: string;
@@ -1434,6 +1442,9 @@ async function main() {
       prisma.productPrice.deleteMany(),
       prisma.productImage.deleteMany(),
       prisma.product.deleteMany(),
+      // The multi_vendor migration creates the default vendor; seeding wipes
+      // and re-creates it (with the same fixed id) alongside demo vendors.
+      prisma.vendor.deleteMany(),
       prisma.category.deleteMany(),
       prisma.brand.deleteMany(),
       prisma.blogPost.deleteMany(),
@@ -1499,6 +1510,93 @@ async function main() {
     },
   });
 
+  // Vendors — the platform's own catalogue (default) plus two demo sellers so
+  // the multi-vendor flows (split orders, vendor portal) have real data.
+  await prisma.vendor.createMany({
+    data: [
+      {
+        id: DEFAULT_VENDOR_ID,
+        name: "KCS G-Mart",
+        slug: "kcs-gmart",
+        legalName: "KCS G-Mart",
+        email: "sales@kcsgmart.in",
+        stateCode: "07",
+        state: "Delhi",
+        city: "New Delhi",
+        status: "ACTIVE",
+        isDefault: true,
+        sortOrder: 0,
+        description:
+          "The KCS G-Mart house catalogue — curated corporate gifts, hampers and branded merchandise, fulfilled by our own team.",
+      },
+      {
+        id: "vnd_demo_giftcraft",
+        name: "GiftCraft Studios",
+        slug: "giftcraft-studios",
+        legalName: "GiftCraft Studios Pvt. Ltd.",
+        email: "hello@giftcraft.in",
+        phone: "9811122233",
+        gstin: "07AAACG1234F1Z2",
+        pan: "AAACG1234F",
+        address: "214, Udyog Vihar Phase IV",
+        city: "Gurugram",
+        state: "Haryana",
+        pincode: "122015",
+        stateCode: "06",
+        status: "ACTIVE",
+        sortOrder: 1,
+        description:
+          "Drinkware, tech gadgets and travel gear for corporate gifting — laser engraving and bulk branding in-house.",
+      },
+      {
+        id: "vnd_demo_aurora",
+        name: "Aurora Corporate Gifts",
+        slug: "aurora-corporate-gifts",
+        legalName: "Aurora Gifting Co.",
+        email: "care@auroragifts.in",
+        phone: "9822233445",
+        gstin: "27AABCA5678K1Z9",
+        pan: "AABCA5678K",
+        address: "8, Lower Parel",
+        city: "Mumbai",
+        state: "Maharashtra",
+        pincode: "400013",
+        stateCode: "27",
+        status: "ACTIVE",
+        sortOrder: 2,
+        description:
+          "Apparel, hampers and stationery sets from Mumbai — screen printing, embroidery and custom packing at scale.",
+      },
+    ],
+  });
+
+  // Vendor logins (admin-onboarded sellers). Password: Vendor@12345
+  await prisma.user.createMany({
+    data: [
+      {
+        firstName: "Gaurav",
+        lastName: "Sethi",
+        email: "vendor@giftcraft.in",
+        passwordHash: await bcrypt.hash("Vendor@12345", 10),
+        role: "VENDOR",
+        emailVerifiedAt: new Date(),
+        phone: "9811122233",
+        vendorId: "vnd_demo_giftcraft",
+      },
+      {
+        firstName: "Meera",
+        lastName: "Kulkarni",
+        email: "vendor@auroragifts.in",
+        passwordHash: await bcrypt.hash("Vendor@12345", 10),
+        role: "VENDOR",
+        emailVerifiedAt: new Date(),
+        phone: "9822233445",
+        vendorId: "vnd_demo_aurora",
+      },
+    ],
+  });
+  console.log("  ✓ 3 vendors (platform + 2 demo sellers with logins)");
+
   // Categories (parents then children)
   const categoryIds = new Map<string, number>();
   for (const cat of CATEGORIES) {
@@ -1547,7 +1645,6 @@ async function main() {
       sellerName: "KCS G-Mart",
       sellerGstin: "07AAACK1234A1Z5",
       sellerPan: "AAACK1234A",
-      sellerAddress: "Plot 12, Okhla Industrial Area Phase II, New Delhi 110020",
       sellerStateCode: "07",
       sellerEmail: "accounts@kcsgmart.in",
       sellerPhone: "+91 98110 00000",
@@ -1613,6 +1710,7 @@ async function main() {
     });
     const created = await prisma.product.create({
       data: {
+        vendorId: DEFAULT_VENDOR_ID,
         name: seed.name,
         slug: seed.slug,
         sku: skuBase,
@@ -1685,6 +1783,28 @@ async function main() {
     }
   }
   console.log(`  ✓ ${productIds.length} products (${variantTotal} variants)`);
+
+  // Multi-vendor demo: move a slice of the catalogue to the two demo sellers.
+  // Chosen so some seed orders span two vendors (split into sub-orders).
+  const giftcraftIndexes = [8, 17, 5, 3]; // bottle, joining kit, earbuds, luggage
+  const auroraIndexes = [32, 0, 1, 11]; // notebook set, both tees, hamper
+  for (const index of giftcraftIndexes) {
+    if (productIds[index]) {
+      await prisma.product.update({ where: { id: productIds[index] }, data: { vendorId: "vnd_demo_giftcraft" } });
+    }
+  }
+  for (const index of auroraIndexes) {
+    if (productIds[index]) {
+      await prisma.product.update({ where: { id: productIds[index] }, data: { vendorId: "vnd_demo_aurora" } });
+    }
+  }
+  const productVendor = new Map<string, string>(
+    giftcraftIndexes.filter((i) => productIds[i]).map((i) => [productIds[i], "vnd_demo_giftcraft"]),
+  );
+  for (const i of auroraIndexes) {
+    if (productIds[i]) productVendor.set(productIds[i], "vnd_demo_aurora");
+  }
+  console.log(`  ✓ catalogue split across vendors (${giftcraftIndexes.length + auroraIndexes.length} products re-assigned)`);
 
   // Reviews on a few products
   const reviewData = [
@@ -1891,7 +2011,6 @@ async function main() {
     const state = isDemoUser ? "Uttar Pradesh" : "Delhi";
     const city = isDemoUser ? "Noida" : "New Delhi";
     const pincode = isDemoUser ? "201309" : "110020";
-    const interState = isDemoUser;
 
     const lines = order.items.map((item) => {
       const seed = P[item.productIndex];
@@ -1923,7 +2042,8 @@ async function main() {
         _dims: lg.dims,
       };
     });
-    const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
+    const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+    const subtotal = r2(lines.reduce((sum, line) => sum + line.lineTotal, 0));
     const quote = quoteShipping(
       lines.map((l) => ({ quantity: l.quantity, weightGrams: l.weightGrams, lengthCm: l._dims[0], widthCm: l._dims[1], heightCm: l._dims[2] })),
       state,
@@ -1931,67 +2051,147 @@ async function main() {
       shippingConfig,
     );
     const shipping = quote.amount;
-    const tax = summariseTax(
-      lines.map((l) => ({ lineTotal: l.lineTotal, gstRate: l.gstRate })),
-      interState,
+    const placeOfSupply = isDemoUser ? "09" : "07";
+
+    // Multi-vendor split: one sub-order per vendor, exactly like checkout does.
+    const VENDOR_STATE_CODES: Record<string, string> = {
+      [DEFAULT_VENDOR_ID]: "07",
+      vnd_demo_giftcraft: "06",
+      vnd_demo_aurora: "27",
+    };
+    const groups = new Map<string, typeof lines>();
+    for (const line of lines) {
+      const vendorId = productVendor.get(line.productId) ?? DEFAULT_VENDOR_ID;
+      const group = groups.get(vendorId) ?? [];
+      group.push(line);
+      groups.set(vendorId, group);
+    }
+    const shippingShares = allocateProRata(
+      [...groups.entries()].map(([vendorId, groupLines]) => ({
+        key: vendorId,
+        amount: groupLines.reduce((sum, l) => sum + l.lineTotal, 0),
+      })),
       shipping,
     );
+
     const createdAt = new Date(Date.now() - order.daysAgo * 24 * 60 * 60 * 1000);
     const cancelled = (order.status as string) === "CANCELLED";
     const shipped = order.status === "SHIPPED" || order.status === "DELIVERED";
-    const courier = DEMO_COURIERS[oi % DEMO_COURIERS.length];
-    const awb = shipped ? `${String(1400000000 + oi * 91733)}` : null;
     const shippedAt = shipped ? new Date(createdAt.getTime() + 2 * 24 * 60 * 60 * 1000) : null;
     const invoiceNumber = cancelled ? null : `KCS/INV/${fy}/${String(++invoiceCounter).padStart(6, "0")}`;
+    const orderNumber = `KCS-DEMO-${String(orderCounter++).padStart(4, "0")}`;
 
-    await prisma.order.create({
-      data: {
-        orderNumber: `KCS-DEMO-${String(orderCounter++).padStart(4, "0")}`,
-        userId: order.userId,
-        status: order.status,
-        customerName: order.customer.name,
-        customerEmail: order.customer.email,
-        customerPhone: order.customer.phone,
-        companyName: isDemoUser ? "Acme Technologies Pvt. Ltd." : "Bright Labs",
-        gstNo,
-        billingAddress: isDemoUser ? "4th Floor, Cyber Tower, Sector 62" : "B-14, Okhla Phase I",
-        billingCity: city,
-        billingState: state,
-        billingPincode: pincode,
-        shippingAddress: isDemoUser ? "4th Floor, Cyber Tower, Sector 62" : "B-14, Okhla Phase I",
-        shippingCity: city,
-        shippingState: state,
-        shippingPincode: pincode,
-        subtotal,
-        shipping,
-        total: subtotal + shipping,
-        taxableAmount: tax.taxableAmount,
-        cgst: tax.cgst,
-        sgst: tax.sgst,
-        igst: tax.igst,
-        placeOfSupply: isDemoUser ? "09" : "07",
-        shippingZone: quote.zone?.name ?? null,
-        chargeableWeight: quote.chargeableWeight,
-        shippingMethod: quote.method,
-        invoiceNumber,
-        invoicedAt: invoiceNumber ? createdAt : null,
+    const orderedGroups = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+    const subOrders = orderedGroups.map(([vendorId, groupLines], gi) => {
+      const subSubtotal = r2(groupLines.reduce((sum, l) => sum + l.lineTotal, 0));
+      const subShipping = shippingShares.get(vendorId) ?? 0;
+      const vendorInterState = placeOfSupply !== (VENDOR_STATE_CODES[vendorId] ?? "07");
+      const subTax = summariseTax(
+        groupLines.map((l) => ({ lineTotal: l.lineTotal, gstRate: l.gstRate })),
+        vendorInterState,
+        subShipping,
+      );
+      const courier = DEMO_COURIERS[(oi + gi) % DEMO_COURIERS.length];
+      const awb = shipped ? `${String(1400000000 + oi * 91733 + gi * 1117)}` : null;
+      return {
+        vendorId,
+        lines: groupLines,
+        subtotal: subSubtotal,
+        shipping: subShipping,
+        total: r2(subSubtotal + subShipping),
+        tax: subTax,
         courierName: shipped ? courier.name : null,
         trackingNumber: awb,
         trackingUrl: awb ? courier.url(awb) : null,
         shippedAt,
         expectedAt: shippedAt ? new Date(shippedAt.getTime() + 4 * 24 * 60 * 60 * 1000) : null,
         deliveredAt: order.status === "DELIVERED" && shippedAt ? new Date(shippedAt.getTime() + 3 * 24 * 60 * 60 * 1000) : null,
-        shipmentNote: shipped && oi % 2 === 0 ? "Dispatched in 2 cartons. Please keep a photo ID ready at delivery." : null,
+      };
+    });
+
+    const customerFields = {
+      userId: order.userId,
+      customerName: order.customer.name,
+      customerEmail: order.customer.email,
+      customerPhone: order.customer.phone,
+      companyName: isDemoUser ? "Acme Technologies Pvt. Ltd." : "Bright Labs",
+      gstNo,
+      billingAddress: isDemoUser ? "4th Floor, Cyber Tower, Sector 62" : "B-14, Okhla Phase I",
+      billingCity: city,
+      billingState: state,
+      billingPincode: pincode,
+      shippingAddress: isDemoUser ? "4th Floor, Cyber Tower, Sector 62" : "B-14, Okhla Phase I",
+      shippingCity: city,
+      shippingState: state,
+      shippingPincode: pincode,
+    };
+
+    // Parent order — the customer-facing record (totals, invoice). Items and
+    // fulfilment live on the sub-orders.
+    await prisma.order.create({
+      data: {
+        ...customerFields,
+        orderNumber,
+        status: deriveParentStatus(subOrders.map(() => order.status)),
+        subtotal,
+        shipping,
+        total: r2(subtotal + shipping),
+        taxableAmount: r2(subOrders.reduce((sum, s) => sum + s.tax.taxableAmount, 0)),
+        cgst: r2(subOrders.reduce((sum, s) => sum + s.tax.cgst, 0)),
+        sgst: r2(subOrders.reduce((sum, s) => sum + s.tax.sgst, 0)),
+        igst: r2(subOrders.reduce((sum, s) => sum + s.tax.igst, 0)),
+        placeOfSupply,
+        shippingZone: quote.zone?.name ?? null,
+        chargeableWeight: quote.chargeableWeight,
+        shippingMethod: quote.method,
+        invoiceNumber,
+        invoicedAt: invoiceNumber ? createdAt : null,
         createdAt,
-        items: {
-          create: lines.map((line) => {
-            const { _dims, ...rest } = line;
-            void _dims;
-            return rest;
-          }),
-        },
       },
     });
+
+    // One sub-order per vendor, carrying its lines + shipping share + GST.
+    const parent = await prisma.order.findUniqueOrThrow({ where: { orderNumber } });
+    for (let gi = 0; gi < subOrders.length; gi++) {
+      const sub = subOrders[gi];
+      const subOrderNumber = generateSubOrderNumber(orderNumber, gi);
+      await prisma.order.create({
+        data: {
+          ...customerFields,
+          orderNumber: subOrderNumber,
+          subOrderNumber,
+          parentId: parent.id,
+          vendorId: sub.vendorId,
+          status: order.status,
+          subtotal: sub.subtotal,
+          shipping: sub.shipping,
+          total: sub.total,
+          taxableAmount: sub.tax.taxableAmount,
+          cgst: sub.tax.cgst,
+          sgst: sub.tax.sgst,
+          igst: sub.tax.igst,
+          placeOfSupply,
+          shippingZone: quote.zone?.name ?? null,
+          chargeableWeight: sub.lines.reduce((sum, l) => sum + l.weightGrams * l.quantity, 0),
+          shippingMethod: quote.method,
+          courierName: sub.courierName,
+          trackingNumber: sub.trackingNumber,
+          trackingUrl: sub.trackingUrl,
+          shippedAt: sub.shippedAt,
+          expectedAt: sub.expectedAt,
+          deliveredAt: sub.deliveredAt,
+          shipmentNote: shipped && gi === 0 && oi % 2 === 0 ? "Dispatched in 2 cartons. Please keep a photo ID ready at delivery." : null,
+          createdAt,
+          items: {
+            create: sub.lines.map((line) => {
+              const { _dims, ...rest } = line;
+              void _dims;
+              return rest;
+            }),
+          },
+        },
+      });
+    }
   }
   await prisma.storeSetting.update({ where: { id: 1 }, data: { invoiceCounter } });
   console.log(`  ✓ ${demoOrders.length} demo orders (${invoiceCounter} invoices)`);

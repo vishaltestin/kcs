@@ -24,6 +24,7 @@ export function FramedImage({
   className,
   imgClassName,
   washClassName,
+  fit = "contain",
   children,
 }: {
   src: string;
@@ -37,21 +38,27 @@ export function FramedImage({
   imgClassName?: string;
   /** Tint laid over the blurred wash (defaults to a faint darkening). */
   washClassName?: string;
+  /** "cover" fills the frame edge-to-edge (no blurred wash needed); "contain" keeps the whole picture over a blurred wash. */
+  fit?: "contain" | "cover";
   children?: ReactNode;
 }) {
   return (
     <div className={cn("relative isolate overflow-hidden bg-muted", className)}>
-      {/* Blurred wash — a tiny source, scaled past the edges so the blur never shows a border */}
-      <Image
-        src={src}
-        alt=""
-        aria-hidden
-        fill
-        sizes="96px"
-        quality={30}
-        className="scale-125 object-cover blur-2xl saturate-125"
-      />
-      <span aria-hidden className={cn("absolute inset-0 bg-foreground/[0.08]", washClassName)} />
+      {fit === "contain" && (
+        <>
+          {/* Blurred wash — a tiny source, scaled past the edges so the blur never shows a border */}
+          <Image
+            src={src}
+            alt=""
+            aria-hidden
+            fill
+            sizes="96px"
+            quality={30}
+            className="scale-125 object-cover blur-2xl saturate-125"
+          />
+          <span aria-hidden className={cn("absolute inset-0 bg-foreground/[0.08]", washClassName)} />
+        </>
+      )}
       <Image
         src={src}
         alt={alt}
@@ -59,7 +66,7 @@ export function FramedImage({
         priority={priority}
         quality={quality}
         sizes={sizes}
-        className={cn("object-contain", imgClassName)}
+        className={cn(fit === "cover" ? "object-cover" : "object-contain", imgClassName)}
       />
       {children}
     </div>

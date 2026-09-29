@@ -32,7 +32,9 @@ export interface AdminUserRow {
   lastName: string;
   email: string;
   companyName: string | null;
-  role: "CUSTOMER" | "ADMIN";
+  role: "CUSTOMER" | "ADMIN" | "VENDOR";
+  /** Linked vendor account for VENDOR logins. */
+  vendorName: string | null;
   isVerified: boolean;
   orderCount: number;
   createdAt: Date;
@@ -69,7 +71,11 @@ export function UsersTable({ users, currentUserId }: { users: AdminUserRow[]; cu
       meta: { label: "Company" },
       header: ({ column }) => <SortButton column={column} label="Company" />,
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.companyName ?? "—"}</span>
+        <span className="text-sm text-muted-foreground">
+          {row.original.role === "VENDOR" && row.original.vendorName
+            ? `Vendor · ${row.original.vendorName}`
+            : row.original.companyName ?? "—"}
+        </span>
       ),
     }),
     columnHelper.accessor("role", {
@@ -78,7 +84,13 @@ export function UsersTable({ users, currentUserId }: { users: AdminUserRow[]; cu
       cell: ({ row }) => (
         <Badge
           variant="secondary"
-          className={row.original.role === "ADMIN" ? "bg-primary/10 text-primary font-semibold" : ""}
+          className={
+            row.original.role === "ADMIN"
+              ? "bg-primary/10 text-primary font-semibold"
+              : row.original.role === "VENDOR"
+                ? "bg-violet-100 text-violet-800 font-semibold"
+                : ""
+          }
         >
           {row.original.role}
         </Badge>
@@ -145,10 +157,14 @@ export function UsersTable({ users, currentUserId }: { users: AdminUserRow[]; cu
               <DropdownMenuGroup>
                 <DropdownMenuLabel>User</DropdownMenuLabel>
                 <DropdownMenuItem
-                  disabled={isSelf}
+                  disabled={isSelf || row.original.role === "VENDOR"}
                   onClick={() => run(updateUserRoleAction(user.id, user.role === "ADMIN" ? "CUSTOMER" : "ADMIN"))}
                 >
-                  {user.role === "ADMIN" ? (
+                  {user.role === "VENDOR" ? (
+                    <>
+                      <ShieldCheck aria-hidden /> Vendor accounts are managed in Vendors
+                    </>
+                  ) : user.role === "ADMIN" ? (
                     <>
                       <ShieldOff aria-hidden /> Demote to customer
                     </>
@@ -192,7 +208,7 @@ export function UsersTable({ users, currentUserId }: { users: AdminUserRow[]; cu
       data={users}
       getRowId={(user) => user.id}
       globalFilter={(user, query) =>
-        [user.firstName, user.lastName, user.email, user.companyName]
+        [user.firstName, user.lastName, user.email, user.companyName, user.vendorName]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(query))
       }
@@ -204,6 +220,7 @@ export function UsersTable({ users, currentUserId }: { users: AdminUserRow[]; cu
           options: [
             { label: "Admin", value: "ADMIN" },
             { label: "Customer", value: "CUSTOMER" },
+            { label: "Vendor", value: "VENDOR" },
           ],
         },
         {

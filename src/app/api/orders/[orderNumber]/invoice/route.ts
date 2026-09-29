@@ -26,7 +26,14 @@ export async function GET(_req: Request, ctx: { params: Promise<{ orderNumber: s
 
   const order = await db.order.findFirst({
     where: user.role === "ADMIN" ? { orderNumber } : { orderNumber, userId: user.id },
-    include: { items: true },
+    include: {
+      items: true,
+      // Split orders carry their items on per-vendor sub-orders.
+      subOrders: {
+        orderBy: { subOrderNumber: "asc" },
+        include: { items: true, vendor: { select: { name: true } } },
+      },
+    },
   });
   if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
   if (order.status === "CANCELLED") {
@@ -66,22 +73,29 @@ export async function GET(_req: Request, ctx: { params: Promise<{ orderNumber: s
       shippingZone: order.shippingZone,
       chargeableWeight: order.chargeableWeight,
       notes: order.notes,
-      items: order.items.map((it) => ({
-        name: it.name,
-        variantLabel: it.variantLabel,
-        sku: it.sku,
-        hsnCode: it.hsnCode,
-        gstRate: Number(it.gstRate),
-        quantity: it.quantity,
-        unitPrice: Number(it.unitPrice),
-        lineTotal: Number(it.lineTotal),
+      items: (
+        order.subOrders.length > 0
+          ? order.subOrders.flatMap((sub) =>
+              sub.items.map((it) => ({ item: it, soldBy: sub.vendor?.name ?? null })),
+            )
+          : order.items.map((it) => ({ item: it, soldBy: null }))
+      ).map(({ item, soldBy }) => ({
+        name: item.name,
+        variantLabel: item.variantLabel,
+        sku: item.sku,
+        hsnCode: item.hsnCode,
+        gstRate: Number(item.gstRate),
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        lineTotal: Number(item.lineTotal),
+        soldBy: order.subOrders.length > 1 ? soldBy : null,
       })),
     },
     {
       name: settings.sellerName || SITE.name,
       gstin: settings.sellerGstin,
       pan: settings.sellerPan,
-      address: settings.sellerAddress ?? SITE.address,
+      address: settings.sellerAddress || null,
       stateCode: settings.sellerStateCode,
       email: settings.sellerEmail ?? SITE.email,
       phone: settings.sellerPhone ?? SITE.phone,

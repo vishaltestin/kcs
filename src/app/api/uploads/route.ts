@@ -67,7 +67,9 @@ async function processFile(file: File): Promise<Uploaded> {
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  // Admins and vendors both upload product imagery (vendors for their own
+  // catalogue, admin for the platform's).
+  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "VENDOR")) {
     return Response.json({ ok: false, message: "Not authorised." }, { status: 403 });
   }
 

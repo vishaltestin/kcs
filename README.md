@@ -20,6 +20,7 @@ client-side API fetching for writes.
 | **Auth** | Custom session auth — Argon2id password hashing (via `argon2`), SHA-256 hashed opaque session tokens in HttpOnly cookies, role-based guards (`USER` / `ADMIN`) |
 | **Data fetching** | Server components query Prisma directly (`src/lib/queries/**`) |
 | **State** | Zustand stores for cart & wishlist (persisted, synced to the server on login) |
+| **Marketplace** | Multi-vendor: admin-onboarded sellers, per-vendor sub-orders, vendor portal (`/vendor`) and public seller storefronts — see [MULTIVENDOR.md](MULTIVENDOR.md) |
 
 ## Getting started
 
@@ -128,6 +129,26 @@ stats), products (tiered pricing, specs, gallery, flags), categories (nested),
 brands, orders (status workflow + detail view), enquiries, meeting bookings,
 contact messages, blog posts, users (roles, verification), reviews (approval
 queue) and newsletter subscribers.
+
+## Multi-vendor module
+
+The store runs as a marketplace: the platform plus admin-onboarded external
+sellers share one storefront and one cart. Every checkout creates a parent
+order for the customer plus one sub-order per vendor
+(`<orderNumber>-V<n>`), and fulfilment, tracking, stock and GST are tracked
+per sub-order against the owning vendor's state.
+
+- **Admin** (`/admin/vendors`): create/suspend vendors, provision their
+  logins, assign products, and monitor split orders. No public sign-up.
+- **Vendor portal** (`/vendor`): own catalogue (products, variants, tiers,
+  stock), own sub-orders (confirm → deliver with shipment details) and
+  profile/GST settings.
+- **Storefront**: `/sellers` directory, per-vendor storefront pages
+  (`/sellers/[slug]`) and "Sold by" badges on products.
+- Commission/settlements are deliberately deferred; sub-orders already carry
+  the per-vendor totals those features will need.
+
+Full design notes, invariants and seeded demo logins: [MULTIVENDOR.md](MULTIVENDOR.md).
 
 ## Environment variables
 

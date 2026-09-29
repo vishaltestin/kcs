@@ -17,7 +17,6 @@ import {
   Laptop,
   LogOut,
   Mail,
-  MapPin,
   Menu,
   Package,
   Phone,
@@ -41,11 +40,11 @@ import {
 } from "@/components/ui/sheet";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useLogout } from "@/components/auth/logout-button";
-import { Logo } from "@/components/shared/logo";
+import { LogoMark } from "@/components/shared/logo";
 import { IMAGES, SITE } from "@/lib/constants";
 import type { CategoryNode } from "@/types";
 
-type MobileUser = { firstName: string; role: "CUSTOMER" | "ADMIN" } | null;
+type MobileUser = { firstName: string; role: "CUSTOMER" | "ADMIN" | "VENDOR" } | null;
 
 const COMPANY_LINKS = [
   { title: "About Us", href: "/about-us", icon: Users },
@@ -103,7 +102,7 @@ export function MobileNav({
         <SheetHeader className="relative flex-shrink-0 border-b px-5 py-4">
           <span aria-hidden className="brand-gradient absolute inset-x-0 top-0 h-[3px]" />
           <SheetTitle className="flex items-center justify-between text-left">
-            <Logo size={60} withLink={false} />
+            <LogoMark height={40} withLink={false} />
           </SheetTitle>
           <SheetDescription className="sr-only">Site navigation</SheetDescription>
         </SheetHeader>
@@ -188,6 +187,16 @@ export function MobileNav({
                     onClick={close}
                     className="grid size-9 place-items-center rounded-full border bg-background text-foreground"
                     aria-label="Admin console"
+                  >
+                    <LayoutDashboard className="size-4" aria-hidden />
+                  </Link>
+                )}
+                {user.role === "VENDOR" && (
+                  <Link
+                    href="/vendor"
+                    onClick={close}
+                    className="grid size-9 place-items-center rounded-full border bg-background text-foreground"
+                    aria-label="Seller console"
                   >
                     <LayoutDashboard className="size-4" aria-hidden />
                   </Link>
@@ -377,9 +386,6 @@ export function MobileNav({
                   <a href={`mailto:${SITE.email}`} className="flex items-center gap-2 hover:text-white">
                     <Mail className="size-3.5 text-brand-teal-light" aria-hidden /> {SITE.email}
                   </a>
-                  <span className="flex items-start gap-2">
-                    <MapPin className="mt-0.5 size-3.5 shrink-0 text-brand-teal-light" aria-hidden /> {SITE.address}
-                  </span>
                 </div>
               </div>
             </div>

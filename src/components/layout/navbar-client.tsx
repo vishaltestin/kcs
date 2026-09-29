@@ -17,7 +17,6 @@ import {
   Laptop,
   Loader2,
   LogOut,
-  MapPin,
   Package,
   Percent,
   Phone,
@@ -49,7 +48,7 @@ import {
 } from "@/components/ui/navigation-menu";
 import { useLogout } from "@/components/auth/logout-button";
 import { searchSuggestionsAction } from "@/actions/search";
-import { Logo } from "@/components/shared/logo";
+import { LogoMark } from "@/components/shared/logo";
 import { MobileNav } from "./mobile-nav";
 import { CartSidebar } from "./cart-sidebar";
 import { BookMeetingDialog } from "@/components/book-a-meeting/book-meeting-dialog";
@@ -65,7 +64,7 @@ type NavbarUser = {
   firstName: string;
   lastName: string;
   email: string;
-  role: "CUSTOMER" | "ADMIN";
+  role: "CUSTOMER" | "ADMIN" | "VENDOR";
 } | null;
 
 /** Shared chrome for every mega panel — gradient rule + rounded shell. */
@@ -385,8 +384,8 @@ export function NavbarClient({
           )}
         />
 
-        <div className="container flex h-[68px] items-center gap-3">
-          <Logo size={64} />
+        <div className="container flex h-[72px] items-center gap-3">
+          <LogoMark height={46} />
 
           {/* Desktop rail — grouped sections, not a flat link list */}
           <NavigationMenu viewport={false} className="ml-4 hidden min-w-0 xl:block">
@@ -506,6 +505,13 @@ export function NavbarClient({
                     <DropdownMenuItem asChild className="rounded-lg">
                       <Link href="/admin">
                         <LayoutDashboard className="mr-2 size-4" aria-hidden /> Admin Console
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {user.role === "VENDOR" && (
+                    <DropdownMenuItem asChild className="rounded-lg">
+                      <Link href="/vendor">
+                        <LayoutDashboard className="mr-2 size-4" aria-hidden /> Seller Console
                       </Link>
                     </DropdownMenuItem>
                   )}
@@ -1015,7 +1021,7 @@ function ShopAllPanel({ categories }: { categories: CategoryNode[] }) {
   const leaves = categories.filter((c) => c.children.length === 0);
 
   return (
-    <div className="relative w-[min(92vw,1060px)]">
+    <div className="relative w-[min(calc(100vw-10rem),1060px)]">
       <span aria-hidden className="brand-gradient absolute inset-x-0 top-0 h-[3px]" />
       <div className="px-6 pt-6 pb-5">
         <PanelHead
@@ -1069,7 +1075,7 @@ function OccasionPanel({
   promos: { title: string; copy: string; href: string; image: string }[];
 }) {
   return (
-    <div className="relative w-[min(92vw,880px)]">
+    <div className="relative w-[min(calc(100vw-10rem),880px)]">
       <span aria-hidden className="brand-gradient absolute inset-x-0 top-0 h-[3px]" />
       <div className="p-7 pt-8">
         <PanelHead
@@ -1143,7 +1149,7 @@ function ProgrammePanel({
 }) {
   const icons = [Building2, Users, Laptop, Repeat, Leaf, Gift];
   return (
-    <div className="relative w-[min(92vw,860px)]">
+    <div className="relative w-[min(calc(100vw-10rem),860px)]">
       <span aria-hidden className="brand-gradient absolute inset-x-0 top-0 h-[3px]" />
       <div className="grid grid-cols-[minmax(0,1fr)_16rem]">
         <div className="p-7 pt-8">
@@ -1210,7 +1216,7 @@ function ProgrammePanel({
 
 function CompanyPanel({ onBook }: { onBook: () => void }) {
   return (
-    <div className="relative w-[min(92vw,660px)]">
+    <div className="relative w-[min(calc(100vw-10rem),660px)]">
       <span aria-hidden className="brand-gradient absolute inset-x-0 top-0 h-[3px]" />
       <div className="grid grid-cols-[minmax(0,1fr)_15rem]">
         <div className="p-7 pt-8">
@@ -1242,10 +1248,6 @@ function CompanyPanel({ onBook }: { onBook: () => void }) {
         <aside className="flex flex-col gap-4 border-l border-border/70 bg-surface/60 p-6 pt-8">
           <div>
             <span className="kicker text-primary">Reach us</span>
-            <p className="mt-2 flex items-start gap-2 text-[12.5px] leading-relaxed text-muted-foreground">
-              <MapPin className="mt-0.5 size-3.5 shrink-0 text-brand-magenta" aria-hidden />
-              {SITE.address}
-            </p>
           </div>
           <a
             href={`mailto:${SITE.email}`}

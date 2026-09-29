@@ -657,23 +657,6 @@ body {
     background-color: color-mix(in oklch, var(--brand-teal) 9%, transparent);
   }
 
-  .nav-pill::after {
-    content: "";
-    position: absolute;
-    inset-inline: 0.8rem;
-    bottom: 0.35rem;
-    height: 2px;
-    border-radius: 999px;
-    background-image: linear-gradient(90deg, var(--brand-teal), var(--brand-magenta));
-    transform: scaleX(0);
-    transform-origin: left center;
-    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .nav-pill[data-active="true"]::after {
-    transform: scaleX(1);
-  }
-
   /* The Radix trigger renders a <button>; strip its default chrome so it reads
      exactly like the sibling links. */
   .nav-pill[data-slot="navigation-menu-trigger"] {

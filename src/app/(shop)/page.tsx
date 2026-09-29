@@ -120,11 +120,11 @@ function TrustedCompanyBanner() {
   return (
     <section className="container" aria-label="Shop by gifting category">
       <div className="rounded-[5px] bg-brand-charcoal px-4">
-        <h1 className="pt-4 pb-1 text-center text-sm leading-relaxed font-extrabold text-white">
+        <h1 className="pt-3 pb-0.5 text-center text-[12.5px] leading-relaxed font-extrabold text-white">
           Most Trusted Corporate Gifting Company in India
         </h1>
 
-        <div className="most-trusted flex max-w-full items-center justify-between gap-5 overflow-x-auto py-5 lg:gap-1">
+        <div className="most-trusted flex max-w-full items-center justify-between gap-4 overflow-x-auto py-3.5 lg:gap-1">
           {MOST_TRUSTED_ITEMS.map((item) => {
             const Icon = TRUSTED_ICONS[item.key as keyof typeof TRUSTED_ICONS] ?? Gift;
             return (
@@ -133,8 +133,8 @@ function TrustedCompanyBanner() {
                 href={MOST_TRUSTED_HREFS[item.key] ?? "/product"}
                 className="flex flex-col items-center text-center"
               >
-                <Icon className="size-10" strokeWidth={1.5} aria-hidden />
-                <p className="mt-1 text-sm">{item.label}</p>
+                <Icon className="size-8" strokeWidth={1.5} aria-hidden />
+                <p className="mt-1 text-[12px]">{item.label}</p>
               </Link>
             );
           })}

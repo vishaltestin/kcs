@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader, Panel, StatusBadge } from "@/components/admin/ui";
 import { ActionSelect } from "@/components/admin/action-select";
 import { ShipmentForm } from "@/components/admin/orders/shipment-form";
+import { SubOrdersPanel } from "@/components/admin/orders/sub-orders-panel";
 import { getAdminOrderById } from "@/lib/queries/admin";
 import { updateOrderStatusAction } from "@/actions/admin/engagements";
 import { ORDER_STATUSES } from "@/lib/constants";
@@ -35,7 +36,10 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
 
   const totalTax = Number(order.cgst) + Number(order.sgst) + Number(order.igst);
   const interState = Number(order.igst) > 0;
-  const pieces = order.items.reduce((s, i) => s + i.quantity, 0);
+  const isSplit = order.subOrders.length > 0;
+  // Split orders keep their items on the sub-orders.
+  const displayItems = isSplit ? order.subOrders.flatMap((sub) => sub.items) : order.items;
+  const pieces = displayItems.reduce((s, i) => s + i.quantity, 0);
   const canInvoice = order.status !== "CANCELLED";
 
   return (
@@ -60,12 +64,19 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                 </a>
               </Button>
             )}
-            <ActionSelect
-              value={order.status}
-              options={ORDER_STATUSES}
-              on_change={updateOrderStatusAction.bind(null, order.id)}
-              ariaLabel="Order status"
-            />
+            {isSplit ? (
+              <div className="flex items-center gap-2">
+                <StatusBadge status={order.status} />
+                <span className="text-xs text-muted-foreground">derived from vendor sub-orders</span>
+              </div>
+            ) : (
+              <ActionSelect
+                value={order.status}
+                options={ORDER_STATUSES}
+                on_change={updateOrderStatusAction.bind(null, order.id)}
+                ariaLabel="Order status"
+              />
+            )}
           </div>
         }
       />
@@ -74,12 +85,14 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         <div className="space-y-6 lg:col-span-2">
           <Panel
             title="Items"
-            description={`${order.items.length} line${order.items.length === 1 ? "" : "s"} · ${pieces} pcs`}
+            description={`${displayItems.length} line${displayItems.length === 1 ? "" : "s"} · ${pieces} pcs${
+              isSplit ? ` · fulfilled by ${order.subOrders.length} vendor${order.subOrders.length === 1 ? "" : "s"}` : ""
+            }`}
             icon={Package}
             bodyClassName="p-0"
           >
             <ul className="divide-y">
-              {order.items.map((item) => (
+              {displayItems.map((item) => (
                 <li key={item.id} className="flex items-center gap-4 px-5 py-3.5">
                   <span className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-foreground/5">
                     {item.image ? <Image src={item.image} alt="" fill sizes="48px" className="object-cover" /> : null}
@@ -163,36 +176,43 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </div>
           </Panel>
 
-          <Panel
-            title="Shipment & courier"
-            description={
-              order.shippedAt
-                ? `Shipped ${formatDateTime(order.shippedAt)}${order.deliveredAt ? ` · delivered ${formatDate(order.deliveredAt)}` : ""}`
-                : "Enter courier details when the order is dispatched — the customer sees them on their order page."
-            }
-            icon={Truck}
-            actions={
-              order.trackingUrl ? (
-                <Button asChild variant="outline" size="sm">
-                  <a href={order.trackingUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink aria-hidden /> Track
-                  </a>
-                </Button>
-              ) : null
-            }
-          >
-            <ShipmentForm
-              orderId={order.id}
-              status={order.status}
-              shipment={{
-                courierName: order.courierName,
-                trackingNumber: order.trackingNumber,
-                trackingUrl: order.trackingUrl,
-                expectedAt: order.expectedAt ? order.expectedAt.toISOString().slice(0, 10) : null,
-                shipmentNote: order.shipmentNote,
-              }}
-            />
-          </Panel>
+          {isSplit ? (
+            <>
+              <h2 className="display mt-2 text-[1.25rem]">Vendor fulfilment</h2>
+              <SubOrdersPanel subOrders={order.subOrders} />
+            </>
+          ) : (
+            <Panel
+              title="Shipment & courier"
+              description={
+                order.shippedAt
+                  ? `Shipped ${formatDateTime(order.shippedAt)}${order.deliveredAt ? ` · delivered ${formatDate(order.deliveredAt)}` : ""}`
+                  : "Enter courier details when the order is dispatched — the customer sees them on their order page."
+              }
+              icon={Truck}
+              actions={
+                order.trackingUrl ? (
+                  <Button asChild variant="outline" size="sm">
+                    <a href={order.trackingUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink aria-hidden /> Track
+                    </a>
+                  </Button>
+                ) : null
+              }
+            >
+              <ShipmentForm
+                orderId={order.id}
+                status={order.status}
+                shipment={{
+                  courierName: order.courierName,
+                  trackingNumber: order.trackingNumber,
+                  trackingUrl: order.trackingUrl,
+                  expectedAt: order.expectedAt ? order.expectedAt.toISOString().slice(0, 10) : null,
+                  shipmentNote: order.shipmentNote,
+                }}
+              />
+            </Panel>
+          )}
         </div>
 
         <div className="space-y-6">

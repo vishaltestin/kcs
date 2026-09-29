@@ -6,12 +6,16 @@ import { BookOpenText } from "lucide-react";
 import { PageHeader } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import { ProductForm } from "@/components/admin/products/product-form";
-import { getAdminBrands, getAdminCategories } from "@/lib/queries/admin";
+import { getAdminBrands, getAdminCategories, getVendorOptions } from "@/lib/queries/admin";
 
 export const metadata: Metadata = { title: "New Product" };
 
 export default async function NewProductPage() {
-  const [brands, categoryRows] = await Promise.all([getAdminBrands(), getAdminCategories()]);
+  const [brands, categoryRows, vendors] = await Promise.all([
+    getAdminBrands(),
+    getAdminCategories(),
+    getVendorOptions(),
+  ]);
 
   const categories = categoryRows.map((c) => ({
     id: c.id,
@@ -19,6 +23,7 @@ export default async function NewProductPage() {
     parentId: c.parentId,
   }));
   const brandOptions = brands.map((b) => ({ id: b.id, name: b.name }));
+  const vendorOptions = vendors.map((v) => ({ id: v.id, name: v.name }));
 
   return (
     <div>
@@ -33,7 +38,7 @@ export default async function NewProductPage() {
           </Button>
         }
       />
-      <ProductForm mode="create" brands={brandOptions} categories={categories} />
+      <ProductForm mode="create" brands={brandOptions} categories={categories} vendors={vendorOptions} />
     </div>
   );
 }

@@ -7,7 +7,7 @@ export type NavbarUser = {
   firstName: string;
   lastName: string;
   email: string;
-  role: "CUSTOMER" | "ADMIN";
+  role: "CUSTOMER" | "ADMIN" | "VENDOR";
 };
 
 /**

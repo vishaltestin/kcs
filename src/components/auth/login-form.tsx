@@ -3,20 +3,14 @@
 import { useState } from "react";
 
 import { useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -78,19 +72,26 @@ export function LoginForm() {
     }
 
     // 3. Full-page navigation so server components re-render with the new
-    //    session (navbar, wishlist, etc.).
+    //    session (navbar, wishlist, etc.). Vendors and admins without an
+    //    explicit destination land in their own console instead of the shop.
     toast.success("Signed in!");
-    window.location.assign(nextPath);
+    let target = nextPath;
+    if (target === "/") {
+      try {
+        const session = await getSession();
+        const role = session?.user?.role;
+        if (role === "VENDOR") target = "/vendor";
+        else if (role === "ADMIN") target = "/admin";
+      } catch {
+        // Session lookup is best-effort — fall back to the home page.
+      }
+    }
+    window.location.assign(target);
   };
 
   return (
     <Card className="gap-0 rounded-3xl border-none py-0 shadow-[0_28px_56px_-32px_rgb(0_0_0/0.35)] ring-1 ring-foreground/[0.07]">
-      <CardHeader className="border-b px-6 py-5 md:px-8">
-        <CardTitle className="text-lg font-extrabold tracking-tight">Sign in</CardTitle>
-        <CardDescription>Use your registered email address</CardDescription>
-      </CardHeader>
-
-      <CardContent className="px-6 py-6 md:px-8">
+      <CardContent className="px-6 py-7 md:px-8">
         {formError && (
           <Alert variant="destructive" className="mb-4">
             {formError}
@@ -106,10 +107,7 @@ export function LoginForm() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
-                      <Input type="email" placeholder="you@company.com" className="pl-9" autoComplete="email" {...field} />
-                    </div>
+                    <Input type="email" placeholder="you@company.com" className="h-11 rounded-xl" autoComplete="email" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -124,18 +122,17 @@ export function LoginForm() {
                   <FormLabel>Password</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
                       <Input
                         type={showPassword ? "text" : "password"}
                         placeholder="••••••••"
-                        className="pl-9 pr-10"
+                        className="h-11 rounded-xl pr-11"
                         autoComplete="current-password"
                         {...field}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword((s) => !s)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
                         aria-label={showPassword ? "Hide password" : "Show password"}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}

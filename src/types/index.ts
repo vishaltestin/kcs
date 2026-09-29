@@ -26,6 +26,8 @@ export type ProductListItem = {
   introtext: string | null;
   brand: string | null;
   brandId: number | null;
+  /** The seller offering this product ("Sold by …"). */
+  vendor: { name: string; slug: string } | null;
   isNew: boolean;
   isFeatured: boolean;
   isBestSeller: boolean;
@@ -128,6 +130,7 @@ export type ReviewCard = {
 export type ProductWithRelations = Prisma.ProductGetPayload<{
   include: {
     brand: true;
+    vendor: { select: { id: true; name: true; slug: true; logo: true } };
     images: true;
     prices: true;
     specs: true;

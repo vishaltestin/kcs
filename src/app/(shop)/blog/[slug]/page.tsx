@@ -141,6 +141,7 @@ export default async function BlogDetailPage({ params }: { params: Params }) {
                 alt={post.title}
                 priority
                 sizes="(max-width: 1024px) 100vw, 900px"
+                fit="cover"
                 className="aspect-[16/9] w-full rounded-xl shadow-[inset_0_0_0_1px_rgb(17_24_39/0.06)]"
               />
             </figure>

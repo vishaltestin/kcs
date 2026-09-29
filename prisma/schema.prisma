@@ -33,6 +33,15 @@ enum VariantPricing {
 enum Role {
   CUSTOMER
   ADMIN
+  /// Seller account linked to a Vendor — access to the /vendor portal.
+  VENDOR
+}
+
+/// Vendor lifecycle. ACTIVE vendors sell on the storefront; SUSPENDED vendors
+/// keep their data but are hidden from the storefront and blocked from the portal.
+enum VendorStatus {
+  ACTIVE
+  SUSPENDED
 }
 
 enum OrderStatus {
@@ -53,6 +62,47 @@ enum BookingStatus {
   PENDING
   CONFIRMED
   CANCELLED
+}
+
+// ---------------------------------------------------------------------------
+// Vendors (multi-vendor marketplace)
+// ---------------------------------------------------------------------------
+
+/// A seller on the marketplace. Every product belongs to exactly one vendor;
+/// orders are split into per-vendor sub-orders for fulfilment. The platform's
+/// own catalogue is owned by the default vendor (`isDefault`).
+model Vendor {
+  id        String       @id @default(cuid())
+  /// Storefront display name ("Sold by …").
+  name      String       @db.VarChar(120)
+  slug      String       @unique @db.VarChar(140)
+  /// Registered / legal entity name shown on invoices and compliance records.
+  legalName String?      @db.VarChar(160)
+  email     String       @unique @db.VarChar(160)
+  phone     String?      @db.VarChar(20)
+  gstin     String?      @db.VarChar(15)
+  pan       String?      @db.VarChar(10)
+  address   String?      @db.VarChar(300)
+  city      String?      @db.VarChar(80)
+  state     String?      @db.VarChar(80)
+  pincode   String?      @db.VarChar(10)
+  /// GST state code (first two digits of the GSTIN) — determines CGST/SGST vs
+  /// IGST for this vendor's sub-orders.
+  stateCode String       @default("07") @db.VarChar(2)
+  logo      String?
+  description String?    @db.Text
+  status    VendorStatus @default(ACTIVE)
+  /// The platform's own vendor row; legacy products are backfilled to it.
+  isDefault Boolean      @default(false)
+  sortOrder Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  users     User[]
+  products  Product[]
+  subOrders Order[]      @relation("VendorSubOrders")
+
+  @@index([status])
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +145,11 @@ model User {
   orders         Order[]
   reviews        Review[]
   wishlistItems  WishlistItem[]
+  /// Set for VENDOR users — the vendor account this login controls.
+  vendorId       String?
+  vendor         Vendor? @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  @@index([vendorId])
 }
 
 /// Per-user wishlist ("gifting ideas"). Strictly scoped to the owning user —
@@ -188,10 +243,13 @@ model Product {
   /// True when the product is sold in colour/size variants.
   hasVariants Boolean  @default(false)
   variantPricing VariantPricing @default(SHARED)
+  /// Owning vendor — every product is sold by exactly one vendor.
+  vendorId  String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   brand      Brand?            @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  vendor     Vendor            @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   images     ProductImage[]
   prices     ProductPrice[]
   specs      ProductSpec[]
@@ -203,6 +261,7 @@ model Product {
   variants   ProductVariant[]
 
   @@index([brandId])
+  @@index([vendorId])
   @@index([isActive])
 }
 
@@ -339,6 +398,15 @@ model Order {
   userId       String?
   status       OrderStatus @default(PENDING)
 
+  // Multi-vendor split ---------------------------------------------------
+  /// Parent order (the customer's order) that this sub-order belongs to.
+  /// Null on parent orders and on legacy single-seller orders.
+  parentId String?
+  /// Vendor fulfilling this sub-order. Null on parent / legacy orders.
+  vendorId String?
+  /// Human-readable fulfilment reference, e.g. "KCS-240925-AB12-V1".
+  subOrderNumber String? @unique
+
   // Customer snapshot
   customerName  String
   customerEmail String
@@ -396,10 +464,17 @@ model Order {
 
   user  User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   items OrderItem[]
+  /// Vendor fulfilling this sub-order (null on parent / legacy orders).
+  vendor Vendor?    @relation("VendorSubOrders", fields: [vendorId], references: [id], onDelete: SetNull)
+  /// Split fulfilment: one sub-order per vendor in the cart.
+  parent Order?     @relation("OrderSplit", fields: [parentId], references: [id], onDelete: Cascade)
+  subOrders Order[] @relation("OrderSplit")
 
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  @@index([parentId])
+  @@index([vendorId])
 }
 
 model OrderItem {

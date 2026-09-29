@@ -8,7 +8,7 @@ import { authConfig } from "@/lib/auth/config";
  */
 const { auth } = NextAuth(authConfig);
 
-const PROTECTED_PREFIXES = ["/admin", "/profile", "/checkout", "/order-success"];
+const PROTECTED_PREFIXES = ["/admin", "/vendor", "/profile", "/checkout", "/order-success"];
 const AUTH_PAGES = ["/login", "/signup"];
 
 export default auth((request) => {

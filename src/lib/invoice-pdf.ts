@@ -64,6 +64,8 @@ export type InvoiceOrder = {
     quantity: number;
     unitPrice: number;
     lineTotal: number;
+    /** Fulfilling vendor — shown on split (multi-vendor) orders. */
+    soldBy?: string | null;
   }[];
 };
 
@@ -228,7 +230,9 @@ export async function renderInvoicePdf(order: InvoiceOrder, seller: InvoiceSelle
     const { taxable, tax } = splitInclusive(it.lineTotal, it.gstRate);
     const unitTaxable = splitInclusive(it.unitPrice, it.gstRate).taxable;
     const desc = `${it.name}${it.variantLabel ? ` — ${it.variantLabel}` : ""}`;
-    const sub = [it.sku ? `SKU ${it.sku}` : null, `GST ${it.gstRate}%`].filter(Boolean).join(" · ");
+    const sub = [it.sku ? `SKU ${it.sku}` : null, `GST ${it.gstRate}%`, it.soldBy ? `Sold by ${it.soldBy}` : null]
+      .filter(Boolean)
+      .join(" · ");
     const descH = doc.font("Body").fontSize(8.5).heightOfString(desc, { width: cols[1].w - 8 }) + 11;
     const rowH = Math.max(24, descH + 4);
 

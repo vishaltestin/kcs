@@ -25,7 +25,19 @@ export interface AdminOrderRow {
   hasGst: boolean;
   courierName: string | null;
   trackingNumber: string | null;
+  /** Split into per-vendor sub-orders. */
+  isSplit: boolean;
+  /** Fulfilling vendors (empty for legacy single-seller orders). */
+  sellers: string[];
 }
+
+const STATUS_BADGE: Record<string, string> = {
+  PENDING: "bg-amber-100 text-amber-800",
+  CONFIRMED: "bg-blue-100 text-blue-800",
+  SHIPPED: "bg-violet-100 text-violet-800",
+  DELIVERED: "bg-green-100 text-green-800",
+  CANCELLED: "bg-red-100 text-red-700",
+};
 
 const ORDER_STATUSES = ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
 
@@ -60,6 +72,24 @@ export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
       header: ({ column }) => <SortButton column={column} label="Items" />,
       cell: ({ row }) => <span className="text-sm tabular-nums">{row.original.itemCount}</span>,
     }),
+    columnHelper.accessor((row) => row.sellers.join(", "), {
+      id: "sellers",
+      meta: { label: "Sellers" },
+      header: ({ column }) => <SortButton column={column} label="Sellers" />,
+      cell: ({ row }) => {
+        const { sellers, isSplit } = row.original;
+        if (!isSplit) return <span className="text-xs text-muted-foreground">KCS G-Mart</span>;
+        if (sellers.length === 1) return <span className="text-sm">{sellers[0]}</span>;
+        return (
+          <span className="text-sm">
+            {sellers[0]}{" "}
+            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+              +{sellers.length - 1} more
+            </span>
+          </span>
+        );
+      },
+    }),
     columnHelper.accessor("createdAt", {
       meta: { label: "Placed" },
       header: ({ column }) => <SortButton column={column} label="Placed" />,
@@ -85,6 +115,16 @@ export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
       header: "Shipment",
       cell: ({ row }) => {
         const o = row.original;
+        if (o.isSplit) {
+          return (
+            <Link
+              href={`/admin/orders/${o.id}#fulfilment`}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+            >
+              <Truck className="size-3.5" aria-hidden /> {o.sellers.length} package{o.sellers.length === 1 ? "" : "s"}
+            </Link>
+          );
+        }
         if (o.courierName) {
           return (
             <div className="min-w-0 text-xs">
@@ -112,14 +152,23 @@ export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
     columnHelper.accessor("status", {
       meta: { label: "Status" },
       header: ({ column }) => <SortButton column={column} label="Status" />,
-      cell: ({ row }) => (
-        <ActionSelect
-          value={row.original.status}
-          options={ORDER_STATUSES}
-          ariaLabel={`Status for ${row.original.orderNumber}`}
-          on_change={(status) => updateOrderStatusAction(row.original.id, status)}
-        />
-      ),
+      cell: ({ row }) =>
+        row.original.isSplit ? (
+          // Split parents derive their status from the vendor sub-orders.
+          <span
+            className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${STATUS_BADGE[row.original.status] ?? ""}`}
+            title="Derived from vendor sub-orders"
+          >
+            {row.original.status}
+          </span>
+        ) : (
+          <ActionSelect
+            value={row.original.status}
+            options={ORDER_STATUSES}
+            ariaLabel={`Status for ${row.original.orderNumber}`}
+            on_change={(status) => updateOrderStatusAction(row.original.id, status)}
+          />
+        ),
       filterFn: "equalsString",
     }),
     columnHelper.display({
@@ -158,7 +207,7 @@ export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
       data={orders}
       getRowId={(order) => order.id}
       globalFilter={(order, query) =>
-        [order.orderNumber, order.customerName, order.customerEmail, order.status, order.invoiceNumber, order.trackingNumber, order.courierName]
+        [order.orderNumber, order.customerName, order.customerEmail, order.status, order.invoiceNumber, order.trackingNumber, order.courierName, ...order.sellers]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(query))
       }

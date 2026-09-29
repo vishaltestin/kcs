@@ -8,8 +8,13 @@ import { generateOrderNumber } from "@/lib/utils";
 import { getShippingConfig, getStoreSettings } from "@/lib/queries/shipping";
 import { quoteShipping } from "@/lib/shipping";
 import { resolveVariantTiers } from "@/lib/variants";
-import { resolvePlaceOfSupply, splitInclusive, summariseTax } from "@/lib/tax";
+import { resolvePlaceOfSupply, splitInclusive, summariseTax, type TaxSummary } from "@/lib/tax";
 import { allocateInvoiceNumber } from "@/lib/invoice";
+import {
+  allocateProRata,
+  generateSubOrderNumber,
+  sumCurrency,
+} from "@/lib/sub-orders";
 import type { ActionResult } from "@/types";
 import { str } from "@/lib/form";
 
@@ -17,10 +22,12 @@ import { str } from "@/lib/form";
  * Order placement. Prices, stock, weights, shipping and GST are ALL recomputed
  * server-side from the database — client-supplied amounts are never trusted.
  *
- * Flow: validate → load products/variants → price each line from its tier
- * table → quote shipping (zone × chargeable weight) → carve GST out of the
- * inclusive totals → create order + items, decrement stock and allocate a
- * sequential invoice number in one transaction.
+ * Flow: validate → load products/variants (+vendor) → price each line from its
+ * tier table → quote shipping (zone × chargeable weight) → group lines by
+ * vendor → create the parent order plus one sub-order per vendor (each with a
+ * pro-rata shipping share and its own GST carve-out against the vendor's
+ * state code) → decrement stock and allocate a sequential invoice number,
+ * all in one transaction.
  */
 
 type Line = {
@@ -41,6 +48,19 @@ type Line = {
   widthCm: number;
   heightCm: number;
   stock: number;
+  vendorId: string;
+};
+
+/** Everything needed to persist one vendor's sub-order. */
+type VendorGroup = {
+  vendorId: string;
+  vendorStateCode: string;
+  lines: Line[];
+  subtotal: number;
+  shipping: number;
+  total: number;
+  weightGrams: number;
+  tax: TaxSummary;
 };
 
 export async function placeOrderAction(
@@ -105,7 +125,11 @@ export async function placeOrderAction(
 
   const products = await db.product.findMany({
     where: { id: { in: requested.map((i) => i.productId) }, isActive: true },
-    include: { prices: true, variants: { include: { prices: true } } },
+    include: {
+      prices: true,
+      variants: { include: { prices: true } },
+      vendor: { select: { id: true, stateCode: true, status: true } },
+    },
   });
 
   if (new Set(requested.map((r) => r.productId)).size !== products.length) {
@@ -116,6 +140,12 @@ export async function placeOrderAction(
 
   for (const item of requested) {
     const product = products.find((p) => p.id === item.productId)!;
+    if (product.vendor.status !== "ACTIVE") {
+      return {
+        ok: false,
+        message: `"${product.name}" is temporarily unavailable from its seller. Please remove it and try again.`,
+      };
+    }
     if (product.pricingMode === "ENQUIRY") {
       return {
         ok: false,
@@ -183,17 +213,19 @@ export async function placeOrderAction(
       widthCm: Number(variant?.widthCm ?? product.widthCm),
       heightCm: Number(variant?.heightCm ?? product.heightCm),
       stock,
+      vendorId: product.vendor.id,
     });
   }
 
-  const subtotal = Math.round(lines.reduce((sum, line) => sum + line.lineTotal, 0) * 100) / 100;
+  const subtotal = sumCurrency(lines.map((line) => line.lineTotal));
 
   const shippingAddress = data.sameAsBilling ? data.billingAddress : data.shippingAddress || data.billingAddress;
   const shippingCity = data.sameAsBilling ? data.billingCity : data.shippingCity || data.billingCity;
   const shippingState = data.sameAsBilling ? data.billingState : data.shippingState || data.billingState;
   const shippingPincode = data.sameAsBilling ? data.billingPincode : data.shippingPincode || data.billingPincode;
 
-  // Shipping: zone from the delivery state × chargeable (actual vs volumetric) weight.
+  // Shipping: zone from the delivery state × chargeable (actual vs volumetric)
+  // weight, quoted once for the whole cart.
   const [shippingConfig, settings] = await Promise.all([getShippingConfig(), getStoreSettings()]);
   const quote = quoteShipping(
     lines.map((l) => ({ quantity: l.quantity, weightGrams: l.weightGrams, lengthCm: l.lengthCm, widthCm: l.widthCm, heightCm: l.heightCm })),
@@ -202,24 +234,70 @@ export async function placeOrderAction(
     shippingConfig,
   );
   const shipping = quote.amount;
-  const total = Math.round((subtotal + shipping) * 100) / 100;
+  const total = sumCurrency([subtotal, shipping]);
 
-  // GST: place of supply from the buyer's GSTIN (or billing state); intra-state
-  // with the seller → CGST + SGST, otherwise IGST.
+  // Place of supply comes from the buyer's GSTIN (or billing state). Each
+  // vendor's sub-order compares it against that vendor's own state code.
   const placeOfSupply = resolvePlaceOfSupply(data.gstNo, data.billingState);
-  const interState = !!placeOfSupply && placeOfSupply !== settings.sellerStateCode;
-  const tax = summariseTax(
-    lines.map((l) => ({ lineTotal: l.lineTotal, gstRate: l.gstRate })),
-    interState,
+
+  // Group lines per vendor and give each group a pro-rata shipping share so
+  // the split totals always add back up to the parent totals exactly.
+  const byVendor = new Map<string, Line[]>();
+  for (const line of lines) {
+    const group = byVendor.get(line.vendorId) ?? [];
+    group.push(line);
+    byVendor.set(line.vendorId, group);
+  }
+
+  const vendorMeta = new Map(
+    products.map((p) => [p.vendor.id, p.vendor.stateCode] as const),
+  );
+  const shippingShares = allocateProRata(
+    [...byVendor.entries()].map(([vendorId, groupLines]) => ({
+      key: vendorId,
+      amount: sumCurrency(groupLines.map((l) => l.lineTotal)),
+    })),
     shipping,
   );
+
+  const groups: VendorGroup[] = [...byVendor.entries()]
+    .sort(([a], [b]) => a.localeCompare(b)) // deterministic sub-order numbering
+    .map(([vendorId, groupLines]) => {
+      const groupSubtotal = sumCurrency(groupLines.map((l) => l.lineTotal));
+      const groupShipping = shippingShares.get(vendorId) ?? 0;
+      const vendorStateCode = vendorMeta.get(vendorId) ?? settings.sellerStateCode;
+      const interState = !!placeOfSupply && placeOfSupply !== vendorStateCode;
+      return {
+        vendorId,
+        vendorStateCode,
+        lines: groupLines,
+        subtotal: groupSubtotal,
+        shipping: groupShipping,
+        total: sumCurrency([groupSubtotal, groupShipping]),
+        weightGrams: groupLines.reduce((sum, l) => sum + l.weightGrams * l.quantity, 0),
+        tax: summariseTax(
+          groupLines.map((l) => ({ lineTotal: l.lineTotal, gstRate: l.gstRate })),
+          interState,
+          groupShipping,
+        ),
+      };
+    });
+
+  // Parent aggregates — with one vendor these are identical to the old
+  // single-seller totals.
+  const tax = {
+    taxableAmount: sumCurrency(groups.map((g) => g.tax.taxableAmount)),
+    cgst: sumCurrency(groups.map((g) => g.tax.cgst)),
+    sgst: sumCurrency(groups.map((g) => g.tax.sgst)),
+    igst: sumCurrency(groups.map((g) => g.tax.igst)),
+  };
 
   const userId = user.id;
   const createOrder = (orderNumber: string) =>
     db.$transaction(async (tx) => {
       const invoiceNumber = await allocateInvoiceNumber(tx);
       const created = await tx.order.create({
-        select: { orderNumber: true },
+        select: { id: true, orderNumber: true },
         data: {
           orderNumber,
           userId,
@@ -250,25 +328,66 @@ export async function placeOrderAction(
           shippingMethod: quote.method,
           invoiceNumber,
           invoicedAt: new Date(),
-          items: {
-            create: lines.map((line) => ({
-              productId: line.productId,
-              variantId: line.variantId,
-              name: line.name,
-              variantLabel: line.variantLabel,
-              sku: line.sku,
-              image: line.image,
-              unitPrice: line.unitPrice,
-              quantity: line.quantity,
-              lineTotal: line.lineTotal,
-              hsnCode: line.hsnCode,
-              gstRate: line.gstRate,
-              taxAmount: line.taxAmount,
-              weightGrams: line.weightGrams,
-            })),
-          },
         },
       });
+
+      // One sub-order per vendor, carrying that vendor's lines, shipping share
+      // and GST carve-out. Customer/address snapshots are copied so each
+      // vendor can fulfil and invoice their leg independently.
+      for (let i = 0; i < groups.length; i++) {
+        const group = groups[i];
+        const subOrderNumber = generateSubOrderNumber(orderNumber, i);
+        await tx.order.create({
+          data: {
+            orderNumber: subOrderNumber,
+            subOrderNumber,
+            parentId: created.id,
+            vendorId: group.vendorId,
+            userId,
+            customerName: data.customerName,
+            customerEmail: data.customerEmail,
+            customerPhone: data.customerPhone,
+            companyName: data.companyName || null,
+            gstNo: data.gstNo ? data.gstNo.toUpperCase() : null,
+            billingAddress: data.billingAddress,
+            billingCity: data.billingCity,
+            billingState: data.billingState,
+            billingPincode: data.billingPincode,
+            shippingAddress,
+            shippingCity,
+            shippingState,
+            shippingPincode,
+            subtotal: group.subtotal,
+            shipping: group.shipping,
+            total: group.total,
+            taxableAmount: group.tax.taxableAmount,
+            cgst: group.tax.cgst,
+            sgst: group.tax.sgst,
+            igst: group.tax.igst,
+            placeOfSupply,
+            shippingZone: quote.zone?.name ?? null,
+            chargeableWeight: group.weightGrams,
+            shippingMethod: quote.method,
+            items: {
+              create: group.lines.map((line) => ({
+                productId: line.productId,
+                variantId: line.variantId,
+                name: line.name,
+                variantLabel: line.variantLabel,
+                sku: line.sku,
+                image: line.image,
+                unitPrice: line.unitPrice,
+                quantity: line.quantity,
+                lineTotal: line.lineTotal,
+                hsnCode: line.hsnCode,
+                gstRate: line.gstRate,
+                taxAmount: line.taxAmount,
+                weightGrams: line.weightGrams,
+              })),
+            },
+          },
+        });
+      }
 
       // Decrement stock where it is tracked (stock 0 = not tracked / made to order).
       for (const line of lines) {
@@ -290,7 +409,7 @@ export async function placeOrderAction(
 
   // `orderNumber` is @unique with a short random suffix; on the rare
   // collision (P2002) retry with a fresh number instead of surfacing a 500.
-  let order: { orderNumber: string } | null = null;
+  let order: { id: string; orderNumber: string } | null = null;
   for (let attempt = 0; attempt < 3 && !order; attempt++) {
     try {
       order = await createOrder(generateOrderNumber());

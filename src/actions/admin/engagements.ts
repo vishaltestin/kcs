@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
 import { isRecordNotFound } from "@/lib/prisma-errors";
-import { assertAdmin } from "@/lib/auth/guards";
+import { assertAdmin, assertAdminOrVendor } from "@/lib/auth/guards";
 import {
   bookingStatusSchema,
   enquiryStatusSchema,
@@ -13,6 +13,7 @@ import {
   shipmentSchema,
 } from "@/lib/validations/admin";
 import { buildTrackingUrl } from "@/lib/couriers";
+import { syncParentOrderStatus } from "@/lib/sub-orders";
 import type { ActionResult } from "@/types";
 
 /**
@@ -22,6 +23,31 @@ import type { ActionResult } from "@/types";
 // ---------------------------------------------------------------------------
 // Orders
 // ---------------------------------------------------------------------------
+
+/**
+ * Revalidate every surface that shows an order (or a sub-order's parent).
+ * `orderNumber` is the customer-facing number: for sub-orders we resolve the
+ * parent so the customer's order page refreshes too.
+ */
+async function revalidateOrderSurfaces(order: {
+  id: string;
+  orderNumber: string;
+  parentId: string | null;
+}): Promise<void> {
+  let customerNumber = order.orderNumber;
+  if (order.parentId) {
+    const parent = await db.order.findUnique({
+      where: { id: order.parentId },
+      select: { orderNumber: true },
+    });
+    if (parent) customerNumber = parent.orderNumber;
+  }
+  revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${order.parentId ?? order.id}`);
+  revalidatePath("/vendor/orders");
+  revalidatePath(`/order-success/${customerNumber}`);
+  revalidatePath("/profile");
+}
 
 export async function updateOrderStatusAction(
   orderId: string,
@@ -36,13 +62,19 @@ export async function updateOrderStatusAction(
   if (!existing) return { ok: false, message: "Order not found." };
 
   try {
-    await db.order.update({
-      where: { id: orderId },
-      data: {
-        status: parsed.data,
-        ...(parsed.data === "SHIPPED" && !existing.shippedAt ? { shippedAt: new Date() } : {}),
-        ...(parsed.data === "DELIVERED" ? { deliveredAt: existing.deliveredAt ?? new Date() } : {}),
-      },
+    await db.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: parsed.data,
+          ...(parsed.data === "SHIPPED" && !existing.shippedAt ? { shippedAt: new Date() } : {}),
+          ...(parsed.data === "DELIVERED" ? { deliveredAt: existing.deliveredAt ?? new Date() } : {}),
+        },
+      });
+      // A sub-order's progress rolls up to the parent order.
+      if (existing.parentId) {
+        await syncParentOrderStatus(tx, existing.parentId);
+      }
     });
   } catch (error) {
     if (isRecordNotFound(error))
@@ -52,10 +84,7 @@ export async function updateOrderStatusAction(
       };
     throw error;
   }
-  revalidatePath("/admin/orders");
-  revalidatePath(`/admin/orders/${orderId}`);
-  revalidatePath(`/order-success/${existing.orderNumber}`);
-  revalidatePath("/profile");
+  await revalidateOrderSurfaces(existing);
   return { ok: true, message: `Order marked ${parsed.data.toLowerCase()}.` };
 }
 
@@ -82,7 +111,10 @@ export async function updateShipmentAction(
     return { ok: false, message: "Please fix the highlighted fields.", fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
-  const existing = await db.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, orderNumber: true, shippedAt: true } });
+  const existing = await db.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, status: true, orderNumber: true, shippedAt: true, parentId: true },
+  });
   if (!existing) return { ok: false, message: "Order not found." };
   if (existing.status === "CANCELLED") return { ok: false, message: "Cancelled orders can't be shipped." };
 
@@ -90,22 +122,24 @@ export async function updateShipmentAction(
   const trackingUrl = buildTrackingUrl(d.courierName, d.trackingNumber, d.trackingUrl);
   const becomesShipped = d.markShipped && existing.status !== "DELIVERED";
 
-  await db.order.update({
-    where: { id: orderId },
-    data: {
-      courierName: d.courierName || null,
-      trackingNumber: d.trackingNumber || null,
-      trackingUrl,
-      expectedAt: d.expectedAt ? new Date(d.expectedAt) : null,
-      shipmentNote: d.shipmentNote || null,
-      ...(becomesShipped ? { status: "SHIPPED", shippedAt: existing.shippedAt ?? new Date() } : {}),
-    },
+  await db.$transaction(async (tx) => {
+    await tx.order.update({
+      where: { id: orderId },
+      data: {
+        courierName: d.courierName || null,
+        trackingNumber: d.trackingNumber || null,
+        trackingUrl,
+        expectedAt: d.expectedAt ? new Date(d.expectedAt) : null,
+        shipmentNote: d.shipmentNote || null,
+        ...(becomesShipped ? { status: "SHIPPED", shippedAt: existing.shippedAt ?? new Date() } : {}),
+      },
+    });
+    if (existing.parentId) {
+      await syncParentOrderStatus(tx, existing.parentId);
+    }
   });
 
-  revalidatePath("/admin/orders");
-  revalidatePath(`/admin/orders/${orderId}`);
-  revalidatePath(`/order-success/${existing.orderNumber}`);
-  revalidatePath("/profile");
+  await revalidateOrderSurfaces(existing);
   return { ok: true, message: becomesShipped ? "Shipment saved — order marked shipped." : "Shipment details saved." };
 }
 
@@ -397,7 +431,8 @@ export async function deleteSubscriberAction(
 // ---------------------------------------------------------------------------
 
 export async function listPublicImagesAction(prefix = ""): Promise<string[]> {
-  await assertAdmin();
+  // Vendors use the same image picker for their product galleries.
+  await assertAdminOrVendor();
 
   const { readdir } = await import("node:fs/promises");
   const path = await import("node:path");

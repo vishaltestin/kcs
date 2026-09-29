@@ -15,6 +15,7 @@ import {
   MessageSquareText,
   Package,
   Star,
+  Store,
   Tags,
   Truck,
   Users,
@@ -54,6 +55,7 @@ const NAV_SECTIONS = [
     label: "Sales",
     items: [
       { title: "Orders", href: "/admin/orders", icon: Boxes },
+      { title: "Vendors", href: "/admin/vendors", icon: Store },
       { title: "Shipping & Tax", href: "/admin/shipping", icon: Truck },
       { title: "Bulk Enquiries", href: "/admin/enquiries", icon: Mail },
       { title: "Meeting Bookings", href: "/admin/meetings", icon: CalendarClock },

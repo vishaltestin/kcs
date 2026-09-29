@@ -72,6 +72,7 @@ export default async function BlogListingPage({
                     priority
                     sizes="(max-width: 1024px) 100vw, 55vw"
                     quality={85}
+                    fit="cover"
                     className="aspect-[16/10] rounded-xl shadow-[inset_0_0_0_1px_rgb(17_24_39/0.06)]"
                     imgClassName="transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/lead:scale-[1.03]"
                   />

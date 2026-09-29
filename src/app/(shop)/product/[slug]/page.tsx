@@ -125,6 +125,16 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
                   {product.brand}
                 </Link>
               )}
+              {product.vendor && (
+                <Link
+                  href={`/sellers/${product.vendor.slug}`}
+                  className="flex items-center gap-1 rounded-full bg-primary/[0.07] px-2.5 py-0.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/[0.12]"
+                  title={`Sold and fulfilled by ${product.vendor.name}`}
+                >
+                  <span className="text-muted-foreground">Sold by</span>
+                  {product.vendor.name}
+                </Link>
+              )}
               {product.sku && (
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                   SKU {product.sku}

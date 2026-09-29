@@ -73,6 +73,8 @@ export async function getDashboardStats() {
 
 export async function getRecentOrders(limit = 8) {
   return db.order.findMany({
+    // Parent (customer-facing) orders only — sub-orders appear inside them.
+    where: { parentId: null },
     orderBy: { createdAt: "desc" },
     take: limit,
     include: { items: { select: { id: true } } },
@@ -96,8 +98,9 @@ export async function getLowStockProducts(threshold = 50, limit = 6) {
 // Products admin (paginated + search)
 // ---------------------------------------------------------------------------
 
-const adminProductInclude = {
+export const adminProductInclude = {
   brand: { select: { name: true } },
+  vendor: { select: { id: true, name: true } },
   categories: { include: { category: { select: { title: true } } } },
   prices: { orderBy: { minQuantity: "asc" as const } },
   specs: true,
@@ -109,7 +112,7 @@ const adminProductInclude = {
   },
 } satisfies Prisma.ProductInclude;
 
-type AdminProductRow = Prisma.ProductGetPayload<{ include: typeof adminProductInclude }>;
+export type AdminProductRow = Prisma.ProductGetPayload<{ include: typeof adminProductInclude }>;
 
 /**
  * Serialisable product shape for admin client components — Prisma `Decimal`
@@ -142,13 +145,15 @@ export type AdminProduct = {
   createdAt: Date;
   updatedAt: Date;
   brand: { name: string } | null;
+  vendorId: string;
+  vendor: { id: string; name: string } | null;
   categories: { categoryId: number; category: { title: string } }[];
   prices: { id: number; minQuantity: number; price: number; mrp: number }[];
   specs: { id: number; label: string; value: string }[];
   images: { id: number; url: string; sortOrder: number }[];
 };
 
-function toAdminProduct(p: AdminProductRow): AdminProduct {
+export function toAdminProduct(p: AdminProductRow): AdminProduct {
   return {
     id: p.id,
     name: p.name,
@@ -176,6 +181,8 @@ function toAdminProduct(p: AdminProductRow): AdminProduct {
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     brand: p.brand,
+    vendorId: p.vendorId,
+    vendor: p.vendor,
     categories: p.categories.map((c) => ({ categoryId: c.categoryId, category: { title: c.category.title } })),
     prices: p.prices.map((t) => ({ id: t.id, minQuantity: t.minQuantity, price: Number(t.price), mrp: Number(t.mrp) })),
     specs: p.specs.map((s) => ({ id: s.id, label: s.label, value: s.value })),
@@ -245,6 +252,7 @@ export async function getAdminProductForEdit(id: string) {
   const p = toAdminProduct(row);
   return {
     id: p.id,
+    vendorId: p.vendorId,
     name: p.name,
     slug: p.slug,
     sku: p.sku,
@@ -304,6 +312,54 @@ export async function getAdminProductForEdit(id: string) {
 // Other listings
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Vendors
+// ---------------------------------------------------------------------------
+
+export async function getAdminVendors() {
+  return db.vendor.findMany({
+    orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }, { name: "asc" }],
+    include: {
+      _count: { select: { products: true, subOrders: true } },
+      users: { select: { id: true, email: true, firstName: true, lastName: true, emailVerifiedAt: true } },
+    },
+  });
+}
+
+export async function getAdminVendorForEdit(id: string) {
+  return db.vendor.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      legalName: true,
+      email: true,
+      phone: true,
+      gstin: true,
+      pan: true,
+      address: true,
+      city: true,
+      state: true,
+      pincode: true,
+      stateCode: true,
+      logo: true,
+      description: true,
+      status: true,
+      isDefault: true,
+      sortOrder: true,
+    },
+  });
+}
+
+/** Vendor options for selects (product form, filters). */
+export async function getVendorOptions() {
+  return db.vendor.findMany({
+    orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+    select: { id: true, name: true, status: true, isDefault: true },
+  });
+}
+
 export async function getAdminCategories() {
   const all = await db.category.findMany({
     orderBy: [{ parentId: "asc" }, { sortOrder: "asc" }, { title: "asc" }],
@@ -320,16 +376,25 @@ export async function getAdminBrands() {
 }
 
 export async function getAdminOrders({ status, page = 1, perPage = 15 }: { status?: string; page?: number; perPage?: number }) {
-  const where: Prisma.OrderWhereInput =
-    status && ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"].includes(status)
+  // Parent (customer-facing) orders only; per-vendor sub-orders are shown
+  // inside their parent. Legacy single-seller orders have no sub-orders.
+  const where: Prisma.OrderWhereInput = {
+    parentId: null,
+    ...(status && ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"].includes(status)
       ? { status: status as Prisma.EnumOrderStatusFilter["equals"] }
-      : {};
+      : {}),
+  };
 
   const [total, orders] = await Promise.all([
     db.order.count({ where }),
     db.order.findMany({
       where,
-      include: { items: { select: { id: true } } },
+      include: {
+        items: { select: { id: true } },
+        subOrders: {
+          select: { id: true, vendor: { select: { name: true } }, items: { select: { id: true } } },
+        },
+      },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * perPage,
       take: perPage,
@@ -340,7 +405,17 @@ export async function getAdminOrders({ status, page = 1, perPage = 15 }: { statu
 }
 
 export async function getAdminOrderById(id: string) {
-  return db.order.findUnique({ where: { id }, include: { items: true, user: { select: { email: true } } } });
+  return db.order.findUnique({
+    where: { id },
+    include: {
+      items: true,
+      user: { select: { email: true } },
+      subOrders: {
+        orderBy: { subOrderNumber: "asc" },
+        include: { items: true, vendor: { select: { id: true, name: true, slug: true } } },
+      },
+    },
+  });
 }
 
 export async function getAdminEnquiries(status?: string) {

@@ -96,6 +96,15 @@ export function ProductsTable({
       ),
       filterFn: "equalsString",
     }),
+    columnHelper.accessor((row) => row.vendor?.name ?? "", {
+      id: "vendor",
+      meta: { label: "Vendor" },
+      header: ({ column }) => <SortButton column={column} label="Vendor" />,
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">{row.original.vendor?.name ?? "—"}</span>
+      ),
+      filterFn: "equalsString",
+    }),
     columnHelper.accessor(
       (row) => row.prices[0]?.price ?? Number.POSITIVE_INFINITY,
       {
@@ -245,7 +254,7 @@ export function ProductsTable({
       getRowId={(product) => product.id}
       enableSelection
       globalFilter={(product, query) =>
-        [product.name, product.slug, product.sku, product.brand?.name]
+        [product.name, product.slug, product.sku, product.brand?.name, product.vendor?.name]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(query))
       }
@@ -263,6 +272,13 @@ export function ProductsTable({
           columnId: "brand",
           title: "Brand",
           options: brands.map((brand) => ({ label: brand.name, value: brand.name })),
+        },
+        {
+          columnId: "vendor",
+          title: "Vendor",
+          options: [...new Set(products.map((p) => p.vendor?.name).filter((v): v is string => !!v))].map(
+            (name) => ({ label: name, value: name }),
+          ),
         },
       ]}
       initialSorting={[{ id: "updatedAt", desc: true }]}

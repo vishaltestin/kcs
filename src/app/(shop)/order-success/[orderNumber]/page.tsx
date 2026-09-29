@@ -53,7 +53,7 @@ export default async function OrderSuccessPage({
     TIMELINE.findIndex((s) => s.key === order.status)
   );
   const cancelled = order.status === "CANCELLED";
-  const pieces = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  const pieces = order.displayItems.reduce((sum, item) => sum + item.quantity, 0);
   const totalTax = Number(order.cgst) + Number(order.sgst) + Number(order.igst);
   const interState = Number(order.igst) > 0;
   const shipped = order.status === "SHIPPED" || order.status === "DELIVERED";
@@ -150,7 +150,79 @@ export default async function OrderSuccessPage({
         </div>
 
         {/* Shipment tracking */}
-        {!cancelled && (
+        {!cancelled && order.isSplit && (
+          <div className="mb-10 grid gap-3">
+            <h2 className="display text-[1.25rem]">Fulfilment by seller</h2>
+            <p className="-mt-2 mb-1 text-sm text-muted-foreground">
+              Your order is fulfilled by {order.shipments.length} sellers — track each package separately.
+            </p>
+            {order.shipments.map((shipment) => {
+              const shipped = shipment.status === "SHIPPED" || shipment.status === "DELIVERED";
+              const STATUS_LABEL: Record<string, string> = {
+                PENDING: "Awaiting confirmation",
+                CONFIRMED: "Confirmed — packing",
+                SHIPPED: "Shipped",
+                DELIVERED: "Delivered",
+                CANCELLED: "Cancelled",
+              };
+              return (
+                <div key={shipment.id} className="rounded-xl bg-surface p-4 md:p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <Package className="size-4.5 shrink-0 text-primary" aria-hidden />
+                      <p className="text-[15px] font-bold">{shipment.vendorName}</p>
+                      <span className="font-mono text-[11px] font-semibold text-muted-foreground">
+                        {shipment.subOrderNumber}
+                      </span>
+                    </div>
+                    <span
+                      className={cn(
+                        "rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide",
+                        shipment.status === "DELIVERED"
+                          ? "bg-success/15 text-success"
+                          : shipped
+                            ? "bg-primary/10 text-primary"
+                            : "bg-foreground/[0.06] text-muted-foreground",
+                      )}
+                    >
+                      {STATUS_LABEL[shipment.status] ?? shipment.status}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    {shipment.itemCount} {shipment.itemCount === 1 ? "pc" : "pcs"} · {formatCurrency(shipment.total)}
+                    {shipment.shippedAt ? ` · shipped ${formatDate(shipment.shippedAt)}` : ""}
+                    {shipment.deliveredAt ? ` · delivered ${formatDate(shipment.deliveredAt)}` : ""}
+                    {!shipped && shipment.status !== "DELIVERED" && shipment.expectedAt
+                      ? ` · expected ${formatDate(shipment.expectedAt)}`
+                      : ""}
+                  </p>
+                  {shipment.trackingNumber && (
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2 text-sm">
+                      <span className="text-xs text-muted-foreground">{shipment.courierName ?? "Courier"}</span>
+                      <span className="font-mono text-[13px] font-bold tracking-wide">{shipment.trackingNumber}</span>
+                      <CopyButton value={shipment.trackingNumber} />
+                      {shipment.trackingUrl && (
+                        <a
+                          href={shipment.trackingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                        >
+                          Track <ExternalLink className="size-3" aria-hidden />
+                        </a>
+                      )}
+                    </div>
+                  )}
+                  {shipment.shipmentNote && (
+                    <p className="mt-2 text-xs text-muted-foreground">{shipment.shipmentNote}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!cancelled && !order.isSplit && (
           <div
             className={cn(
               "mb-10 overflow-hidden",
@@ -234,12 +306,12 @@ export default async function OrderSuccessPage({
           <div className="flex items-end justify-between border-b border-foreground/[0.12] pb-3">
             <h2 className="display text-[1.5rem]">Order summary</h2>
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              {order.items.length} {order.items.length === 1 ? "item" : "items"} · {pieces} pcs
+              {order.displayItems.length} {order.displayItems.length === 1 ? "item" : "items"} · {pieces} pcs
             </span>
           </div>
 
           <ul className="divide-y divide-foreground/[0.08]">
-            {order.items.map((item) => (
+            {order.displayItems.map((item) => (
               <li key={item.id} className="flex items-center gap-4 py-4">
                 <span className="studio relative size-14 shrink-0 overflow-hidden rounded-lg">
                   {item.image ? (
