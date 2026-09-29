@@ -1021,7 +1021,7 @@ function ShopAllPanel({ categories }: { categories: CategoryNode[] }) {
   const leaves = categories.filter((c) => c.children.length === 0);
 
   return (
-    <div className="relative w-[min(calc(100vw-10rem),1060px)]">
+    <div className="relative w-[min(calc(100vw-10rem),1060px)] whitespace-normal">
       <span aria-hidden className="brand-gradient absolute inset-x-0 top-0 h-[3px]" />
       <div className="px-6 pt-6 pb-5">
         <PanelHead
@@ -1075,7 +1075,7 @@ function OccasionPanel({
   promos: { title: string; copy: string; href: string; image: string }[];
 }) {
   return (
-    <div className="relative w-[min(calc(100vw-10rem),880px)]">
+    <div className="relative w-[min(calc(100vw-10rem),880px)] whitespace-normal">
       <span aria-hidden className="brand-gradient absolute inset-x-0 top-0 h-[3px]" />
       <div className="p-7 pt-8">
         <PanelHead
@@ -1119,18 +1119,18 @@ function OccasionPanel({
             <Link
               key={promo.title}
               href={promo.href}
-              className="group/p2 flex items-center gap-3.5 rounded-xl border border-border/70 bg-surface p-3 transition-colors hover:border-brand-teal/40"
+              className="group/p2 grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3.5 rounded-xl border border-border/70 bg-surface p-3 transition-colors hover:border-brand-teal/40"
             >
               <span className="relative size-12 shrink-0 overflow-hidden rounded-lg">
                 <Image src={promo.image} alt="" fill sizes="48px" className="object-cover" />
               </span>
               <span className="min-w-0">
-                <span className="block text-[13.5px] font-bold transition-colors group-hover/p2:text-primary">
+                <span className="block text-[13.5px] font-bold break-words transition-colors group-hover/p2:text-primary">
                   {promo.title}
                 </span>
-                <span className="block text-[12px] text-muted-foreground">{promo.copy}</span>
+                <span className="block text-[12px] text-muted-foreground break-words">{promo.copy}</span>
               </span>
-              <ArrowRight className="ml-auto size-4 shrink-0 text-muted-foreground/60" aria-hidden />
+              <ArrowRight className="size-4 shrink-0 text-muted-foreground/60" aria-hidden />
             </Link>
           ))}
         </div>
@@ -1149,7 +1149,7 @@ function ProgrammePanel({
 }) {
   const icons = [Building2, Users, Laptop, Repeat, Leaf, Gift];
   return (
-    <div className="relative w-[min(calc(100vw-10rem),860px)]">
+    <div className="relative w-[min(calc(100vw-10rem),860px)] whitespace-normal">
       <span aria-hidden className="brand-gradient absolute inset-x-0 top-0 h-[3px]" />
       <div className="grid grid-cols-[minmax(0,1fr)_16rem]">
         <div className="p-7 pt-8">
@@ -1167,14 +1167,14 @@ function ProgrammePanel({
                 <Link
                   key={programme.id}
                   href={`/category/${programme.slug}`}
-                  className="group/prog flex items-start gap-3 rounded-xl border border-border/70 p-3.5 transition-all hover:border-brand-teal/40 hover:bg-accent/50"
+                  className="group/prog grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-3 rounded-xl border border-border/70 p-3.5 transition-all hover:border-brand-teal/40 hover:bg-accent/50"
                 >
                   <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-primary transition-colors group-hover/prog:bg-brand-teal group-hover/prog:text-white">
                     <Icon className="size-4.5" aria-hidden />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[13.5px] leading-tight font-bold">{programme.title}</span>
-                    <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
+                    <span className="block text-[13.5px] leading-tight font-bold break-words">{programme.title}</span>
+                    <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground break-words">
                       {programme.copy}
                     </span>
                   </span>
@@ -1216,7 +1216,7 @@ function ProgrammePanel({
 
 function CompanyPanel({ onBook }: { onBook: () => void }) {
   return (
-    <div className="relative w-[min(calc(100vw-10rem),660px)]">
+    <div className="relative w-[min(calc(100vw-10rem),660px)] whitespace-normal">
       <span aria-hidden className="brand-gradient absolute inset-x-0 top-0 h-[3px]" />
       <div className="grid grid-cols-[minmax(0,1fr)_15rem]">
         <div className="p-7 pt-8">
