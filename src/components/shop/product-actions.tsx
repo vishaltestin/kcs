@@ -15,7 +15,6 @@ import {
   Plus,
   Scale,
   ShoppingCart,
-  TriangleAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -371,18 +370,6 @@ export function ProductActions({ product }: { product: ProductDetail }) {
               )}
             </Button>
           </div>
-
-          {/* Demo guard: right under the buy controls, where the eye already is. */}
-          <p
-            className="mt-3 flex items-start gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-3 py-2 text-[12px] leading-snug font-medium text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
-            role="note"
-          >
-            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-            <span>
-              <strong className="font-bold">Demo product.</strong> Shown for demonstration only —
-              please do not purchase.
-            </span>
-          </p>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>

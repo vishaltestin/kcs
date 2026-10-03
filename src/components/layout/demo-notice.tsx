@@ -3,16 +3,21 @@ import { TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Demo-store notice.
+ * Demo-store notice — the single place the demo warning is shown.
  *
  * This deployment is a demonstration: nothing in the catalogue is for sale and
- * no order should be placed. The strip sits above the navbar on every
- * storefront page, so nobody can add to cart without having seen it, and it is
- * deliberately **not** dismissible — a warning about not spending money should
- * not be one tap away from gone.
+ * no order should be placed. The strip sits directly above the navbar on every
+ * storefront page (rendered by the shop layout), so nobody can browse, add to
+ * cart or reach checkout without having seen it, and it is deliberately
+ * **not** dismissible — a warning about not spending money should not be one
+ * tap away from gone.
  *
- * It is rendered by the shop layout, so admin and vendor dashboards are
- * unaffected.
+ * Keep it this way: the warning intentionally lives here and nowhere else.
+ * There is no second copy on the product page, at checkout or on the
+ * order-success page — do not re-add one.
+ *
+ * Admin and vendor dashboards are unaffected (they don't render the shop
+ * layout).
  */
 export function DemoNotice({ className }: { className?: string }) {
   return (

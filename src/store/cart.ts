@@ -18,10 +18,16 @@ import type { CartItem } from "@/types";
 type CartState = {
   items: CartItem[];
   /**
-   * The account this cart belongs to. Guest carts are `null`. When a
-   * different account signs in on the same browser the cart is wiped rather
-   * than shown to them — persisted localStorage must never leak one
-   * customer's basket into another's session.
+   * The account this cart belongs to. Guest carts are `null`.
+   *
+   * A guest cart is ADOPTED by whichever account signs in next: the visitor
+   * built it, so it is theirs. That matters most on the
+   * `/checkout → /login?next=/checkout → /checkout` hop, where wiping the
+   * basket would empty it at the till.
+   *
+   * A cart that already belongs to a *different* account is wiped instead —
+   * persisted localStorage must never leak one customer's basket into
+   * another's session.
    */
   ownerId: string | null;
   addProduct: (item: Omit<CartItem, "id"> & { id?: string }) => void;
@@ -96,8 +102,12 @@ export const useCartStore = create<CartState>()(
       setOwner: (userId) =>
         set((state) => {
           if (state.ownerId === userId) return state;
-          // A different account (or guest → account) — never hand one user's
-          // basket to another.
+          // Guest → signed in: adopt the basket the visitor just built. This
+          // is the cart that was filled before the /checkout auth redirect,
+          // so it must survive sign-in.
+          if (state.ownerId === null && userId) return { ownerId: userId };
+          // Account → another account, or account → guest: never hand one
+          // customer's basket to another.
           return { items: [], ownerId: userId };
         }),
     }),
