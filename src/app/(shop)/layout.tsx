@@ -1,3 +1,4 @@
+import { DemoNotice } from "@/components/layout/demo-notice";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { WishlistProvider } from "@/components/shop/wishlist-provider";
@@ -24,6 +25,8 @@ export default async function ShopLayout({
       >
         Skip to content
       </a>
+      {/* Above the navbar so it is the first thing on every storefront page. */}
+      <DemoNotice />
       <Navbar user={user ? { firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role } : null} />
       <main id="main-content">{children}</main>
       <Footer />

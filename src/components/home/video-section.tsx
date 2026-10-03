@@ -25,7 +25,9 @@ import type { HomeBand } from "@/lib/home-bands";
  * be a YouTube/Vimeo link or a file — see `src/lib/video.ts`.
  */
 export function VideoSection({ band }: { band: HomeBand }) {
-  const videoSrc = band.videoUrl ?? "/video/procter-promo-video.mp4";
+  // The band's own source wins; the bundled reel is the fallback for a band
+  // that has never been saved (see public/video/CREDITS.md).
+  const videoSrc = band.videoUrl ?? "/video/corporate-gifting-reel.mp4";
 
   return (
     <section

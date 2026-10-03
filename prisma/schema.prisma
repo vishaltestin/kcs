@@ -605,6 +605,34 @@ model BlogPost {
 /// offer can be rewritten from the admin instead of waiting on a deploy.
 /// One row per `slot`; the storefront falls back to the bundled defaults
 /// (src/lib/home-bands.ts) when a row is missing or switched off.
+/// Curated home-page category tiles.
+///
+/// Two sections share one table (distinguished by `section`):
+///   • "mosaic"   — the 7 category tiles arranged around the banner slider
+///   • "featured" — the 3-up category grid below the Best Sellers rail
+///
+/// Rows are the admin's list: add, reorder, retitle, relink, switch off or
+/// delete. A section with no rows at all falls back to the tiles that shipped
+/// with the design, so the home page is never empty.
+model HomeTile {
+  id        Int     @id @default(autoincrement())
+  /// "mosaic" | "featured".
+  section   String  @db.VarChar(24)
+  label     String  @db.VarChar(120)
+  /// Uploaded asset path (/api/uploads/…) or a full http(s) URL.
+  image     String  @db.VarChar(300)
+  /// Internal path (/category/…) or a full http(s) URL.
+  href      String  @db.VarChar(200)
+  sortOrder Int     @default(0)
+  /// Off = the tile is hidden from the storefront but kept here.
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([section, isActive, sortOrder])
+}
+
 model HomeBanner {
   id       Int     @id @default(autoincrement())
   /// Storefront slot this row fills: "drinkware" | "video".

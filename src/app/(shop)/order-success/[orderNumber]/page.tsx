@@ -16,6 +16,7 @@ import {
   PackageCheck,
   Phone,
   Receipt,
+  TriangleAlert,
   Truck,
 } from "lucide-react";
 
@@ -92,6 +93,20 @@ export default async function OrderSuccessPage({
               </>
             )}
           </p>
+          {/* Demo guard: the copy above promises a follow-up call, so the
+              "nothing was really bought" line has to sit right beside it. */}
+          <p
+            className="mx-auto mt-5 flex max-w-xl items-start gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-3.5 py-2.5 text-left text-[12.5px] leading-snug font-medium text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+            role="note"
+          >
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <span>
+              <strong className="font-bold">This is a demo order.</strong> It was placed in a
+              demonstration store with sample products — no payment has been taken, no invoice is
+              valid and nothing will be dispatched.
+            </span>
+          </p>
+
           {!cancelled && (
             <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
               <Button asChild variant="outline" size="sm">

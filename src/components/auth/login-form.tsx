@@ -23,11 +23,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { preLoginCheckAction } from "@/actions/auth";
+import { safeNextPath } from "@/lib/urls";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") ?? "/";
+  // Sanitised: `next=//evil.com` would otherwise be a protocol-relative hop
+  // off-site via window.location.assign().
+  const nextPath = safeNextPath(searchParams.get("next"));
 
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);

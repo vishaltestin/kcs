@@ -17,6 +17,7 @@ import {
   MessageSquareText,
   ShieldCheck,
   ShoppingBag,
+  TriangleAlert,
   Truck,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -499,6 +500,21 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
             </div>
 
             <div className="px-5 pt-4 pb-5">
+              {/* Demo guard: sits directly above the button, inside the same card,
+                  so the warning is read at the moment of clicking — not scrolled
+                  past at the top of the page. */}
+              <p
+                className="mb-3 flex items-start gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-3 py-2 text-[12.5px] leading-snug font-medium text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+                role="note"
+              >
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>
+                  <strong className="font-bold">Demo store — please do not place this order.</strong>{" "}
+                  Everything in the catalogue is sample data for demonstration. No payment is taken
+                  and no order will be dispatched.
+                </span>
+              </p>
+
               <Button type="submit" size="xl" className="w-full" disabled={busy} aria-live="polite">
                 {busy ? (
                   <>

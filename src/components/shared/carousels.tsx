@@ -217,12 +217,19 @@ export function BrandCarousel({ brands }: { brands: BrandSlide[] }) {
 /*  Hero banner (mosaic's 2×2 slot)                                            */
 /* -------------------------------------------------------------------------- */
 
+/** One hero slide. `href` is optional — most slides are just artwork. */
+export type BannerSlide = { src: string; alt: string; href?: string };
+
 /**
  * Banner slider — autoplaying, looping, with the reference's always-visible
  * arrows and progress dots. No crop: each slide is 581×511 artwork with the
  * headline baked into it.
+ *
+ * Slides come from Admin → Home tiles, and a slide with an `href` becomes a
+ * link to that page. The whole image is the target, so no extra control is
+ * needed and the artwork stays uncropped.
  */
-export function BannerCarousel({ images, alt }: { images: string[]; alt: string }) {
+export function BannerCarousel({ slides, alt }: { slides: BannerSlide[]; alt: string }) {
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
   // Plugin instance is created once per mount (useState initialiser) so it is
@@ -255,22 +262,35 @@ export function BannerCarousel({ images, alt }: { images: string[]; alt: string 
       aria-label="Promotional banner"
     >
       <CarouselContent className="ml-0">
-        {images.map((image, index) => (
-          <CarouselItem key={index} className="relative pl-0">
-            {/* Sized from the artwork (581×511): the slide *is* the banner, so the
-                mosaic rows around it set a slot of the same ratio — no crop, no stretch. */}
+        {slides.map((slide, index) => {
+          /* Sized from the artwork (581×511): the slide *is* the banner, so the
+             mosaic rows around it set a slot of the same ratio — no crop, no
+             stretch. */
+          const image = (
             <Image
-              src={image}
+              src={slide.src}
               width={581}
               height={511}
               sizes="(max-width: 768px) 100vw, 50vw"
               quality={85}
               className="w-full"
-              alt={`${alt} ${index + 1}`}
+              alt={slide.alt || `${alt} ${index + 1}`}
               priority={index === 0}
             />
-          </CarouselItem>
-        ))}
+          );
+
+          return (
+            <CarouselItem key={`${slide.src}-${index}`} className="relative pl-0">
+              {slide.href ? (
+                <Link href={slide.href} aria-label={slide.alt || `${alt} ${index + 1}`} className="block">
+                  {image}
+                </Link>
+              ) : (
+                image
+              )}
+            </CarouselItem>
+          );
+        })}
       </CarouselContent>
 
       <CarouselPrevious className={cn(BANNER_ARROW, "left-[5px]")} aria-label="Previous banner" />
@@ -281,7 +301,7 @@ export function BannerCarousel({ images, alt }: { images: string[]; alt: string 
         role="tablist"
         aria-label="Banner slides"
       >
-        {images.map((_, index) => (
+        {slides.map((_, index) => (
           <button
             key={index}
             type="button"

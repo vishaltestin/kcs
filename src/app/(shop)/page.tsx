@@ -18,7 +18,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { getBrands, getProductsByType } from "@/lib/queries/catalog";
-import { getHomeBands, getLatestBlogPosts } from "@/lib/queries/content";
+import { getHomeBands, getHomeTiles, getLatestBlogPosts } from "@/lib/queries/content";
 import {
   BannerCarousel,
   BlogCarousel,
@@ -27,6 +27,12 @@ import {
 } from "@/components/shared/carousels";
 import { VideoSection } from "@/components/home/video-section";
 import { IMAGES, MOST_TRUSTED_HREFS, MOST_TRUSTED_ITEMS } from "@/lib/constants";
+import {
+  isMosaicWide,
+  mosaicGridClass,
+  mosaicTileClass,
+  type HomeTile,
+} from "@/lib/home-tiles";
 import type { HomeBand } from "@/lib/home-bands";
 import { cn } from "@/lib/utils";
 
@@ -40,25 +46,26 @@ import { cn } from "@/lib/utils";
  * and every image is local, uncropped and genuinely linked.
  */
 export default async function HomePage() {
-  const [newArrivals, featured, bestSellers, blogs, brands, bands] = await Promise.all([
+  const [newArrivals, featured, bestSellers, blogs, brands, bands, tiles] = await Promise.all([
     getProductsByType("New", 10),
     getProductsByType("Featured", 10),
     getProductsByType("BestSeller", 10),
     getLatestBlogPosts(6),
     getBrands(12),
     getHomeBands(),
+    getHomeTiles(),
   ]);
 
   return (
     <main className="mt-5 flex flex-col gap-20">
       <TrustedCompanyBanner />
-      <ImageGrid />
+      <ImageGrid slides={tiles.banner} tiles={tiles.mosaic} />
 
       <ProductSection title="New Arrivals" filterKey="New" products={newArrivals} />
       <ProductSection title="Featured Products" filterKey="Featured" products={featured} />
       <ProductSection title="Best Sellers" filterKey="BestSeller" products={bestSellers} />
 
-      <PromoSection />
+      <PromoSection tiles={tiles.featured} />
       {bands.video && <VideoSection band={bands.video} />}
       <CorporateGiftingSection />
 
@@ -149,85 +156,31 @@ function TrustedCompanyBanner() {
 /* -------------------------------------------------------------------------- */
 
 /**
- * The mosaic asks nothing of its artwork: each cell simply takes the width of
- * its column and the tile keeps its own ratio (750×656 squares, 750×317 for the
+ * The mosaic asks nothing of its artwork: each cell takes the width of its
+ * column and the tile keeps its own ratio (750×656 squares, 750×317 for the
  * wide trade slot). That is what makes the 2×2 slot land at almost exactly the
- * banner's 581×511 ratio — the whole grid assembles itself, no cropping and no
+ * banner's 581×511 ratio — the grid assembles itself, no cropping and no
  * letterboxing anywhere.
+ *
+ * The tiles themselves are curated in Admin → Home tiles; the positions
+ * (`.div2`–`.div8`, the wide 5th slot) come from globals.css so the mobile
+ * layout keeps working. See `mosaicGridClass()` for what happens when the
+ * admin saves fewer than five tiles.
  */
-const GRID_TILES = [
-  {
-    key: "div2",
-    src: IMAGES.homeGrid.diwali,
-    href: "/category/diwali-gift-hampers",
-    label: "Diwali Gift Hampers",
-    width: 750,
-    height: 656,
-  },
-  {
-    key: "div3",
-    src: IMAGES.homeGrid.mfi,
-    href: "/category/trade-schemes",
-    label: "MFI Cross-Selling",
-    width: 750,
-    height: 656,
-  },
-  {
-    key: "div4",
-    src: IMAGES.homeGrid.ngo,
-    href: "/category/curated-gift-hampers",
-    label: "NGO & CSR Requirements",
-    width: 750,
-    height: 656,
-  },
-  {
-    key: "div5",
-    src: IMAGES.homeGrid.pharma,
-    href: "/category/corporate-gifting",
-    label: "Pharma Gifting",
-    width: 750,
-    height: 656,
-  },
-  {
-    key: "div6",
-    src: IMAGES.homeGrid.trade,
-    href: "/category/trade-schemes",
-    label: "Trade Schemes",
-    width: 750,
-    height: 317,
-  },
-  {
-    key: "div7",
-    src: IMAGES.homeGrid.gourmet,
-    href: "/category/chocolates-dry-fruits",
-    label: "Gourmet Range",
-    width: 750,
-    height: 656,
-  },
-  {
-    key: "div8",
-    src: IMAGES.homeGrid.corporate,
-    href: "/category/corporate-gifting",
-    label: "Corporate Gifting",
-    width: 750,
-    height: 656,
-  },
-] as const;
 
-function GridTile({ tile }: { tile: (typeof GRID_TILES)[number] }) {
-  const wide = tile.key === "div6";
+function GridTile({ tile, index }: { tile: HomeTile; index: number }) {
+  const wide = isMosaicWide(index);
   return (
     <Link
       href={tile.href}
       aria-label={tile.label}
-      className={cn("group/tile block w-full", tile.key)}
+      className={cn("group/tile block w-full", mosaicTileClass(index))}
     >
       <Image
-        src={tile.src}
+        src={tile.image}
         alt={tile.label}
-        width={tile.width}
-        height={tile.height}
-        priority={wide}
+        width={750}
+        height={wide ? 317 : 656}
         sizes={wide ? "(max-width: 768px) 100vw, 50vw" : "(max-width: 768px) 50vw, 25vw"}
         quality={85}
         className="w-full group-hover/tile:scale-105"
@@ -236,18 +189,24 @@ function GridTile({ tile }: { tile: (typeof GRID_TILES)[number] }) {
   );
 }
 
-function ImageGrid() {
+function ImageGrid({ slides, tiles }: { slides: HomeTile[]; tiles: HomeTile[] }) {
   return (
     <section className="container" aria-label="Featured collections">
-      <div className="parent">
+      <div className={mosaicGridClass(tiles.length)}>
         <div className="div1 relative">
-          <BannerCarousel images={[...IMAGES.homeBanners]} alt="KCS G-Mart corporate gifting banner" />
+          {/* Slides are curated in Admin → Home tiles; the resolver guarantees
+              at least one, so the hero slot is never empty. */}
+          <BannerCarousel
+            slides={slides.map((slide) => ({
+              src: slide.image,
+              alt: slide.label,
+              href: slide.href || undefined,
+            }))}
+            alt="KCS G-Mart corporate gifting banner"
+          />
         </div>
-        {GRID_TILES.slice(0, 4).map((tile) => (
-          <GridTile key={tile.key} tile={tile} />
-        ))}
-        {GRID_TILES.slice(4).map((tile) => (
-          <GridTile key={tile.key} tile={tile} />
+        {tiles.map((tile, index) => (
+          <GridTile key={tile.id} tile={tile} index={index} />
         ))}
       </div>
     </section>
@@ -285,25 +244,28 @@ function ProductSection({
 /*  Featured categories — image with a white label bar over the bottom         */
 /* -------------------------------------------------------------------------- */
 
-function PromoSection() {
+function PromoSection({ tiles }: { tiles: HomeTile[] }) {
+  // Every tile switched off is an explicit "hide this section", not a gap.
+  if (tiles.length === 0) return null;
+
   return (
     <section className="container" aria-label="Shop by featured category">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {IMAGES.featuredCategories.map((item) => (
-          <div key={item.src} className="group/promo relative">
+        {tiles.map((tile) => (
+          <div key={tile.id} className="group/promo relative">
             <Image
-              src={item.src}
-              alt={item.alt}
+              src={tile.image}
+              alt={tile.label}
               width={380}
               height={265}
               className="w-full"
               quality={85}
             />
             <Link
-              href={item.href}
+              href={tile.href}
               className="absolute inset-x-0 bottom-5 left-1/2 w-3/4 -translate-x-1/2 bg-white px-2 py-3 text-center text-[15px] font-semibold text-foreground transition-colors hover:bg-primary hover:text-white"
             >
-              {item.label}
+              {tile.label}
             </Link>
           </div>
         ))}

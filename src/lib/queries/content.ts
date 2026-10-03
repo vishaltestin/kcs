@@ -2,6 +2,7 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import { resolveHomeBands } from "@/lib/home-bands";
+import { resolveHomeTiles } from "@/lib/home-tiles";
 import type { BlogCard } from "@/types";
 
 export async function getLatestBlogPosts(limit = 6): Promise<BlogCard[]> {
@@ -57,6 +58,43 @@ export async function getHomeBannerRows() {
  * Home page promo bands, resolved against their bundled defaults — see
  * `src/lib/home-bands.ts` for what each shape means.
  */
+/**
+ * Home-page category tiles for both curated sections, already resolved against
+ * the shipped defaults (an empty section falls back rather than rendering a
+ * gap). Ordering is the admin's drag-free `sortOrder`, then id for stability.
+ */
+export async function getHomeTiles() {
+  const rows = await db.homeTile.findMany({
+    select: {
+      id: true,
+      section: true,
+      label: true,
+      image: true,
+      href: true,
+      sortOrder: true,
+      isActive: true,
+    },
+    orderBy: [{ section: "asc" }, { sortOrder: "asc" }, { id: "asc" }],
+  });
+  return resolveHomeTiles(rows);
+}
+
+/** Raw rows for the admin editor (inactive ones included). */
+export async function getHomeTileRows() {
+  return db.homeTile.findMany({
+    select: {
+      id: true,
+      section: true,
+      label: true,
+      image: true,
+      href: true,
+      sortOrder: true,
+      isActive: true,
+    },
+    orderBy: [{ section: "asc" }, { sortOrder: "asc" }, { id: "asc" }],
+  });
+}
+
 export async function getHomeBands() {
   const rows = await db.homeBanner.findMany({
     select: {

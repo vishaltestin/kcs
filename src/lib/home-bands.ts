@@ -34,7 +34,7 @@ export const HOME_BAND_HINTS: Record<HomeBannerSlot, string> = {
   drinkware:
     "The strip above the footer: uppercase headline over the artwork, one supporting line and the shop button.",
   video:
-    "The film band after the category grid. The play button opens it in a dialog; leave the source blank to keep the bundled reel.",
+    "The film band after the category grid. The play button opens it in a dialog; leave the source blank to keep the bundled stock reel.",
 };
 
 export const HOME_BAND_DEFAULTS: Record<HomeBannerSlot, HomeBand> = {
@@ -57,7 +57,9 @@ export const HOME_BAND_DEFAULTS: Record<HomeBannerSlot, HomeBand> = {
     ctaLabel: "Browse the catalogue",
     ctaHref: "/product",
     image: IMAGES.videoPoster,
-    videoUrl: "/video/procter-promo-video.mp4",
+    // Bundled default — see public/video/CREDITS.md. Replace it from the
+    // admin with a YouTube/Vimeo link or your own upload.
+    videoUrl: "/video/corporate-gifting-reel.mp4",
   },
 };
 

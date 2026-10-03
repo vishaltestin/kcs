@@ -9,7 +9,6 @@ import { authConfig } from "@/lib/auth/config";
 const { auth } = NextAuth(authConfig);
 
 const PROTECTED_PREFIXES = ["/admin", "/vendor", "/profile", "/checkout", "/order-success"];
-const AUTH_PAGES = ["/login", "/signup"];
 
 export default auth((request) => {
   const { pathname, search } = request.nextUrl;
@@ -18,17 +17,26 @@ export default auth((request) => {
   const isProtected = PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
-  const isAuthPage = AUTH_PAGES.includes(pathname);
-
   if (isProtected && !session) {
     const signInUrl = new URL("/login", request.nextUrl.origin);
     signInUrl.searchParams.set("next", `${pathname}${search}`);
     return Response.redirect(signInUrl);
   }
 
-  if (session && isAuthPage) {
-    return Response.redirect(new URL("/", request.nextUrl.origin));
-  }
+  // Deliberately NO "already signed in? go home" redirect for AUTH_PAGES.
+  //
+  // The middleware only sees the JWT cookie — it cannot reach the database to
+  // check whether that session is still valid. A cookie the app has revoked
+  // (password change, admin reset, role change: see `sessionVersion`) looks
+  // perfectly valid here, so bouncing signed-in-looking users off /login made
+  // the login page unreachable for exactly the people who needed it:
+  //
+  //   /checkout → requireUser() finds no valid session → /login?next=/checkout
+  //              → middleware sees the stale cookie → "/" (home)
+  //
+  // The user was sent home instead of being asked to sign in again. The
+  // "already signed in" bounce now lives in the login/signup pages, which can
+  // verify the session against the database (see `(auth)/login/page.tsx`).
 });
 
 export const config = {

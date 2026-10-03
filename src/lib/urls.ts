@@ -43,3 +43,15 @@ export function isSafeAssetPath(value: string): boolean {
 export function isHttpUrlOrAssetPath(value: string): boolean {
   return isHttpUrl(value) || isSafeAssetPath(value);
 }
+
+/**
+ * Sanitises a `?next=` return path.
+ *
+ * `window.location.assign(next)` with `next=//evil.com` is a protocol-relative
+ * hop off-site, so only same-origin in-app paths are allowed through; anything
+ * else falls back to `fallback`.
+ */
+export function safeNextPath(value: string | null | undefined, fallback = "/"): string {
+  if (!value || !isSafeAssetPath(value)) return fallback;
+  return value;
+}

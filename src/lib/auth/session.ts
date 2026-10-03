@@ -55,6 +55,14 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const tokenVersion = session.user.sessionVersion ?? 0;
   if (tokenVersion !== user.sessionVersion) return null;
 
-  const { sessionVersion: _sessionVersion, ...sessionUser } = user;
-  return sessionUser;
+  // `sessionVersion` is plumbing only — the caller never needs it.
+  return {
+    id: user.id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    role: user.role,
+    emailVerifiedAt: user.emailVerifiedAt,
+    vendorId: user.vendorId,
+  };
 }

@@ -398,6 +398,7 @@ body {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(3, 1fr);
+  grid-auto-rows: 1fr;
   gap: 1rem;
 }
 
@@ -421,14 +422,36 @@ body {
 .div3 { grid-area: 1 / 4 / 2 / 5; }
 .div4 { grid-area: 2 / 3 / 3 / 4; }
 .div5 { grid-area: 2 / 4 / 3 / 5; }
+/* Tile 5 keeps the wide banner-shaped slot. */
 .div6 { grid-area: 3 / 1 / 4 / 3; }
 .div7 { grid-area: 3 / 3 / 4 / 4; }
 .div8 { grid-area: 3 / 4 / 4 / 5; }
+
+/* Tiles beyond the seventh: auto-placed into rows below the mosaic. The rows
+ * are `1fr` like the explicit ones so an eighth tile matches its neighbours
+ * instead of collapsing to its own height. */
+.mosaic-extra { grid-area: auto; }
+
+/* One to four tiles: the bottom row (and the wide slot on it) is dropped, so
+ * the mosaic stays two rows tall instead of leaving a blank band. */
+.parent--compact { grid-template-rows: repeat(2, 1fr); }
+
+/* No tiles at all: the grid drops to two rows and the banner keeps its own
+ * 2×2 block in the middle two columns, so a square-ish banner is never
+ * stretched across the full width. The empty cells either side are deliberate
+ * — symmetric whitespace reads better than a half-empty row. */
+.parent--banner-only {
+  grid-template-rows: repeat(2, 1fr);
+}
+.parent--banner-only .div1 {
+  grid-area: 1 / 2 / 3 / 4;
+}
 
 @media (max-width: 768px) {
   .parent {
     grid-template-columns: repeat(2, 1fr);
     grid-template-rows: auto;
+    grid-auto-rows: auto;
     gap: 0.75rem;
   }
 
@@ -440,6 +463,22 @@ body {
   .div2, .div3, .div4,
   .div5, .div7, .div8 {
     grid-area: auto;
+  }
+
+  /* The compact/banner-only variants follow the same two-column flow. */
+  .parent--compact,
+  .parent--banner-only {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: auto;
+    grid-auto-rows: auto;
+  }
+
+  /* On a phone the banner goes full width in both variants. */
+  .parent--compact .div1,
+  .parent--banner-only .div1 {
+    grid-area: auto;
+    grid-column: span 2;
+    grid-row: span 1;
   }
 }
 

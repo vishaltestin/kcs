@@ -1,6 +1,9 @@
 import { z } from "zod";
 
+import { HOME_BAND_LIMITS, HOME_BANNER_SLOTS } from "@/lib/home-bands";
+import { HOME_TILE_LIMITS, HOME_TILE_SECTIONS } from "@/lib/home-tiles";
 import { isHttpUrl, isHttpUrlOrAssetPath, isSafeAssetPath } from "@/lib/urls";
+import { parseVideoSource } from "@/lib/video";
 
 /**
  * Link/asset validators shared by the admin + vendor forms.
@@ -35,9 +38,6 @@ const assetPath = (label: string) =>
     .refine((value) => value === "" || isSafeAssetPath(value), {
       message: `${label} must be an uploaded file path.`,
     });
-
-import { HOME_BAND_LIMITS, HOME_BANNER_SLOTS } from "@/lib/home-bands";
-import { parseVideoSource } from "@/lib/video";
 
 // ---------------------------------------------------------------------------
 // Catalog
@@ -505,3 +505,32 @@ export const homeBandSchema = z.object({
   isActive: z.boolean(),
 });
 export type HomeBandInput = z.infer<typeof homeBandSchema>;
+
+/**
+ * One curated home-page category tile (Admin → Home tiles).
+ * The image is required — a tile with no artwork is a hole in the grid.
+ */
+export const homeTileSchema = z
+  .object({
+    section: z.enum(HOME_TILE_SECTIONS),
+    label: z
+      .string()
+      .trim()
+      .min(2, "Give the tile a label.")
+      .max(HOME_TILE_LIMITS.label, `Keep the label under ${HOME_TILE_LIMITS.label} characters.`),
+    image: assetRef("Tile image").refine((v) => v.length > 0, "The tile needs an image."),
+    href: hrefOrPath("tile link"),
+  })
+  .superRefine((value, ctx) => {
+    // A banner slide is pure artwork and may link nowhere; a category tile that
+    // links nowhere would drop the visitor on the all-products page instead of
+    // the category it depicts, so it must have a link.
+    if (value.section !== "banner" && value.href === "") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["href"],
+        message: "Give the tile a link — a category path or a full https:// URL.",
+      });
+    }
+  });
+export type HomeTileInput = z.infer<typeof homeTileSchema>;
