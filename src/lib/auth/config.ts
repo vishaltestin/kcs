@@ -22,6 +22,10 @@ export const authConfig = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        // Credential version at sign-in. `getSessionUser()` compares this
+        // against the database on every request, so bumping it (password
+        // change, admin reset, role change) revokes every other session.
+        token.sessionVersion = user.sessionVersion ?? 0;
       }
       return token;
     },
@@ -29,6 +33,8 @@ export const authConfig = {
       if (session.user) {
         if (token.id) session.user.id = token.id;
         if (token.role) session.user.role = token.role;
+        session.user.sessionVersion =
+          typeof token.sessionVersion === "number" ? token.sessionVersion : 0;
       }
       return session;
     },

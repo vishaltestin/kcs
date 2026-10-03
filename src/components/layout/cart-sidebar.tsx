@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
+
 import Image from "next/image";
 import Link from "next/link";
+import { getSession } from "next-auth/react";
 import { ArrowRight, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,9 +22,26 @@ import { formatCurrency } from "@/lib/utils";
 
 
 export function CartSidebar({ compact = false }: { compact?: boolean }) {
-  const { items, removeProduct, updateQuantity, reset } = useCartStore();
+  const { items, removeProduct, updateQuantity, reset, setOwner } = useCartStore();
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
   const pieces = items.reduce((sum, item) => sum + item.qty, 0);
+
+  // Bind the persisted cart to the signed-in account. Signing in as someone
+  // else (or a guest cart being adopted) wipes it instead of showing one
+  // customer's basket to another.
+  useEffect(() => {
+    let active = true;
+    getSession()
+      .then((session) => {
+        if (active) setOwner(session?.user?.id ?? null);
+      })
+      .catch(() => {
+        /* session lookup is best-effort */
+      });
+    return () => {
+      active = false;
+    };
+  }, [setOwner]);
 
   return (
     <Sheet>

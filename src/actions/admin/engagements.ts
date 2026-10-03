@@ -13,7 +13,8 @@ import {
   shipmentSchema,
 } from "@/lib/validations/admin";
 import { buildTrackingUrl } from "@/lib/couriers";
-import { syncParentOrderStatus } from "@/lib/sub-orders";
+import { istDateKey } from "@/lib/dates";
+import { orderMutationMessage, transitionOrderStatus } from "@/lib/order-mutations";
 import type { ActionResult } from "@/types";
 
 /**
@@ -61,31 +62,29 @@ export async function updateOrderStatusAction(
   const existing = await db.order.findUnique({ where: { id: orderId } });
   if (!existing) return { ok: false, message: "Order not found." };
 
+  let restored = 0;
   try {
-    await db.$transaction(async (tx) => {
-      await tx.order.update({
-        where: { id: orderId },
-        data: {
-          status: parsed.data,
-          ...(parsed.data === "SHIPPED" && !existing.shippedAt ? { shippedAt: new Date() } : {}),
-          ...(parsed.data === "DELIVERED" ? { deliveredAt: existing.deliveredAt ?? new Date() } : {}),
-        },
-      });
-      // A sub-order's progress rolls up to the parent order.
-      if (existing.parentId) {
-        await syncParentOrderStatus(tx, existing.parentId);
-      }
-    });
+    const result = await db.$transaction((tx) =>
+      // Single shared path: validates the transition, refuses changes to a
+      // derived parent, restores reserved stock on cancellation, and rolls
+      // the sub-order status up to the parent.
+      transitionOrderStatus(tx, orderId, parsed.data),
+    );
+    restored = result.restored;
   } catch (error) {
+    const message = orderMutationMessage(error);
+    if (message) return { ok: false, message };
     if (isRecordNotFound(error))
-      return {
-        ok: false,
-        message: "Order not found — it may have been removed.",
-      };
+      return { ok: false, message: "Order not found — it may have been removed." };
     throw error;
   }
   await revalidateOrderSurfaces(existing);
-  return { ok: true, message: `Order marked ${parsed.data.toLowerCase()}.` };
+
+  const suffix =
+    parsed.data === "CANCELLED" && restored > 0
+      ? ` ${restored} unit${restored === 1 ? "" : "s"} returned to stock.`
+      : "";
+  return { ok: true, message: `Order marked ${parsed.data.toLowerCase()}.${suffix}` };
 }
 
 /**
@@ -120,24 +119,32 @@ export async function updateShipmentAction(
 
   const d = parsed.data;
   const trackingUrl = buildTrackingUrl(d.courierName, d.trackingNumber, d.trackingUrl);
-  const becomesShipped = d.markShipped && existing.status !== "DELIVERED";
+  // Only an undispatched order can *become* shipped; for one already shipped
+  // this is just a details edit (status stays put).
+  const becomesShipped =
+    d.markShipped && (existing.status === "PENDING" || existing.status === "CONFIRMED");
 
-  await db.$transaction(async (tx) => {
-    await tx.order.update({
-      where: { id: orderId },
-      data: {
-        courierName: d.courierName || null,
-        trackingNumber: d.trackingNumber || null,
-        trackingUrl,
-        expectedAt: d.expectedAt ? new Date(d.expectedAt) : null,
-        shipmentNote: d.shipmentNote || null,
-        ...(becomesShipped ? { status: "SHIPPED", shippedAt: existing.shippedAt ?? new Date() } : {}),
-      },
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          courierName: d.courierName || null,
+          trackingNumber: d.trackingNumber || null,
+          trackingUrl,
+          expectedAt: d.expectedAt ? new Date(d.expectedAt) : null,
+          shipmentNote: d.shipmentNote || null,
+        },
+      });
+      // Status changes go through the shared transition path (parent roll-up
+      // included) rather than being written directly.
+      if (becomesShipped) await transitionOrderStatus(tx, orderId, "SHIPPED");
     });
-    if (existing.parentId) {
-      await syncParentOrderStatus(tx, existing.parentId);
-    }
-  });
+  } catch (error) {
+    const message = orderMutationMessage(error);
+    if (message) return { ok: false, message };
+    throw error;
+  }
 
   await revalidateOrderSurfaces(existing);
   return { ok: true, message: becomesShipped ? "Shipment saved — order marked shipped." : "Shipment details saved." };
@@ -203,11 +210,34 @@ export async function updateBookingStatusAction(
   if (!parsed.success) return { ok: false, message: "Invalid status." };
 
   try {
+    const booking = await db.meetingBooking.findUnique({
+      where: { id },
+      select: { id: true, date: true, timeSlot: true },
+    });
+    if (!booking) return { ok: false, message: "Booking not found — it may have been removed." };
+
     await db.meetingBooking.update({
       where: { id },
-      data: { status: parsed.data },
+      data: {
+        status: parsed.data,
+        // The unique slot key is held only while the booking is live —
+        // cancelling frees the slot for someone else to book.
+        activeSlot:
+          parsed.data === "CANCELLED"
+            ? null
+            : `${istDateKey(booking.date)}_${booking.timeSlot}`,
+      },
     });
   } catch (error) {
+    // Re-activating a booking whose slot was taken in the meantime.
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2002"
+    ) {
+      return { ok: false, message: "That slot is already taken by another booking." };
+    }
     if (isRecordNotFound(error))
       return {
         ok: false,
@@ -296,7 +326,11 @@ export async function updateUserRoleAction(
   try {
     await db.user.update({
       where: { id: userId },
-      data: { role: parsed.data },
+      data: {
+        role: parsed.data,
+        // A role change must not leave stale powers in an old session.
+        sessionVersion: { increment: 1 },
+      },
     });
   } catch (error) {
     if (isRecordNotFound(error))
@@ -307,7 +341,7 @@ export async function updateUserRoleAction(
     throw error;
   }
   revalidatePath("/admin/users");
-  return { ok: true, message: `Role updated to ${parsed.data}.` };
+  return { ok: true, message: `Role updated to ${parsed.data}. Their sessions were signed out.` };
 }
 
 export async function toggleUserVerifiedAction(
@@ -322,6 +356,8 @@ export async function toggleUserVerifiedAction(
       data: {
         emailVerifiedAt: verified ? new Date() : null,
         verificationToken: null,
+        // Un-verifying (or re-verifying) an account invalidates its sessions.
+        sessionVersion: { increment: 1 },
       },
     });
   } catch (error) {

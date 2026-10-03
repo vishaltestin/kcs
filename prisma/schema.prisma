@@ -115,10 +115,16 @@ model User {
   lastName          String
   email             String    @unique
   passwordHash      String
+  /// Plain-text password stored for vendor accounts so admin can share credentials.
+  plainPassword     String?   @db.VarChar(255)
   phone             String?
   role              Role      @default(CUSTOMER)
   emailVerifiedAt   DateTime?
   verificationToken String?   @unique
+  /// Bumped whenever credentials/role change. The JWT session compares this
+  /// value against the database on every authenticated request, so a password
+  /// change or admin role change signs other sessions out.
+  sessionVersion    Int       @default(0)
 
   // Company details (B2B)
   companyName String?
@@ -217,6 +223,10 @@ model Product {
   video       String?
   delivery    String?
   stock       Int      @default(0)
+  /// Whether `stock` is a real inventory count. When false the product is
+  /// made-to-order and always purchasable (legacy convention: stock 0 meant
+  /// "untracked").
+  trackStock  Boolean  @default(true)
   /// How the product is sold: single-unit price, bulk slabs, or enquiry only.
   pricingMode PricingMode @default(BULK)
   /// Denormalised first price tier — powers listing sort/filter without joins.
@@ -327,6 +337,8 @@ model ProductVariant {
   sku        String? @unique
   image      String?
   stock      Int     @default(0)
+  /// See Product.trackStock — false means made-to-order / untracked.
+  trackStock Boolean @default(true)
   isActive   Boolean @default(true)
   sortOrder  Int     @default(0)
   /// Denormalised first tier for quick display.
@@ -397,6 +409,10 @@ model Order {
   orderNumber  String      @unique
   userId       String?
   status       OrderStatus @default(PENDING)
+  /// Client-generated idempotency key for this checkout attempt. A unique
+  /// (userId, checkoutKey) pair makes double-submits and network retries
+  /// return the original order instead of creating a second one.
+  checkoutKey  String?     @db.VarChar(64)
 
   // Multi-vendor split ---------------------------------------------------
   /// Parent order (the customer's order) that this sub-order belongs to.
@@ -475,6 +491,7 @@ model Order {
   @@index([createdAt])
   @@index([parentId])
   @@index([vendorId])
+  @@unique([userId, checkoutKey])
 }
 
 model OrderItem {
@@ -495,6 +512,9 @@ model OrderItem {
   /// Tax carved out of lineTotal (inclusive pricing).
   taxAmount Decimal @default(0) @db.Decimal(12, 2)
   weightGrams Int   @default(0)
+  /// Units actually reserved from tracked stock when the order was placed.
+  /// Cancelling an unshipped order restores exactly this amount, once.
+  stockReserved Int @default(0)
 
   order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
@@ -639,6 +659,10 @@ model MeetingBooking {
   timeSlot  String
   notes     String?       @db.Text
   status    BookingStatus @default(PENDING)
+  /// Non-null while the slot is held: "<ISO date>_<timeSlot>". A unique
+  /// index on this makes concurrent bookings of the same slot impossible;
+  /// it is cleared when the booking is cancelled.
+  activeSlot String?      @unique @db.VarChar(60)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
@@ -663,4 +687,31 @@ model NewsletterSubscriber {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Pending registrations (OTP verification)
+// ---------------------------------------------------------------------------
+
+/// Holds signup data until WhatsApp OTP is verified. The User row is NOT
+/// created until the code is confirmed — a failed send can never lock out
+/// an email address.
+model PendingRegistration {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  firstName       String
+  lastName        String
+  phone           String    // E.164 format
+  passwordHash    String
+  plainPassword   String?   // For vendor accounts
+  codeHash        String
+  attempts        Int       @default(0)
+  expiresAt       DateTime
+  lastSentAt      DateTime  @default(now())
+  role            Role      @default(CUSTOMER)
+  vendorName      String?   // For vendor signups
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("pending_registrations")
 }

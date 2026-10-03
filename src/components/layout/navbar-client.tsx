@@ -1250,6 +1250,13 @@ function CompanyPanel({ onBook }: { onBook: () => void }) {
             <span className="kicker text-primary">Reach us</span>
           </div>
           <a
+            href={SITE.phoneHref}
+            className="flex items-center gap-2 rounded-xl border border-border/70 bg-background px-3 py-2.5 text-[12.5px] font-semibold transition-colors hover:border-brand-teal/40"
+          >
+            <Phone className="size-3.5 text-primary" aria-hidden />
+            {SITE.phone}
+          </a>
+          <a
             href={`mailto:${SITE.email}`}
             className="flex items-center gap-2 rounded-xl border border-border/70 bg-background px-3 py-2.5 text-[12.5px] font-semibold transition-colors hover:border-brand-teal/40"
           >

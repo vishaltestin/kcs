@@ -32,11 +32,12 @@ export async function toggleWishlistAction(
     return { ok: true, message: "Removed from wishlist", data: { wishlisted: false } };
   }
 
+  // Only live products from an active seller can be saved.
   const product = await db.product.findUnique({
     where: { id: productId },
-    select: { id: true, isActive: true },
+    select: { id: true, isActive: true, vendor: { select: { status: true } } },
   });
-  if (!product || !product.isActive) {
+  if (!product || !product.isActive || product.vendor?.status !== "ACTIVE") {
     return { ok: false, message: "Product not found." };
   }
 
@@ -56,7 +57,7 @@ export async function mergeGuestWishlistAction(
   if (!user || productIds.length === 0) return { ok: true, message: "" };
 
   const products = await db.product.findMany({
-    where: { id: { in: productIds }, isActive: true },
+    where: { id: { in: productIds }, isActive: true, vendor: { status: "ACTIVE" } },
     select: { id: true },
   });
 

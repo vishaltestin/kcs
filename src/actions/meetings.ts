@@ -3,12 +3,34 @@
 import { db } from "@/lib/db";
 import { limitKey, rateLimit } from "@/lib/rate-limit";
 import { meetingBookingSchema } from "@/lib/validations/shop";
+import { istDateKey, isValidIstDay, isTodayOrFutureIst, parseIstDay } from "@/lib/dates";
 import type { ActionResult } from "@/types";
 import { str, strOpt } from "@/lib/form";
 
 /**
  * "Book a Meeting" flow (navbar CTA).
+ *
+ * Days are IST calendar days stored as UTC midnight (see lib/dates), and a
+ * unique `activeSlot` key makes concurrent bookings of the same slot
+ * impossible — the pre-check remains only to give a friendlier message when
+ * the slot is already taken, the constraint is what actually guarantees it.
  */
+
+function slotKey(day: Date, timeSlot: string): string {
+  return `${istDateKey(day)}_${timeSlot}`;
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "P2002"
+  );
+}
+
+const SLOT_TAKEN = "That slot has just been taken. Please pick another time.";
+
 export async function bookMeetingAction(
   _prev: ActionResult | null,
   formData: FormData
@@ -22,10 +44,10 @@ export async function bookMeetingAction(
     name: str(formData.get("name")),
     email: str(formData.get("email")),
     phone: str(formData.get("phone")),
-    company: str(formData.get("company")),
+    company: strOpt(formData.get("company")),
     date: str(formData.get("date")),
     timeSlot: str(formData.get("timeSlot")),
-    notes: str(formData.get("notes")),
+    notes: strOpt(formData.get("notes")),
   });
 
   if (!parsed.success) {
@@ -36,38 +58,54 @@ export async function bookMeetingAction(
     };
   }
 
-  const date = new Date(`${parsed.data.date}T00:00:00`);
-  if (Number.isNaN(date.getTime()) || date < new Date(new Date().toDateString())) {
+  // IST calendar day, stored as UTC midnight; "today" is IST today.
+  if (!isValidIstDay(parsed.data.date)) {
+    return {
+      ok: false,
+      message: "Please choose a valid date.",
+      fieldErrors: { date: ["Choose a valid date."] },
+    };
+  }
+  if (!isTodayOrFutureIst(parsed.data.date)) {
     return {
       ok: false,
       message: "Please choose today or a future date.",
       fieldErrors: { date: ["Choose a valid upcoming date."] },
     };
   }
+  const date = parseIstDay(parsed.data.date);
 
-  // Prevent double-booking the same slot.
+  // Friendly pre-check (the unique index below is the real guarantee).
   const clash = await db.meetingBooking.findFirst({
     where: { date, timeSlot: parsed.data.timeSlot, status: { not: "CANCELLED" } },
+    select: { id: true },
   });
   if (clash) {
-    return {
-      ok: false,
-      message: "That slot has just been taken. Please pick another time.",
-      fieldErrors: { timeSlot: ["Slot unavailable."] },
-    };
+    return { ok: false, message: SLOT_TAKEN, fieldErrors: { timeSlot: ["Slot unavailable."] } };
   }
 
-  await db.meetingBooking.create({
-    data: {
-      name: parsed.data.name,
-      email: parsed.data.email,
-      phone: parsed.data.phone || null,
-      company: parsed.data.company || null,
-      date,
-      timeSlot: parsed.data.timeSlot,
-      notes: parsed.data.notes || null,
-    },
-  });
+  try {
+    await db.meetingBooking.create({
+      data: {
+        name: parsed.data.name,
+        email: parsed.data.email,
+        phone: parsed.data.phone || null,
+        company: parsed.data.company || null,
+        date,
+        timeSlot: parsed.data.timeSlot,
+        notes: parsed.data.notes || null,
+        activeSlot: slotKey(date, parsed.data.timeSlot),
+      },
+    });
+  } catch (error) {
+    // Two bookings raced for the same slot — the loser gets the friendly
+    // message instead of a 500. The unique key is cleared on cancellation,
+    // so cancelled slots become bookable again.
+    if (isUniqueViolation(error)) {
+      return { ok: false, message: SLOT_TAKEN, fieldErrors: { timeSlot: ["Slot unavailable."] } };
+    }
+    throw error;
+  }
 
   return {
     ok: true,

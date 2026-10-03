@@ -141,6 +141,7 @@ export async function createVendorAction(
         lastName: loginData.lastName,
         email: loginData.email.toLowerCase(),
         passwordHash: await hashPassword(loginData.password),
+        plainPassword: loginData.password,
         role: "VENDOR",
         emailVerifiedAt: new Date(),
         vendorId: vendor.id,
@@ -272,9 +273,15 @@ export async function resetVendorPasswordAction(
 
   await db.user.update({
     where: { id: user.id },
-    data: { passwordHash: await hashPassword(password) },
+    data: {
+      passwordHash: await hashPassword(password),
+      plainPassword: password,
+      // Sign the vendor out everywhere so a stolen session can't outlive the
+      // reset.
+      sessionVersion: { increment: 1 },
+    },
   });
 
   revalidatePath("/admin/vendors");
-  return { ok: true, message: `Password reset for ${user.email}.` };
+  return { ok: true, message: `Password reset for ${user.email}. Their sessions were signed out.` };
 }

@@ -6,6 +6,8 @@ import { useState } from "react";
 
 import {
   ExternalLink,
+  Eye,
+  EyeOff,
   KeyRound,
   Mail,
   MoreHorizontal,
@@ -57,6 +59,26 @@ export interface AdminVendorRow {
   productCount: number;
   subOrderCount: number;
   loginEmail: string | null;
+  plainPassword: string | null;
+}
+
+function VendorPasswordDisplay({ password }: { password: string }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11.5px] text-foreground">
+        {visible ? password : "••••••••"}
+      </code>
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:text-foreground"
+        aria-label={visible ? "Hide password" : "Show password"}
+      >
+        {visible ? <EyeOff className="size-3" aria-hidden /> : <Eye className="size-3" aria-hidden />}
+      </button>
+    </span>
+  );
 }
 
 function ResetPasswordDialog({
@@ -285,6 +307,12 @@ export function VendorsTable({ vendors }: { vendors: AdminVendorRow[] }) {
                     <span className="italic">No seller login yet</span>
                   )}
                 </div>
+                {vendor.plainPassword && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide">Password:</span>
+                    <VendorPasswordDisplay password={vendor.plainPassword} />
+                  </div>
+                )}
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <span className="font-mono text-[11.5px]">{vendor.gstin ?? "No GSTIN"}</span>
                   <span aria-hidden className="text-border">·</span>

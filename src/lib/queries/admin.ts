@@ -130,6 +130,7 @@ export type AdminProduct = {
   video: string | null;
   delivery: string | null;
   stock: number;
+  trackStock: boolean;
   pricingMode: "SINGLE" | "BULK" | "ENQUIRY";
   basePrice: number;
   baseMrp: number;
@@ -166,6 +167,7 @@ export function toAdminProduct(p: AdminProductRow): AdminProduct {
     video: p.video,
     delivery: p.delivery,
     stock: p.stock,
+    trackStock: p.trackStock,
     pricingMode: p.pricingMode,
     basePrice: Number(p.basePrice),
     baseMrp: Number(p.baseMrp),
@@ -263,6 +265,7 @@ export async function getAdminProductForEdit(id: string) {
     video: p.video,
     delivery: p.delivery,
     stock: p.stock,
+    trackStock: p.trackStock,
     pricingMode: row.pricingMode,
     isActive: p.isActive,
     isNew: p.isNew,
@@ -298,6 +301,7 @@ export async function getAdminProductForEdit(id: string) {
       image: v.image ?? "",
       stock: v.stock,
       isActive: v.isActive,
+      trackStock: v.trackStock,
       priceDelta: Number(v.priceDelta),
       prices: v.prices.map(({ minQuantity, price, mrp }) => ({ minQuantity, price: Number(price), mrp: Number(mrp) })),
       weightGrams: v.weightGrams,
@@ -321,7 +325,7 @@ export async function getAdminVendors() {
     orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }, { name: "asc" }],
     include: {
       _count: { select: { products: true, subOrders: true } },
-      users: { select: { id: true, email: true, firstName: true, lastName: true, emailVerifiedAt: true } },
+      users: { select: { id: true, email: true, firstName: true, lastName: true, emailVerifiedAt: true, plainPassword: true } },
     },
   });
 }

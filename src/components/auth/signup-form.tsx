@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -25,9 +26,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { signupAction } from "@/actions/auth";
 import { signupSchema, type SignupInput } from "@/lib/validations/auth";
 import { cn } from "@/lib/utils";
+import { PhoneOtpCard } from "@/components/auth/phone-otp-card";
 import type { ActionResult } from "@/types";
 
-type SignupResult = ActionResult<{ verifyUrl: string | null }>;
+type SignupResult = ActionResult<{
+  otpRequired: boolean;
+  email: string;
+  maskedPhone: string;
+  devOtp?: string;
+}>;
 
 const STRENGTH = [
   { label: "Too weak", bar: "bg-red-400", text: "text-red-500" },
@@ -54,7 +61,12 @@ export function SignupForm() {
     null
   );
   const [showPassword, setShowPassword] = useState(false);
-  const [verifyUrl, setVerifyUrl] = useState<string | null>(null);
+  const [otpState, setOtpState] = useState<{
+    email: string;
+    maskedPhone: string;
+    devOtp?: string;
+  } | null>(null);
+  const [verified, setVerified] = useState(false);
 
   const form = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
@@ -76,8 +88,14 @@ export function SignupForm() {
     if (!state) return;
     const id = window.setTimeout(() => {
       if (state.ok) {
-        toast.success(state.message ?? "Account created!");
-        if (state.data?.verifyUrl) setVerifyUrl(state.data.verifyUrl);
+        toast.success(state.message ?? "Verification code sent!");
+        if (state.data?.otpRequired) {
+          setOtpState({
+            email: state.data.email,
+            maskedPhone: state.data.maskedPhone,
+            devOtp: state.data.devOtp,
+          });
+        }
       } else {
         toast.error(state.message);
       }
@@ -98,27 +116,45 @@ export function SignupForm() {
     });
   };
 
+  // Show success state after verification
+  if (verified) {
+    return (
+      <Card className="gap-0 rounded-3xl border-none py-0 shadow-[0_28px_56px_-32px_rgb(0_0_0/0.35)] ring-1 ring-foreground/[0.07]">
+        <CardContent className="px-6 py-7 md:px-8">
+          <Alert className="border-success/40 bg-success/[0.06] text-success">
+            <CheckCircle2 className="h-4 w-4" aria-hidden />
+            <AlertDescription className="text-success">
+              Mobile number verified — your account is ready!{" "}
+              <Link href="/login" className="font-semibold underline">
+                Sign in now
+              </Link>
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Show OTP verification card
+  if (otpState) {
+    return (
+      <Card className="gap-0 rounded-3xl border-none py-0 shadow-[0_28px_56px_-32px_rgb(0_0_0/0.35)] ring-1 ring-foreground/[0.07]">
+        <CardContent className="px-6 py-7 md:px-8">
+          <PhoneOtpCard
+            email={otpState.email}
+            maskedPhone={otpState.maskedPhone}
+            initialDevOtp={otpState.devOtp}
+            onVerified={() => setVerified(true)}
+            onBack={() => setOtpState(null)}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="gap-0 rounded-3xl border-none py-0 shadow-[0_28px_56px_-32px_rgb(0_0_0/0.35)] ring-1 ring-foreground/[0.07]">
       <CardContent className="px-6 py-7 md:px-8">
-        {state && !state.ok && (
-          <Alert variant="destructive" className="mb-5">
-            {state.message}
-          </Alert>
-        )}
-
-        {verifyUrl && (
-          <Alert className="mb-5 border-success/40 bg-success/[0.06] text-success">
-            <CheckCircle2 className="h-4 w-4" aria-hidden />
-            <AlertDescription className="text-success">
-              Account created! In production a verification email would be sent. In development you
-              can verify directly:{" "}
-              <a href={verifyUrl} className="font-semibold underline">
-                Verify my email
-              </a>
-            </AlertDescription>
-          </Alert>
-        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-7">

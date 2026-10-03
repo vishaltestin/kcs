@@ -16,25 +16,38 @@ export async function getStoreSettings() {
   });
 }
 
+/**
+ * Seeds the default rate card on first use.
+ *
+ * The count-then-create version raced: two concurrent first requests could
+ * both see 0 zones and both insert. Each zone is now upserted on its unique
+ * `code` inside a transaction, so concurrent callers converge on one row set
+ * (an existing zone — including any admin edits — is left untouched).
+ */
 export async function ensureDefaultZones(): Promise<void> {
-  const count = await db.shippingZone.count();
-  if (count > 0) return;
-  for (const [i, zone] of DEFAULT_ZONES.entries()) {
-    await db.shippingZone.create({
-      data: {
-        code: zone.code,
-        name: zone.name,
-        states: zone.states,
-        etaDays: zone.etaDays,
-        sortOrder: i,
-        rates: { create: zone.rates.map((r) => ({ uptoGrams: r.uptoGrams, price: r.price })) },
-      },
+  await db.$transaction(async (tx) => {
+    for (const [i, zone] of DEFAULT_ZONES.entries()) {
+      const existing = await tx.shippingZone.findUnique({
+        where: { code: zone.code },
+        select: { id: true },
+      });
+      if (existing) continue;
+      await tx.shippingZone.create({
+        data: {
+          code: zone.code,
+          name: zone.name,
+          states: zone.states,
+          etaDays: zone.etaDays,
+          sortOrder: i,
+          rates: { create: zone.rates.map((r) => ({ uptoGrams: r.uptoGrams, price: r.price })) },
+        },
+      });
+    }
+    await tx.storeSetting.upsert({
+      where: { id: 1 },
+      update: { extraPer500g: Object.fromEntries(DEFAULT_ZONES.map((z) => [z.code, z.extraPer500g])) },
+      create: { id: 1, extraPer500g: Object.fromEntries(DEFAULT_ZONES.map((z) => [z.code, z.extraPer500g])) },
     });
-  }
-  await db.storeSetting.upsert({
-    where: { id: 1 },
-    update: { extraPer500g: Object.fromEntries(DEFAULT_ZONES.map((z) => [z.code, z.extraPer500g])) },
-    create: { id: 1, extraPer500g: Object.fromEntries(DEFAULT_ZONES.map((z) => [z.code, z.extraPer500g])) },
   });
 }
 

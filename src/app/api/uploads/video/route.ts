@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { auth } from "@/lib/auth/auth";
+import { rateLimit } from "@/lib/rate-limit";
+import { isSameOrigin, resolveUploader } from "@/lib/uploads";
 
 /**
  * POST /api/uploads/video — admin-only video upload (one file).
@@ -20,7 +21,7 @@ import { auth } from "@/lib/auth/auth";
  * Response: { ok: true, path, bytes, name }
  */
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+const UPLOAD_ROOT = path.join(process.cwd(), "public", "uploads");
 const MAX_FILE_BYTES = 40 * 1024 * 1024;
 
 /** Extension comes from the sniffed container, never from the uploaded name. */
@@ -38,9 +39,16 @@ function sniff(bytes: Buffer) {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  // Database-backed authorisation (role + live vendor status), not the JWT.
+  const uploader = await resolveUploader();
+  if (!uploader) {
     return Response.json({ ok: false, message: "Not authorised." }, { status: 403 });
+  }
+  if (!isSameOrigin(request)) {
+    return Response.json({ ok: false, message: "Cross-origin upload refused." }, { status: 403 });
+  }
+  if (!rateLimit(`upload-video:${uploader.userId}`, 10, 60_000)) {
+    return Response.json({ ok: false, message: "Too many uploads. Please wait a moment." }, { status: 429 });
   }
 
   const contentType = request.headers.get("content-type") ?? "";
@@ -85,10 +93,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    await mkdir(UPLOAD_DIR, { recursive: true });
+    const dir = path.join(UPLOAD_ROOT, uploader.namespace);
+    await mkdir(dir, { recursive: true });
     const filename = `${Date.now()}-${randomUUID().slice(0, 8)}${container.ext}`;
-    await writeFile(path.join(UPLOAD_DIR, filename), bytes, { flag: "wx" });
-    return Response.json({ ok: true, path: `/api/uploads/${filename}`, mime: container.mime, bytes: file.size, name: file.name });
+    await writeFile(path.join(dir, filename), bytes, { flag: "wx" });
+    return Response.json({ ok: true, path: `/api/uploads/${uploader.namespace}/${filename}`, mime: container.mime, bytes: file.size, name: file.name });
   } catch (error) {
     console.error("Video upload failed:", file.name, error);
     const readonly = typeof error === "object" && error && "code" in error && error.code === "EROFS";

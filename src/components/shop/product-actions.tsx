@@ -88,7 +88,10 @@ export function ProductActions({ product }: { product: ProductDetail }) {
   const isQuoteOnly = product.pricingMode === "ENQUIRY" || (!needsSelection && !(unitPrice > 0));
   const isBulk = product.pricingMode === "BULK" && minQty > 1;
   const stock = variant ? variant.stock : product.stock;
-  const outOfStock = !needsSelection && !isQuoteOnly && stock <= 0;
+  // "Out of stock" only when stock is actually tracked — a made-to-order
+  // product (trackStock = false) is always purchasable.
+  const stockTracked = variant ? variant.trackStock !== false : product.trackStock !== false;
+  const outOfStock = !needsSelection && !isQuoteOnly && stockTracked && stock <= 0;
   const lineTotal = unitPrice * displayQty;
   const weightGrams = product.weightGrams;
   const lineWeight = weightGrams > 0 ? weightGrams * displayQty : 0;
@@ -218,7 +221,13 @@ export function ProductActions({ product }: { product: ProductDetail }) {
                   <p className="text-sm font-bold">{variant.label}</p>
                   <p className="mt-0.5 text-muted-foreground">
                     {variant.sku ? `SKU ${variant.sku} · ` : ""}
-                    {variant.stock > 0 ? <span className="text-success">{variant.stock} in stock</span> : <span className="text-destructive">Out of stock</span>}
+                    {variant.trackStock === false ? (
+                      <span className="text-muted-foreground">Made to order</span>
+                    ) : variant.stock > 0 ? (
+                      <span className="text-success">{variant.stock} in stock</span>
+                    ) : (
+                      <span className="text-destructive">Out of stock</span>
+                    )}
                   </p>
                 </div>
               </div>

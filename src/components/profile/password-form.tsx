@@ -2,6 +2,7 @@
 
 import { startTransition, useActionState, useEffect, useState } from "react";
 
+import { signOut } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Eye, EyeOff, ShieldCheck } from "lucide-react";
@@ -38,6 +39,10 @@ export function PasswordForm() {
     if (state.ok) {
       toast.success(state.message ?? "Password updated!");
       form.reset();
+      // Changing a password bumps sessionVersion, which revokes every session
+      // (this one included) — sign out cleanly rather than letting the next
+      // navigation bounce the user to /login mid-flow.
+      void signOut({ callbackUrl: "/login" });
     } else {
       toast.error(state.message);
     }
@@ -62,7 +67,7 @@ export function PasswordForm() {
           description="Use at least 8 characters with a mix of letters and numbers."
           footer={
             <>
-              <FooterHint>You&apos;ll stay signed in on this device.</FooterHint>
+              <FooterHint>All devices will be signed out, including this one.</FooterHint>
               <SaveButton pending={isPending} pendingLabel="Updating…">
                 Update password
               </SaveButton>

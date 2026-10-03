@@ -17,10 +17,19 @@ import type { CartItem } from "@/types";
 
 type CartState = {
   items: CartItem[];
+  /**
+   * The account this cart belongs to. Guest carts are `null`. When a
+   * different account signs in on the same browser the cart is wiped rather
+   * than shown to them — persisted localStorage must never leak one
+   * customer's basket into another's session.
+   */
+  ownerId: string | null;
   addProduct: (item: Omit<CartItem, "id"> & { id?: string }) => void;
   removeProduct: (lineId: string) => void;
   updateQuantity: (lineId: string, qty: number) => void;
   reset: () => void;
+  /** Declare who the cart belongs to; wipes it when the owner changes. */
+  setOwner: (userId: string | null) => void;
 };
 
 export function cartLineId(productId: string, variantId?: string | null): string {
@@ -52,6 +61,7 @@ export const useCartStore = create<CartState>()(
   persist(
     (set) => ({
       items: [],
+      ownerId: null,
 
       addProduct: (item) =>
         set((state) => {
@@ -81,14 +91,29 @@ export const useCartStore = create<CartState>()(
           ),
         })),
 
-      reset: () => set({ items: [] }),
+      reset: () => set({ items: [], ownerId: null }),
+
+      setOwner: (userId) =>
+        set((state) => {
+          if (state.ownerId === userId) return state;
+          // A different account (or guest → account) — never hand one user's
+          // basket to another.
+          return { items: [], ownerId: userId };
+        }),
     }),
     {
       name: "kcs-cart",
-      version: 2,
+      version: 3,
       migrate: (persisted) => {
-        const state = persisted as { items?: (Partial<CartItem> & { id: string })[] } | undefined;
-        return { items: (state?.items ?? []).map(normaliseLine) } as CartState;
+        const state = persisted as
+          | { items?: (Partial<CartItem> & { id: string })[]; ownerId?: string | null }
+          | undefined;
+        // v2 → v3 adds ownerId; an old cart has no owner, so it is treated as
+        // a guest cart and re-bound on next sign-in.
+        return {
+          items: (state?.items ?? []).map(normaliseLine),
+          ownerId: state?.ownerId ?? null,
+        } as CartState;
       },
     }
   )

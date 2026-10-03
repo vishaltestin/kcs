@@ -110,4 +110,28 @@ export const changePasswordSchema = z
 
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
+export const vendorSignupSchema = z
+  .object({
+    vendorName: z.string().trim().min(2, "Vendor / business name is required."),
+    firstName: z.string().trim().min(2, "First name must be at least 2 characters."),
+    lastName: z.string().trim().min(1, "Last name is required."),
+    email: z.string().trim().email("Please enter a valid email address."),
+    phone: z
+      .string()
+      .trim()
+      .regex(/^(\+91[\s-]?)?[6-9]\d{9}$/, "Please enter a valid 10-digit Indian mobile number."),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters long.")
+      .regex(/[A-Za-z]/, "Password must contain a letter.")
+      .regex(/\d/, "Password must contain a number."),
+    passwordConfirmation: z.string(),
+  })
+  .refine((data) => data.password === data.passwordConfirmation, {
+    message: "Passwords do not match.",
+    path: ["passwordConfirmation"],
+  });
+
+export type VendorSignupInput = z.infer<typeof vendorSignupSchema>;
+
 export { addressFields };

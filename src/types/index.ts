@@ -33,6 +33,8 @@ export type ProductListItem = {
   isBestSeller: boolean;
   isActive: boolean;
   stock: number;
+  /** False = made to order; `stock` is not a real count. */
+  trackStock: boolean;
   price: number | null;
   mrpPrice: number | null;
   minQuantity: number;

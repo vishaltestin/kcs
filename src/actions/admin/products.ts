@@ -124,6 +124,18 @@ export async function updateProductAction(
   const existing = await db.product.findUnique({ where: { id } });
   if (!existing) return { ok: false, message: "Product not found." };
 
+  // Optimistic concurrency: the form echoes the version it loaded. If the row
+  // moved on (another admin, or a vendor editing the same product), refuse
+  // instead of silently overwriting their change.
+  const expectedVersion = String(formData.get("expectedUpdatedAt") ?? "").trim();
+  if (expectedVersion && existing.updatedAt.toISOString() !== expectedVersion) {
+    return {
+      ok: false,
+      message:
+        "This product was changed by someone else while you were editing it. Reload the page and re-apply your changes.",
+    };
+  }
+
   // Vendor reassignment is optional on edit — keep the current owner when the
   // form doesn't submit one.
   let vendorId: string | undefined;
@@ -156,6 +168,27 @@ export async function updateProductAction(
 
   const options = cleanOptions(parsed.data);
   const variants = cleanVariants(parsed.data);
+
+  // A variant that appears in an existing order item can't be dropped: the
+  // order line points at the row (and invoices snapshot its label). Order
+  // history wins over the edit.
+  if (parsed.data.hasVariants) {
+    const keptIds = variants.map((v) => v.id).filter((v): v is string => !!v);
+    const referenced = await db.productVariant.findMany({
+      where: { productId: id, id: { notIn: keptIds } },
+      select: { id: true, label: true, _count: { select: { orderItems: true } } },
+    });
+    const locked = referenced.filter((v) => v._count.orderItems > 0);
+    if (locked.length > 0) {
+      return {
+        ok: false,
+        message: `These variants have orders against them and can't be removed: ${locked
+          .map((v) => v.label)
+          .join(", ")}. Deactivate them instead.`,
+      };
+    }
+  }
+
   // The "this product comes in variants" switch is a *visibility* toggle, not a
   // delete. While it is off the form submits no variant rows, so syncing would
   // wipe every SKU, price table and variant image the product already has —
@@ -276,6 +309,17 @@ export async function deleteProductAction(id: string): Promise<ActionResult> {
   });
   if (!existing) return { ok: false, message: "Product not found." };
 
+  // Order items snapshot product details but keep the FK, so deleting a
+  // product that has ever been ordered would break order history and
+  // invoices. Unpublish instead.
+  const ordered = await db.orderItem.count({ where: { productId: id } });
+  if (ordered > 0) {
+    return {
+      ok: false,
+      message: "This product has orders against it, so it can't be deleted. Unpublish it instead.",
+    };
+  }
+
   try {
     await db.product.delete({ where: { id } });
   } catch (error) {
@@ -298,6 +342,19 @@ export async function deleteProductsAction(ids: string[]): Promise<ActionResult>
 
   if (!Array.isArray(ids) || ids.length === 0) {
     return { ok: false, message: "No products selected." };
+  }
+
+  // Never bulk-delete a product that has order history (see deleteProductAction).
+  const withOrders = await db.orderItem.findMany({
+    where: { productId: { in: ids } },
+    select: { productId: true },
+    distinct: ["productId"],
+  });
+  if (withOrders.length > 0) {
+    return {
+      ok: false,
+      message: `${withOrders.length} selected product${withOrders.length === 1 ? " has" : "s have"} orders against them. Unpublish those instead.`,
+    };
   }
 
   const deleted = await db.product.deleteMany({ where: { id: { in: ids } } });

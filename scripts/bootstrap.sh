@@ -9,10 +9,14 @@
 #   4. Prisma migrations + seed     (migrate deploy / db push + seed)
 #   5. Production build             (next build)
 #
+# Seeding is OPT-IN — the seed deletes every table, so it never runs unless
+# you ask for it, and never against a database that already holds orders.
+#
 # Usage:
-#   ./scripts/bootstrap.sh            # full setup + build
+#   ./scripts/bootstrap.sh            # full setup + build (no seed)
 #   ./scripts/bootstrap.sh --dev      # full setup, skip production build
-#   ./scripts/bootstrap.sh --reset-db # wipe & re-seed the database
+#   ./scripts/bootstrap.sh --seed     # also seed (only into an empty database)
+#   ./scripts/bootstrap.sh --reset-db # wipe & re-seed the database (deliberate)
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -119,9 +123,37 @@ fi
 npx prisma generate
 ok "Schema applied"
 
-log "Seeding demo data"
-npx tsx prisma/seed.ts
-ok "Seed complete"
+SEED=false
+case "${1:-}" in
+  --seed|--reset-db) SEED=true ;;
+esac
+
+if [ "$SEED" = true ]; then
+  log "Seeding demo data"
+  if [ "${1:-}" != "--reset-db" ]; then
+    # Refuse to wipe a database that already has real orders in it.
+    ORDER_COUNT="$(npx tsx -e '
+      import { PrismaClient } from "@prisma/client";
+      const db = new PrismaClient();
+      const count = await db.order.count();
+      console.log(count);
+      await db.$disconnect();
+    ' 2>/dev/null | tail -n 1 || echo "")"
+    if [ -n "$ORDER_COUNT" ] && [ "$ORDER_COUNT" != "0" ]; then
+      echo "  Refusing to seed: this database already has ${ORDER_COUNT} orders." >&2
+      echo "  Re-run with --reset-db (and SEED_ALLOW_WIPE=true) if that is really what you want." >&2
+      exit 1
+    fi
+  fi
+  if [ "${1:-}" = "--reset-db" ] && [ "${SEED_ALLOW_WIPE:-}" != "true" ]; then
+    echo "  --reset-db wipes everything. Set SEED_ALLOW_WIPE=true to confirm." >&2
+    exit 1
+  fi
+  npx tsx prisma/seed.ts
+  ok "Seed complete"
+else
+  ok "Skipping seed (pass --seed to load demo data)"
+fi
 
 # --- 6. Build --------------------------------------------------------------
 if [ "${1:-}" != "--dev" ]; then

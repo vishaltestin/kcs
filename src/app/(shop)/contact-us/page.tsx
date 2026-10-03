@@ -113,14 +113,7 @@ export default function ContactUsPage() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-xl">
-              <iframe
-                title="KCS G-Mart office location"
-                src="https://www.openstreetmap.org/export/embed.html?bbox=77.02%2C28.60%2C77.10%2C28.65&layer=mapnik"
-                className="h-64 w-full border-0 grayscale-[35%]"
-                loading="lazy"
-              />
-            </div>
+
           </div>
         </div>
       </section>

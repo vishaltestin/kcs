@@ -28,6 +28,8 @@ const inputSchema = z.object({
 export type ShippingEstimate = {
   amount: number;
   free: boolean;
+  /** False when this destination has no rate card — checkout will refuse. */
+  available: boolean;
   zoneName: string | null;
   etaDays: string | null;
   chargeableWeight: number;
@@ -43,6 +45,7 @@ export async function estimateShippingAction(raw: unknown): Promise<ShippingEsti
   return {
     amount: quote.amount,
     free: quote.free,
+    available: quote.available,
     zoneName: quote.zone?.name ?? null,
     etaDays: quote.zone?.etaDays ?? null,
     chargeableWeight: quote.chargeableWeight,

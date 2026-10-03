@@ -15,6 +15,7 @@ import {
   generateSubOrderNumber,
   sumCurrency,
 } from "@/lib/sub-orders";
+import { reserveStock, stockLineKey, StockError } from "@/lib/inventory";
 import type { ActionResult } from "@/types";
 import { str } from "@/lib/form";
 
@@ -48,6 +49,8 @@ type Line = {
   widthCm: number;
   heightCm: number;
   stock: number;
+  /** Whether `stock` is a real count; false = made to order. */
+  trackStock: boolean;
   vendorId: string;
 };
 
@@ -159,6 +162,7 @@ export async function placeOrderAction(
       product.hasVariants && item.variantId
         ? product.variants.find((v) => v.id === item.variantId && v.isActive)
         : undefined;
+    const tracked = variant ? variant.trackStock : product.trackStock;
     if (product.hasVariants && product.variants.length > 0 && !variant) {
       return {
         ok: false,
@@ -185,11 +189,16 @@ export async function placeOrderAction(
       return { ok: false, message: `"${label}" has a minimum order quantity of ${minQty} pcs.` };
     }
 
+    // Fast, friendly pre-check only — the authoritative reservation happens
+    // inside the order transaction (concurrent buyers can pass this check).
     const stock = variant ? variant.stock : product.stock;
-    if (stock > 0 && item.quantity > stock) {
+    if (tracked && item.quantity > stock) {
       return {
         ok: false,
-        message: `Only ${stock} pcs of "${label}" are in stock right now. Reduce the quantity or enquire for a larger run.`,
+        message:
+          stock <= 0
+            ? `"${label}" just sold out. Reduce the quantity or enquire for a larger run.`
+            : `Only ${stock} pcs of "${label}" are in stock right now. Reduce the quantity or enquire for a larger run.`,
       };
     }
 
@@ -213,6 +222,7 @@ export async function placeOrderAction(
       widthCm: Number(variant?.widthCm ?? product.widthCm),
       heightCm: Number(variant?.heightCm ?? product.heightCm),
       stock,
+      trackStock: tracked,
       vendorId: product.vendor.id,
     });
   }
@@ -233,6 +243,15 @@ export async function placeOrderAction(
     subtotal,
     shippingConfig,
   );
+  // No rate card for this destination → refuse rather than shipping free.
+  if (!quote.available) {
+    return {
+      ok: false,
+      message: `We don't have a delivery rate for "${shippingState}" yet. Please contact us for a quote.`,
+      fieldErrors: { shippingPincode: ["This destination isn't serviceable online yet."] },
+    };
+  }
+
   const shipping = quote.amount;
   const total = sumCurrency([subtotal, shipping]);
 
@@ -293,14 +312,51 @@ export async function placeOrderAction(
   };
 
   const userId = user.id;
+
+  // Idempotency: the checkout form sends a key that is stable for one cart
+  // payload. A double click or a network retry replays the original order
+  // instead of creating (and invoicing) a second one.
+  const checkoutKey = (() => {
+    const raw = str(formData.get("checkoutKey")).trim();
+    return /^[A-Za-z0-9_-]{8,64}$/.test(raw) ? raw : null;
+  })();
+  if (checkoutKey) {
+    const existing = await db.order.findFirst({
+      where: { userId, checkoutKey },
+      select: { orderNumber: true },
+    });
+    if (existing) {
+      return {
+        ok: true,
+        message: "Order placed successfully!",
+        data: { orderNumber: existing.orderNumber },
+      };
+    }
+  }
+
   const createOrder = (orderNumber: string) =>
     db.$transaction(async (tx) => {
       const invoiceNumber = await allocateInvoiceNumber(tx);
+
+      // Authoritative inventory reservation: conditional decrement under row
+      // locks, in a fixed order. Throws StockError (rolled back) when another
+      // checkout took the units first.
+      const reserved = await reserveStock(
+        tx,
+        lines.map((line) => ({
+          productId: line.productId,
+          variantId: line.variantId,
+          quantity: line.quantity,
+          label: line.variantLabel ? `${line.name} (${line.variantLabel})` : line.name,
+        })),
+      );
+
       const created = await tx.order.create({
         select: { id: true, orderNumber: true },
         data: {
           orderNumber,
           userId,
+          checkoutKey,
           customerName: data.customerName,
           customerEmail: data.customerEmail,
           customerPhone: data.customerPhone,
@@ -383,43 +439,48 @@ export async function placeOrderAction(
                 gstRate: line.gstRate,
                 taxAmount: line.taxAmount,
                 weightGrams: line.weightGrams,
+                // Exactly what this line took from tracked stock, so a later
+                // cancellation can put it back once.
+                stockReserved: reserved.get(stockLineKey(line.productId, line.variantId)) ?? 0,
               })),
             },
           },
         });
       }
 
-      // Decrement stock where it is tracked (stock 0 = not tracked / made to order).
-      for (const line of lines) {
-        if (line.stock <= 0) continue;
-        if (line.variantId) {
-          await tx.productVariant.update({
-            where: { id: line.variantId },
-            data: { stock: { decrement: line.quantity } },
-          });
-        } else {
-          await tx.product.update({
-            where: { id: line.productId },
-            data: { stock: { decrement: line.quantity } },
-          });
-        }
-      }
       return created;
     });
 
   // `orderNumber` is @unique with a short random suffix; on the rare
   // collision (P2002) retry with a fresh number instead of surfacing a 500.
+  // A P2002 on (userId, checkoutKey) is a concurrent replay of the same
+  // checkout — return the winning order rather than erroring.
   let order: { id: string; orderNumber: string } | null = null;
   for (let attempt = 0; attempt < 3 && !order; attempt++) {
     try {
       order = await createOrder(generateOrderNumber());
     } catch (error) {
-      const isUniqueViolation =
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        (error as { code?: string }).code === "P2002";
-      if (!isUniqueViolation || attempt === 2) {
+      if (error instanceof StockError) {
+        return { ok: false, message: error.message };
+      }
+      const code =
+        typeof error === "object" && error !== null && "code" in error
+          ? (error as { code?: string }).code
+          : undefined;
+      if (code === "P2002" && checkoutKey) {
+        const raced = await db.order.findFirst({
+          where: { userId, checkoutKey },
+          select: { orderNumber: true },
+        });
+        if (raced) {
+          return {
+            ok: true,
+            message: "Order placed successfully!",
+            data: { orderNumber: raced.orderNumber },
+          };
+        }
+      }
+      if (code !== "P2002" || attempt === 2) {
         console.error("[placeOrderAction] order create failed", error);
         return {
           ok: false,

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
-import { useFieldArray, useForm, type FieldErrors } from "react-hook-form";
+import { useFieldArray, useForm, type FieldErrors, type Resolver } from "react-hook-form";
 import { ArrowLeft, ChevronsUpDown, Layers, Loader2, MessageSquareQuote, Plus, Save, Search, Tag, Trash2, X } from "lucide-react";
 import { VariantsEditor } from "@/components/admin/products/variants-editor";
 import { formatGrams, volumetricGrams } from "@/lib/shipping";
@@ -111,6 +111,8 @@ export interface ProductFormProduct {
   video: string | null;
   delivery: string | null;
   stock: number;
+  /** Untracked = made to order; stock is not a real count. */
+  trackStock: boolean;
   pricingMode: PricingModeValue;
   isActive: boolean;
   isNew: boolean;
@@ -204,7 +206,9 @@ export function ProductForm({
   const [slugTouched, setSlugTouched] = useState(isEdit);
 
   const form = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
+    // `trackStock` carries a schema default, so the resolver's *input* type is
+    // optional while the form works with the parsed (output) shape.
+    resolver: zodResolver(productSchema) as Resolver<ProductFormValues>,
     defaultValues: {
       vendorId: product?.vendorId ?? "",
       name: product?.name ?? "",
@@ -219,6 +223,7 @@ export function ProductForm({
       video: product?.video ?? "",
       delivery: product?.delivery ?? "",
       stock: product?.stock ?? 0,
+      trackStock: product?.trackStock ?? true,
       pricingMode: product?.pricingMode ?? "BULK",
       isActive: product?.isActive ?? true,
       isNew: product?.isNew ?? false,
@@ -262,6 +267,7 @@ export function ProductForm({
     form.setValue("images", paths, { shouldDirty: true, shouldValidate: true });
   const pricingMode = form.watch("pricingMode");
   const hasVariants = form.watch("hasVariants");
+  const trackStock = form.watch("trackStock") ?? true;
   const variantPricing = form.watch("variantPricing");
   // Product-level tiers are hidden only when every variant prices itself.
   const tiersLiveOnVariants = hasVariants && variantPricing === "CUSTOM";
@@ -348,6 +354,7 @@ export function ProductForm({
           : [],
       ),
     );
+    formData.set("trackStock", String(values.trackStock));
     if (values.isActive) formData.set("isActive", "true");
     if (values.isNew) formData.set("isNew", "true");
     if (values.isFeatured) formData.set("isFeatured", "true");
@@ -528,15 +535,35 @@ export function ProductForm({
                 <FormItem>
                   <FormLabel>Stock {hasVariants ? "" : "*"}</FormLabel>
                   <FormControl>
-                    <NumberField field={field} integer min={0} placeholder="0" disabled={hasVariants} />
+                    <NumberField field={field} integer min={0} placeholder="0" disabled={hasVariants || !trackStock} />
                   </FormControl>
                   <FormDescription>
-                    {hasVariants ? "Tracked per variant — the total is calculated on save." : "0 = not tracked (always purchasable)."}
+                    {hasVariants ? "Tracked per variant — the total is calculated on save." : "Units on hand."}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {!hasVariants && (
+              <FormField
+                control={form.control}
+                name="trackStock"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start gap-3 rounded-xl border border-border/70 p-3">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="cursor-pointer">Track stock for this product</FormLabel>
+                      <FormDescription>
+                        Unticked = made to order. Customers can always order it and the stock number is hidden.
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            )}
+
             <FormField
               control={form.control}
               name="delivery"

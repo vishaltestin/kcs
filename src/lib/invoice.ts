@@ -3,17 +3,20 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { istParts } from "@/lib/dates";
 
 /**
  * Sequential GST-compliant invoice numbers: `<prefix>/<FY>/<000123>`.
  * The counter lives on the single StoreSetting row and is bumped inside a
  * transaction so two simultaneous orders never share a number.
  *
- * Indian financial year runs April → March, e.g. "25-26".
+ * Indian financial year runs April → March, e.g. "25-26", evaluated in IST —
+ * the server's local timezone must not decide which year an invoice belongs
+ * to (a UTC server would otherwise roll over at 05:30 IST on 1 April).
  */
 export function financialYear(date = new Date()): string {
-  const y = date.getFullYear();
-  const startYear = date.getMonth() >= 3 ? y : y - 1;
+  const { year, month } = istParts(date);
+  const startYear = month >= 4 ? year : year - 1;
   return `${String(startYear).slice(-2)}-${String(startYear + 1).slice(-2)}`;
 }
 

@@ -40,11 +40,14 @@ export async function submitReviewAction(
     };
   }
 
+  // Reviews are only for live products from an active seller.
   const product = await db.product.findUnique({
     where: { id: parsed.data.productId },
-    select: { id: true },
+    select: { id: true, isActive: true, vendor: { select: { status: true } } },
   });
-  if (!product) return { ok: false, message: "Product not found." };
+  if (!product || !product.isActive || product.vendor?.status !== "ACTIVE") {
+    return { ok: false, message: "Product not found." };
+  }
 
   await db.review.create({
     data: {

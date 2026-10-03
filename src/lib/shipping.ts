@@ -46,6 +46,12 @@ export type ShippingQuote = {
   free: boolean;
   reason: "free-threshold" | "rate-card" | "no-weight" | "no-zone";
   method: string;
+  /**
+   * False when there is no rate for this destination (no zone matched and no
+   * rest-of-India fallback). Checkout must refuse the order rather than
+   * quietly shipping free.
+   */
+  available: boolean;
 };
 
 /** Fallback used when a product has no weight at all (e.g. legacy seed data). */
@@ -225,7 +231,10 @@ export function quoteShipping(
   }
   const zone = resolveZone(destinationState, config.zones);
 
-  if (subtotal > 0 && subtotal >= config.freeShippingThreshold) {
+  // A 0 (or missing) threshold means free shipping is switched OFF — not
+  // "everything ships free" (the old `subtotal >= 0` behaviour).
+  const threshold = Number(config.freeShippingThreshold) || 0;
+  if (threshold > 0 && subtotal > 0 && subtotal >= threshold) {
     return {
       amount: 0,
       zone,
@@ -235,13 +244,36 @@ export function quoteShipping(
       free: true,
       reason: "free-threshold",
       method: zone ? `Free standard · ${zone.name}` : "Free standard",
+      available: true,
     };
   }
   if (!zone) {
-    return { amount: 0, zone: null, chargeableWeight: chargeable, actualWeight: actual, volumetricWeight: volumetric, free: true, reason: "no-zone", method: "Standard" };
+    // No rate card covers this destination — the caller must refuse the order
+    // instead of falling back to a "free" quote.
+    return {
+      amount: 0,
+      zone: null,
+      chargeableWeight: chargeable,
+      actualWeight: actual,
+      volumetricWeight: volumetric,
+      free: false,
+      reason: "no-zone",
+      method: "Not serviceable",
+      available: false,
+    };
   }
   if (chargeable <= 0) {
-    return { amount: 0, zone, chargeableWeight: 0, actualWeight: 0, volumetricWeight: 0, free: true, reason: "no-weight", method: `Standard · ${zone.name}` };
+    return {
+      amount: 0,
+      zone,
+      chargeableWeight: 0,
+      actualWeight: 0,
+      volumetricWeight: 0,
+      free: true,
+      reason: "no-weight",
+      method: `Standard · ${zone.name}`,
+      available: true,
+    };
   }
   return {
     amount: rateForWeight(zone, chargeable),
@@ -252,6 +284,7 @@ export function quoteShipping(
     free: false,
     reason: "rate-card",
     method: `Standard · ${zone.name} · ${zone.etaDays} days`,
+    available: true,
   };
 }
 

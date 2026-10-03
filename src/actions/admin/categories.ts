@@ -32,8 +32,32 @@ function parseCategoryForm(formData: FormData): CategoryInput {
 function revalidateCatalog() {
   revalidatePath("/admin/categories");
   revalidatePath("/product");
-  revalidatePath("/category");
+  // Nested category pages live under /category/<slug>/<child>…, so the whole
+  // subtree is refreshed — "/category" alone misses them.
+  revalidatePath("/category", "layout");
   revalidatePath("/");
+}
+
+/**
+ * Walks up from `parentId`; if we ever reach `id` the move would create a
+ * cycle (A → B → A), which would orphan the subtree from the tree walker and
+ * hang any recursive render.
+ */
+async function wouldCreateCycle(id: number, parentId: number | null): Promise<boolean> {
+  let current = parentId;
+  const seen = new Set<number>();
+  while (current !== null) {
+    if (current === id) return true;
+    if (seen.has(current)) return true; // pre-existing loop — refuse too
+    seen.add(current);
+    const parent = await db.category.findUnique({
+      where: { id: current },
+      select: { parentId: true },
+    });
+    if (!parent) return false;
+    current = parent.parentId;
+  }
+  return false;
 }
 
 export async function createCategoryAction(
@@ -100,6 +124,13 @@ export async function updateCategoryAction(
 
   if (parsed.data.parentId === id) {
     return { ok: false, message: "A category cannot be its own parent." };
+  }
+  if (parsed.data.parentId && (await wouldCreateCycle(id, parsed.data.parentId))) {
+    return {
+      ok: false,
+      message: "That parent is inside this category's own subtree — it would create a loop.",
+      fieldErrors: { parentId: ["Choose a category outside this branch."] },
+    };
   }
 
   const clash = await db.category.findFirst({ where: { slug: parsed.data.slug, id: { not: id } } });

@@ -15,11 +15,14 @@ declare module "next-auth" {
     user: {
       id: string;
       role: "CUSTOMER" | "ADMIN" | "VENDOR";
+      /** Credential version at sign-in; compared against the database. */
+      sessionVersion?: number;
     } & DefaultSession["user"];
   }
 
   interface User {
     role?: "CUSTOMER" | "ADMIN" | "VENDOR";
+    sessionVersion?: number;
   }
 }
 
@@ -27,6 +30,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
     role?: "CUSTOMER" | "ADMIN" | "VENDOR";
+    sessionVersion?: number;
   }
 }
 

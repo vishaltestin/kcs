@@ -33,6 +33,9 @@ export function parseProductForm(formData: FormData): Record<keyof ProductInput,
     video: str(formData.get("video")),
     delivery: str(formData.get("delivery")),
     stock: formData.get("stock") ? Number(formData.get("stock")) : 0,
+    // Unchecked checkboxes submit nothing — treat as "made to order" only when
+    // the field is explicitly declared present and not "true".
+    trackStock: formData.has("trackStock") ? formData.get("trackStock") === "true" : true,
     pricingMode: str(formData.get("pricingMode")) || "BULK",
     isActive: formData.get("isActive") === "true",
     isNew: formData.get("isNew") === "true",
@@ -154,6 +157,7 @@ export function cleanVariants(parsed: ProductInput) {
         sku: v.sku.trim() || null,
         image: v.image.trim() || null,
         stock: v.stock,
+        trackStock: v.trackStock ?? true,
         isActive: v.isActive,
         priceDelta,
         basePrice: effective[0]?.price ?? 0,
@@ -198,6 +202,12 @@ export function productData(parsed: ProductInput) {
     video: parsed.video || null,
     delivery: parsed.delivery || null,
     stock: parsed.hasVariants && variants.length > 0 ? variantStock : parsed.stock,
+    // With variants the flag mirrors them (any tracked variant = tracked);
+    // otherwise it is the explicit admin choice.
+    trackStock:
+      parsed.hasVariants && variants.length > 0
+        ? variants.some((v) => v.trackStock !== false)
+        : (parsed.trackStock ?? true),
     isActive: parsed.isActive,
     isNew: parsed.isNew,
     isFeatured: parsed.isFeatured,

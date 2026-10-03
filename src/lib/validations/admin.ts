@@ -1,5 +1,41 @@
 import { z } from "zod";
 
+import { isHttpUrl, isHttpUrlOrAssetPath, isSafeAssetPath } from "@/lib/urls";
+
+/**
+ * Link/asset validators shared by the admin + vendor forms.
+ *
+ * `z.string().url()` accepts `javascript:` and `data:` URLs, which then land
+ * in an `href` — these refinements exist to stop exactly that.
+ */
+const optionalHttpUrl = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => value === "" || isHttpUrl(value), {
+    message: "Enter a full http(s) link.",
+  });
+
+/** An uploaded asset path ("/api/uploads/…") or a full http(s) URL. */
+const assetRef = (label: string) =>
+  z
+    .string()
+    .trim()
+    .max(500)
+    .refine((value) => value === "" || isHttpUrlOrAssetPath(value), {
+      message: `${label} must be an uploaded file or a full http(s) link.`,
+    });
+
+/** An uploaded asset path only — never an off-site URL. */
+const assetPath = (label: string) =>
+  z
+    .string()
+    .trim()
+    .max(500)
+    .refine((value) => value === "" || isSafeAssetPath(value), {
+      message: `${label} must be an uploaded file path.`,
+    });
+
 import { HOME_BAND_LIMITS, HOME_BANNER_SLOTS } from "@/lib/home-bands";
 import { parseVideoSource } from "@/lib/video";
 
@@ -55,8 +91,10 @@ const variantSchema = z.object({
   attributes: z.record(z.string(), z.string()),
   label: z.string().trim().min(1).max(160),
   sku: z.string().trim().max(60),
-  image: z.string().trim(),
+  image: assetRef("Variant image"),
   stock: z.number({ message: "Stock is required." }).int().min(0),
+  /** Unticked = made to order (stock is not a real count). */
+  trackStock: z.boolean().default(true),
   isActive: z.boolean(),
   /** Shared pricing: ₹ added to (or subtracted from) every product tier for this variant. */
   priceDelta: z.number({ message: "Enter a number." }),
@@ -88,11 +126,13 @@ export const productSchema = z
     categoryIds: z.array(z.number().int().positive()),
     introtext: z.string().trim().max(500),
     description: z.string().trim().max(10000),
-    image: z.string().trim().min(1, "Main image is required."),
-    images: z.array(z.string().trim().min(1)),
+    image: assetRef("Main image").refine((v) => v.length > 0, "Main image is required."),
+    images: z.array(assetRef("Gallery image")),
     video: videoSource("product video"),
     delivery: z.string().trim().max(500),
     stock: z.number({ message: "Stock is required." }).int().min(0),
+    /** Unticked = made to order (stock is not a real count). */
+    trackStock: z.boolean().default(true),
     isActive: z.boolean(),
     isNew: z.boolean(),
     isFeatured: z.boolean(),
@@ -119,7 +159,7 @@ export const productSchema = z
     .trim()
     .max(165, "Meta description must be at most 165 characters."),
   metaKeywords: z.string().trim().max(255, "Meta keywords must be at most 255 characters."),
-  ogImage: z.string().trim(),
+  ogImage: assetRef("Social image"),
   })
   .refine(
     (data) => data.prices.every((tier) => tier.mrp >= tier.price),
@@ -206,7 +246,7 @@ export const categorySchema = z.object({
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase letters, numbers and dashes.")
     .min(2)
     .max(160),
-  image: z.string().trim(),
+  image: assetRef("Category image"),
   parentId: z.number().int().positive().nullable(),
   isSpecial: z.boolean(),
   sortOrder: z.number().int().min(0),
@@ -217,7 +257,7 @@ export const categorySchema = z.object({
     .trim()
     .max(165, "Meta description must be at most 165 characters."),
   metaKeywords: z.string().trim().max(255, "Meta keywords must be at most 255 characters."),
-  ogImage: z.string().trim(),
+  ogImage: assetRef("Social image"),
 });
 
 export type CategoryInput = z.infer<typeof categorySchema>;
@@ -230,7 +270,7 @@ export const brandSchema = z.object({
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase letters, numbers and dashes.")
     .min(2)
     .max(160),
-  logo: z.string().trim(),
+  logo: assetRef("Logo"),
   sortOrder: z.number().int().min(0),
 });
 
@@ -281,7 +321,7 @@ export const vendorSchema = z.object({
   pincode: z.string().trim().regex(/^\d{6}$/, "PIN code must be 6 digits.").or(z.literal("")),
   /// Two-digit GST state code — decides CGST/SGST vs IGST for this vendor.
   stateCode: z.string().regex(/^[0-9]{2}$/, "Pick the vendor's GST state code."),
-  logo: z.string().trim(),
+  logo: assetRef("Logo"),
   description: z.string().trim().max(5000),
   status: z.enum(VENDOR_STATUSES),
   sortOrder: z.number().int().min(0),
@@ -334,7 +374,7 @@ export const blogPostSchema = z.object({
     .max(200),
   excerpt: z.string().trim().min(20, "Excerpt must be at least 20 characters.").max(500),
   content: z.string().trim().min(50, "Content must be at least 50 characters."),
-  image: z.string().trim().min(1, "Cover image is required."),
+  image: assetRef("Cover image").refine((v) => v.length > 0, "Cover image is required."),
   author: z.string().trim().min(2).max(80),
   isPublished: z.boolean(),
   // SEO overrides (optional — empty strings fall back to derived values)
@@ -344,7 +384,7 @@ export const blogPostSchema = z.object({
     .trim()
     .max(165, "Meta description must be at most 165 characters."),
   metaKeywords: z.string().trim().max(255, "Meta keywords must be at most 255 characters."),
-  ogImage: z.string().trim(),
+  ogImage: assetRef("Social image"),
 });
 
 export type BlogPostInput = z.infer<typeof blogPostSchema>;
@@ -360,7 +400,7 @@ export const orderStatusSchema = z.enum(["PENDING", "CONFIRMED", "SHIPPED", "DEL
 export const shipmentSchema = z.object({
   courierName: z.string().trim().min(2, "Courier name is required.").max(80),
   trackingNumber: z.string().trim().max(80),
-  trackingUrl: z.string().trim().url("Tracking link must be a valid URL.").max(500).or(z.literal("")),
+  trackingUrl: optionalHttpUrl,
   expectedAt: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Use the date picker.").or(z.literal("")),
   shipmentNote: z.string().trim().max(500),
   markShipped: z.boolean(),
@@ -460,7 +500,7 @@ export const homeBandSchema = z.object({
     .max(HOME_BAND_LIMITS.subtitle, `Keep the support line under ${HOME_BAND_LIMITS.subtitle} characters.`),
   ctaLabel: z.string().trim().max(HOME_BAND_LIMITS.ctaLabel, `Keep the button label under ${HOME_BAND_LIMITS.ctaLabel} characters.`),
   ctaHref: hrefOrPath("button link"),
-  image: z.string().trim().max(300, "Image path is too long."),
+  image: assetPath("Image"),
   videoUrl: videoSource("band video"),
   isActive: z.boolean(),
 });

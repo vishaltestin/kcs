@@ -21,6 +21,8 @@ export type VariantInput = {
   sku: string;
   image: string;
   stock: number;
+  /** Untracked = made to order (stock is not a real count). */
+  trackStock?: boolean;
   isActive: boolean;
   /** Shared pricing: ₹ added to every product tier for this variant. */
   priceDelta: number;
@@ -40,6 +42,8 @@ export type StorefrontVariant = {
   sku: string | null;
   image: string | null;
   stock: number;
+  /** False = made to order; `stock` is not a real count. */
+  trackStock: boolean;
   price: number | null;
   mrp: number | null;
   minQuantity: number;

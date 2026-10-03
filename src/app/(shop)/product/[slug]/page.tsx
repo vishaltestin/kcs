@@ -140,12 +140,16 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
                   SKU {product.sku}
                 </span>
               )}
-              {product.stock > 0 ? (
+              {product.trackStock === false || product.stock <= 0 ? (
+                // Made-to-order products (and any tracked product at 0) show
+                // this label — stock 0 is no longer ambiguous.
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  {product.trackStock === false ? "Made to order" : "Out of stock"}
+                </span>
+              ) : (
                 <span className="flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">
                   <span className="size-1.5 rounded-full bg-success" aria-hidden /> In stock
                 </span>
-              ) : (
-                <span className="text-[11px] font-medium text-muted-foreground">Made to order</span>
               )}
             </div>
             <h1 className="display text-[1.85rem] md:text-[2.4rem]">{product.name}</h1>

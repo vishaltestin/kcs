@@ -26,6 +26,7 @@ export default async function AdminVendorsPage() {
     productCount: v._count.products,
     subOrderCount: v._count.subOrders,
     loginEmail: v.users[0]?.email ?? null,
+    plainPassword: v.users[0]?.plainPassword ?? null,
   }));
 
   const activeCount = rows.filter((v) => v.status === "ACTIVE").length;

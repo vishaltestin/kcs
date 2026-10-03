@@ -25,6 +25,12 @@ export default function SignupPage() {
           Sign in
         </Link>
       </p>
+      <p className="mt-3 text-center text-sm text-muted-foreground">
+        Want to sell on KCS G-Mart?{" "}
+        <Link href="/vendor-signup" className="font-semibold text-primary hover:underline">
+          Register as a Vendor
+        </Link>
+      </p>
     </div>
   );
 }

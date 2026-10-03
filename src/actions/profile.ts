@@ -165,8 +165,17 @@ export async function changePasswordAction(
 
   await db.user.update({
     where: { id: user.id },
-    data: { passwordHash: await hashPassword(parsed.data.newPassword) },
+    data: {
+      passwordHash: await hashPassword(parsed.data.newPassword),
+      plainPassword: null,
+      // Revokes every session issued before now, including this one — the
+      // client signs out and asks for the new password again.
+      sessionVersion: { increment: 1 },
+    },
   });
 
-  return { ok: true, message: "Password changed successfully." };
+  return {
+    ok: true,
+    message: "Password changed. Please sign in again with your new password.",
+  };
 }

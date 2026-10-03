@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { assertVendor } from "@/lib/auth/guards";
 import { shipmentSchema } from "@/lib/validations/admin";
 import { buildTrackingUrl } from "@/lib/couriers";
-import { syncParentOrderStatus } from "@/lib/sub-orders";
+import { orderMutationMessage, transitionOrderStatus } from "@/lib/order-mutations";
 import type { ActionResult } from "@/types";
 
 /**
@@ -55,40 +55,36 @@ export async function vendorConfirmSubOrderAction(orderId: string): Promise<Acti
 
   const sub = await ownSubOrder(vendor.id, orderId);
   if (!sub) return { ok: false, message: "Order not found — it may belong to another seller." };
-  if (sub.status !== "PENDING") {
-    return { ok: false, message: `This order is already ${sub.status.toLowerCase()}.` };
-  }
 
-  await db.$transaction(async (tx) => {
-    await tx.order.update({ where: { id: sub.id }, data: { status: "CONFIRMED" } });
-    if (sub.parentId) await syncParentOrderStatus(tx, sub.parentId);
-  });
+  try {
+    await db.$transaction((tx) => transitionOrderStatus(tx, sub.id, "CONFIRMED"));
+  } catch (error) {
+    const message = orderMutationMessage(error);
+    if (message) return { ok: false, message };
+    throw error;
+  }
 
   await revalidateSurfaces(sub);
   return { ok: true, message: "Order confirmed." };
 }
 
-/** Mark a sub-order delivered (courier details come from the shipment form). */
+/**
+ * Mark a sub-order delivered. Delivery is only allowed from SHIPPED — a
+ * vendor cannot skip dispatch (the shared transition path enforces it).
+ */
 export async function vendorDeliverSubOrderAction(orderId: string): Promise<ActionResult> {
   const { vendor } = await assertVendor();
 
   const sub = await ownSubOrder(vendor.id, orderId);
   if (!sub) return { ok: false, message: "Order not found — it may belong to another seller." };
-  if (sub.status === "CANCELLED") return { ok: false, message: "Cancelled orders can't be delivered." };
-  if (sub.status === "DELIVERED") return { ok: false, message: "This order is already delivered." };
 
-  await db.$transaction(async (tx) => {
-    await tx.order.update({
-      where: { id: sub.id },
-      data: {
-        status: "DELIVERED",
-        deliveredAt: new Date(),
-        // Delivering straight from PENDING implies it also shipped.
-        ...(!sub.shippedAt ? { shippedAt: new Date() } : {}),
-      },
-    });
-    if (sub.parentId) await syncParentOrderStatus(tx, sub.parentId);
-  });
+  try {
+    await db.$transaction((tx) => transitionOrderStatus(tx, sub.id, "DELIVERED"));
+  } catch (error) {
+    const message = orderMutationMessage(error);
+    if (message) return { ok: false, message };
+    throw error;
+  }
 
   await revalidateSurfaces(sub);
   return { ok: true, message: "Order marked delivered." };
@@ -127,22 +123,30 @@ export async function vendorUpdateShipmentAction(
 
   const d = parsed.data;
   const trackingUrl = buildTrackingUrl(d.courierName, d.trackingNumber, d.trackingUrl);
-  const becomesShipped = d.markShipped && sub.status !== "DELIVERED";
+  const becomesShipped =
+    d.markShipped && (sub.status === "PENDING" || sub.status === "CONFIRMED");
 
-  await db.$transaction(async (tx) => {
-    await tx.order.update({
-      where: { id: sub.id },
-      data: {
-        courierName: d.courierName || null,
-        trackingNumber: d.trackingNumber || null,
-        trackingUrl,
-        expectedAt: d.expectedAt ? new Date(d.expectedAt) : null,
-        shipmentNote: d.shipmentNote || null,
-        ...(becomesShipped ? { status: "SHIPPED", shippedAt: sub.shippedAt ?? new Date() } : {}),
-      },
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: sub.id },
+        data: {
+          courierName: d.courierName || null,
+          trackingNumber: d.trackingNumber || null,
+          trackingUrl,
+          expectedAt: d.expectedAt ? new Date(d.expectedAt) : null,
+          shipmentNote: d.shipmentNote || null,
+        },
+      });
+      // Shared transition path — enforces PENDING/CONFIRMED → SHIPPED and
+      // rolls the parent order up inside the same transaction.
+      if (becomesShipped) await transitionOrderStatus(tx, sub.id, "SHIPPED");
     });
-    if (sub.parentId) await syncParentOrderStatus(tx, sub.parentId);
-  });
+  } catch (error) {
+    const message = orderMutationMessage(error);
+    if (message) return { ok: false, message };
+    throw error;
+  }
 
   await revalidateSurfaces(sub);
   return { ok: true, message: becomesShipped ? "Shipment saved — order marked shipped." : "Shipment details saved." };

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { getSession, signIn } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,7 +21,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Alert } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { preLoginCheckAction } from "@/actions/auth";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 
@@ -30,6 +31,7 @@ export function LoginForm() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -39,12 +41,15 @@ export function LoginForm() {
 
   const onSubmit = async (values: LoginInput) => {
     setFormError(null);
+    setVerifyEmail(null);
 
     // 1. Pre-flight: rate limit, schema check, unverified-account gate.
     const check = await preLoginCheckAction(values.email, values.password);
     if (!check.ok) {
       setFormError(check.message);
       toast.error(check.message);
+      if (!check.needsPhoneVerification) setVerifyEmail(null);
+      else setVerifyEmail(values.email.trim().toLowerCase());
       if (check.fieldErrors) {
         for (const [key, messages] of Object.entries(check.fieldErrors)) {
           if (messages?.length) {
@@ -94,7 +99,17 @@ export function LoginForm() {
       <CardContent className="px-6 py-7 md:px-8">
         {formError && (
           <Alert variant="destructive" className="mb-4">
-            {formError}
+            <AlertDescription>
+              {formError}{" "}
+              {verifyEmail && (
+                <Link
+                  href={`/verify-phone?email=${encodeURIComponent(verifyEmail)}`}
+                  className="font-semibold underline"
+                >
+                  Verify now
+                </Link>
+              )}
+            </AlertDescription>
           </Alert>
         )}
 

@@ -79,6 +79,11 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
   // sees the button loading, never a blank/skeleton page in between.
   const [isRedirecting, setIsRedirecting] = useState(false);
   const handledState = useRef<typeof state>(null);
+  /** One idempotency key per cart payload — see onSubmit. */
+  const checkoutKeyRef = useRef<{ fingerprint: string; key: string }>({
+    fingerprint: "",
+    key: "",
+  });
 
   const form = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutFormSchema),
@@ -122,6 +127,19 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
 
   const onSubmit = (values: CheckoutFormValues) => {
     const formData = new FormData();
+    // Idempotency key for this cart payload. Generated once per payload and
+    // reused on retries, so a double click or a flaky network can only ever
+    // create one order. A changed cart (different payload) gets a new key.
+    const payloadFingerprint = JSON.stringify(
+      items.map((item) => [item.productId, item.variantId, item.qty]),
+    );
+    if (checkoutKeyRef.current.fingerprint !== payloadFingerprint) {
+      checkoutKeyRef.current = {
+        fingerprint: payloadFingerprint,
+        key: crypto.randomUUID().replace(/-/g, ""),
+      };
+    }
+    formData.set("checkoutKey", checkoutKeyRef.current.key);
     formData.set("customerName", values.customerName);
     formData.set("customerEmail", values.customerEmail);
     formData.set("customerPhone", values.customerPhone);

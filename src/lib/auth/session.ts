@@ -24,8 +24,11 @@ export function generateToken(): string {
 /**
  * Resolves the authenticated user from the Auth.js JWT session cookie.
  *
- * The JWT only carries the user id (+ role); the fresh user record is loaded
- * from the database so that profile/role changes take effect immediately.
+ * The JWT only carries the user id (+ role and the session version); the
+ * fresh user record is loaded from the database so profile/role changes take
+ * effect immediately, and the token's `sessionVersion` must still match the
+ * database — bumping it (password change, admin reset, role change) revokes
+ * every session issued before the bump.
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
   const session = await auth();
@@ -42,8 +45,16 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       role: true,
       emailVerifiedAt: true,
       vendorId: true,
+      sessionVersion: true,
     },
   });
+  if (!user) return null;
 
-  return user;
+  // Tokens issued before this feature carry no version — treat them as 0 so
+  // existing sessions survive the deploy (see deployment notes).
+  const tokenVersion = session.user.sessionVersion ?? 0;
+  if (tokenVersion !== user.sessionVersion) return null;
+
+  const { sessionVersion: _sessionVersion, ...sessionUser } = user;
+  return sessionUser;
 }
