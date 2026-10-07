@@ -2,8 +2,10 @@
 
 A modern rebuild of the KCS G-Mart storefront (corporate gifting, bulk pricing,
 branded merchandise) with Next.js App Router, TypeScript, Prisma + MySQL and
-shadcn/ui. All mutations run through **Server Actions** — no REST endpoints, no
-client-side API fetching for writes.
+shadcn/ui. All mutations run through **Server Actions** — no REST endpoints for
+writes (the only exception is the signature-verified Cashfree payment webhook),
+no client-side API fetching for writes. Online payments are covered in
+[CASHFREE.md](CASHFREE.md).
 
 ![Stack](https://img.shields.io/badge/Next.js-16-black) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue) ![Prisma](https://img.shields.io/badge/Prisma-7-orange)
 

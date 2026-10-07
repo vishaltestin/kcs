@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { toast } from "sonner";
 
@@ -29,6 +37,8 @@ import type { WishlistItem } from "@/types";
 
 type WishlistContextValue = {
   isAuthenticated: boolean;
+  /** True once the store holds trustworthy data (guest local data, or server truth for signed-in users). */
+  hydrated: boolean;
   items: WishlistItem[];
   isWishlisted: (productId: string) => boolean;
   toggle: (item: WishlistItem) => void;
@@ -52,9 +62,18 @@ export function WishlistProvider({
   const toggleLocal = useWishlistStore((state) => state.toggleWishlist);
   const removeFromLocal = useWishlistStore((state) => state.removeFromWishlist);
   const bootstrappedRef = useRef(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (!userId || bootstrappedRef.current) return;
+    if (!userId) {
+      // Guests read from the local persisted store, so there is no
+      // server round-trip — still resolve in an effect so the
+      // persisted store has a tick to rehydrate before consumers
+      // stop showing their loading fallback.
+      setHydrated(true);
+      return;
+    }
+    if (bootstrappedRef.current) return;
     bootstrappedRef.current = true;
 
     const { items: localItems, ownerId } = useWishlistStore.getState();
@@ -70,11 +89,16 @@ export function WishlistProvider({
             ? guestItems.filter((i) => !serverIds.has(i.id))
             : [];
           hydrate([...mergedGuests, ...serverItems], userId);
+          setHydrated(true);
         })
-        .catch(() => hydrate(serverItems, userId));
+        .catch(() => {
+          hydrate(serverItems, userId);
+          setHydrated(true);
+        });
     } else {
       // Items owned by another account are discarded — never shown or merged.
       hydrate(serverItems, userId);
+      setHydrated(true);
     }
     // serverItems changes per page load; bootstrap runs once per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -144,13 +168,14 @@ export function WishlistProvider({
   const value = useMemo(
     () => ({
       isAuthenticated: Boolean(userId),
+      hydrated,
       items,
       isWishlisted: (productId: string) => items.some((i) => i.id === productId),
       toggle,
       remove,
       clearAll,
     }),
-    [userId, items, toggle, remove, clearAll]
+    [userId, hydrated, items, toggle, remove, clearAll]
   );
 
   return <WishlistContext.Provider value={value}>{children}</WishlistContext.Provider>;

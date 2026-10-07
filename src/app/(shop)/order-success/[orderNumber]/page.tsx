@@ -26,6 +26,7 @@ import { SITE } from "@/lib/constants";
 import { formatGrams } from "@/lib/shipping";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { CopyButton } from "@/components/shared/copy-button";
+import { ClearCartOnSuccess } from "@/components/shop/clear-cart-on-success";
 
 export const metadata: Metadata = {
   title: "Order Confirmed",
@@ -63,6 +64,7 @@ export default async function OrderSuccessPage({
   return (
     <div className="relative overflow-hidden">
       <div className="container relative max-w-3xl py-12 md:py-16">
+        <ClearCartOnSuccess orderNumber={order.orderNumber} />
         {/* Hero */}
         <div className="mb-10 text-center">
           <span className="relative mx-auto mb-6 grid size-24 place-items-center">
@@ -111,6 +113,40 @@ export default async function OrderSuccessPage({
             </div>
           )}
         </div>
+
+        {/* Payment status — online-only checkout confirms the order on payment */}
+        {order.paymentStatus === "PAID" ? (
+          <div className="mb-10 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 rounded-xl bg-success/[0.08] px-5 py-3.5 text-sm">
+            <CheckCircle2 className="size-4 text-success" aria-hidden />
+            <span className="font-semibold">Paid online</span>
+            {order.paidAt && (
+              <span className="text-muted-foreground">on {formatDate(order.paidAt)}</span>
+            )}
+            {order.cfPaymentId && (
+              <>
+                <span className="font-mono text-[12px] font-bold">{order.cfPaymentId}</span>
+                <CopyButton value={order.cfPaymentId} />
+              </>
+            )}
+          </div>
+        ) : (
+          !cancelled && (
+            <div className="mb-10 rounded-xl border border-warning/40 bg-warning/[0.08] px-5 py-4 text-center">
+              <p className="text-[15px] font-bold">
+                Payment {order.paymentStatus === "FAILED" ? "failed" : "pending"} — this order
+                isn&apos;t confirmed yet.
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Stock is reserved only after payment. Complete it now to confirm your order.
+              </p>
+              <Button asChild size="sm" className="mt-3">
+                <Link href={`/payment-failed/${order.orderNumber}`}>
+                  Complete payment <ArrowRight aria-hidden />
+                </Link>
+              </Button>
+            </div>
+          )
+        )}
 
         {/* Status timeline */}
         <div className="mb-10 border-y border-foreground/[0.12] py-6">

@@ -91,7 +91,7 @@ src/
 │   ├── (auth)/       # login, signup, vendor-signup, verify-phone
 │   ├── admin/        # admin console (own layout + sidebar)
 │   ├── vendor/       # vendor portal
-│   └── api/          # only: auth/[...nextauth], uploads, invoice PDF
+│   └── api/          # only: auth/[...nextauth], uploads, invoice PDF, cashfree webhook
 ├── components/
 │   ├── ui/           # shadcn/ui primitives (CLI-generated)
 │   ├── admin/ auth/ vendor/ shop/ layout/ shared/ forms/ home/

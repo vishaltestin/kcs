@@ -8,9 +8,13 @@ import { formatGrams } from "@/lib/shipping";
 
 /**
  * Tax-invoice PDF (A4) built with pdfkit. Layout:
- *   header band (seller + invoice meta) → bill-to / ship-to → line items with
- *   HSN, qty, rate, taxable value and GST → HSN-wise tax summary → totals,
- *   amount in words, bank/notes and signature block.
+ *   slim brand band → seller + invoice meta → bill-to / ship-to cards →
+ *   airy line-items table (single Tax column) → HSN-wise breakup + totals
+ *   with amount-in-words → declaration and signature block.
+ *
+ * Design notes: light table header (no heavy charcoal band), no zebra rows,
+ * one hairline per row, CGST/SGST split carried by the HSN breakup so the
+ * main table stays at 8 calm columns for both intra- and inter-state sales.
  *
  * B2B (buyer GSTIN present) and B2C invoices share the layout; the GSTIN row
  * and "Tax Invoice" vs "Invoice" title differ.
@@ -70,12 +74,13 @@ export type InvoiceOrder = {
 };
 
 const ASSETS = path.join(process.cwd(), "src", "lib", "invoice-assets");
-const BRAND_TEAL = "#0099B5";
-const CHARCOAL = "#3A4045";
-const INK = "#1f2937";
+const BRAND = "#0099B5";
+const INK = "#111827";
+const BODY = "#374151";
 const MUTED = "#6b7280";
 const RULE = "#e5e7eb";
-const SURFACE = "#f7f7f8";
+const PANEL = "#f8fafc";
+const PANEL_RULE = "#e2e8f0";
 
 const inr = (n: number) =>
   "₹" +
@@ -106,181 +111,274 @@ export async function renderInvoicePdf(order: InvoiceOrder, seller: InvoiceSelle
   doc.registerFont("Bold", path.join(ASSETS, "DejaVuSans-Bold.ttf"));
 
   const pageW = doc.page.width;
+  const pageH = doc.page.height;
   const left = doc.page.margins.left;
   const right = pageW - doc.page.margins.right;
   const width = right - left;
   const interState = order.igst > 0;
   const isB2B = !!order.gstNo;
 
-  // ── Header band ────────────────────────────────────────────────────────
-  doc.rect(0, 0, pageW, 6).fill(BRAND_TEAL);
-  let y = 28;
+  const rule = (x1: number, yy: number, x2: number, color = RULE, w = 0.75) => {
+    doc.moveTo(x1, yy).lineTo(x2, yy).lineWidth(w).strokeColor(color).stroke();
+  };
+
+  const caption = (text: string, x: number, yy: number, color = MUTED) => {
+    doc.font("Bold").fontSize(7.5).fillColor(color).text(text.toUpperCase(), x, yy, { characterSpacing: 1.2 });
+  };
+
+  /**
+   * Single-line cells must NEVER wrap (a wrapped value collides with the
+   * row below). pdfkit wraps long unbroken strings despite
+   * `lineBreak: false`, so instead we measure and shrink the font until
+   * the text provably fits its column.
+   */
+  const fitSize = (text: string, font: "Body" | "Bold", size: number, maxW: number): number => {
+    let s = size;
+    while (s > 6.5 && doc.font(font).fontSize(s).widthOfString(text) > maxW) s -= 0.5;
+    return s;
+  };
+
+  // ── Slim brand band + seller / invoice meta ────────────────────────────
+  doc.rect(0, 0, pageW, 4).fill(BRAND);
+  let y = 26;
+  let logoW = 0;
   try {
-    doc.image(path.join(ASSETS, "logo.png"), left, y, { height: 44 });
+    doc.image(path.join(ASSETS, "logo.png"), left, y, { height: 38 });
+    logoW = 50;
   } catch {
     /* logo optional */
   }
-  doc.font("Bold").fontSize(15).fillColor(INK).text(seller.name, left + 56, y + 2);
-  doc.font("Body").fontSize(8.5).fillColor(MUTED);
-  if (seller.address) doc.text(seller.address, left + 56, y + 21, { width: 300 });
+  const sellerX = left + logoW;
+  doc.font("Bold").fontSize(14).fillColor(INK).text(seller.name, sellerX, y + 1, { width: 300 });
+  doc.font("Body").fontSize(8).fillColor(MUTED);
+  if (seller.address) doc.text(seller.address, sellerX, doc.y + 2, { width: 300 });
   const contact = [seller.phone, seller.email].filter(Boolean).join("  ·  ");
-  if (contact) doc.text(contact, left + 56, doc.y + 1, { width: 300 });
-  if (seller.gstin) doc.text(`GSTIN ${seller.gstin}${seller.pan ? `  ·  PAN ${seller.pan}` : ""}`, left + 56, doc.y + 1);
+  if (contact) doc.text(contact, sellerX, doc.y + 2, { width: 300 });
+  if (seller.gstin) {
+    doc.text(`GSTIN ${seller.gstin}${seller.pan ? `  ·  PAN ${seller.pan}` : ""}`, sellerX, doc.y + 2);
+  }
+  const sellerBottom = doc.y;
 
   // Invoice meta block (right)
-  const metaX = right - 200;
-  doc.font("Bold").fontSize(18).fillColor(BRAND_TEAL).text(isB2B ? "TAX INVOICE" : "INVOICE", metaX, y, { width: 200, align: "right" });
-  doc.font("Body").fontSize(8.5).fillColor(MUTED).text(isB2B ? "B2B · Recipient registered under GST" : "B2C · Unregistered recipient", metaX, y + 22, { width: 200, align: "right" });
+  const metaW = 196;
+  const metaX = right - metaW;
+  doc.font("Bold").fontSize(19).fillColor(INK).text(isB2B ? "TAX INVOICE" : "INVOICE", metaX, y, { width: metaW, align: "right" });
+  doc
+    .font("Body")
+    .fontSize(8)
+    .fillColor(MUTED)
+    .text(isB2B ? "B2B · Registered buyer" : "B2C · Retail sale", metaX, y + 24, { width: metaW, align: "right" });
   const meta: [string, string][] = [
-    ["Invoice No.", order.invoiceNumber],
+    ["Invoice no.", order.invoiceNumber],
     ["Invoice date", fmtDate(order.invoicedAt)],
-    ["Order No.", order.orderNumber],
+    ["Order no.", order.orderNumber],
     ["Order date", fmtDate(order.createdAt)],
-    ["Place of supply", order.placeOfSupply ? `${GST_STATE_CODES[order.placeOfSupply] ?? order.billingState} (${order.placeOfSupply})` : order.billingState],
+    [
+      "Place of supply",
+      order.placeOfSupply
+        ? `${GST_STATE_CODES[order.placeOfSupply] ?? order.billingState} (${order.placeOfSupply})`
+        : order.billingState,
+    ],
   ];
-  let my = y + 38;
+  let my = y + 42;
   for (const [k, v] of meta) {
-    doc.font("Body").fontSize(8.5).fillColor(MUTED).text(k, metaX, my, { width: 90, align: "left" });
-    doc.font("Bold").fontSize(8.5).fillColor(INK).text(v, metaX + 90, my, { width: 110, align: "right" });
-    my += 13;
+    doc.font("Body").fontSize(8.5).fillColor(MUTED).text(k, metaX, my, { width: 80, lineBreak: false });
+    doc
+      .font("Bold")
+      .fontSize(fitSize(v, "Bold", 9, 116))
+      .fillColor(INK)
+      .text(v, metaX + 80, my, { width: 116, align: "right", lineBreak: false });
+    my += 15.5;
   }
 
-  y = Math.max(my, doc.y) + 14;
-  doc.moveTo(left, y).lineTo(right, y).lineWidth(0.8).strokeColor(RULE).stroke();
-  y += 14;
+  y = Math.max(sellerBottom, my) + 16;
+  rule(left, y, right);
+  y += 16;
 
-  // ── Bill to / Ship to ──────────────────────────────────────────────────
-  const colW = width / 2 - 10;
-  const party = (title: string, x: number, lines: string[]) => {
-    doc.font("Bold").fontSize(7.5).fillColor(BRAND_TEAL).text(title.toUpperCase(), x, y, { characterSpacing: 1 });
-    let py = y + 12;
-    lines.forEach((line, i) => {
-      doc.font(i === 0 ? "Bold" : "Body").fontSize(i === 0 ? 10 : 8.5).fillColor(i === 0 ? INK : CHARCOAL).text(line, x, py, { width: colW });
-      py = doc.y + 1.5;
-    });
-    return py;
+  // ── Bill to / Ship to cards ────────────────────────────────────────────
+  type PartyLine = { text: string; bold: boolean; size: number };
+  const pad = 12;
+  const gap = 12;
+  const cardW = (width - gap) / 2;
+  const cardTextW = cardW - pad * 2;
+
+  const measureCard = (lines: PartyLine[]) => {
+    let h = pad + 12; // top pad + caption
+    for (const l of lines) {
+      h += doc.font(l.bold ? "Bold" : "Body").fontSize(l.size).heightOfString(l.text, { width: cardTextW }) + 3;
+    }
+    return h + pad - 3;
   };
-  const billLines = [
-    order.companyName || order.customerName,
-    ...(order.companyName ? [order.customerName] : []),
-    order.billingAddress,
-    `${order.billingCity}, ${order.billingState} — ${order.billingPincode}`,
-    `${order.customerPhone}  ·  ${order.customerEmail}`,
-    ...(order.gstNo ? [`GSTIN ${order.gstNo}`] : ["GSTIN — (unregistered)"]),
+  const drawCard = (title: string, x: number, top: number, h: number, lines: PartyLine[]) => {
+    doc.roundedRect(x, top, cardW, h, 6).fill(PANEL);
+    doc.roundedRect(x, top, cardW, h, 6).lineWidth(0.75).stroke(PANEL_RULE);
+    caption(title, x + pad, top + pad, BRAND);
+    let py = top + pad + 13;
+    for (const l of lines) {
+      doc
+        .font(l.bold ? "Bold" : "Body")
+        .fontSize(l.size)
+        .fillColor(l.bold ? INK : BODY)
+        .text(l.text, x + pad, py, { width: cardTextW });
+      py = doc.y + 3;
+    }
+  };
+
+  const billLines: PartyLine[] = [
+    { text: order.companyName || order.customerName, bold: true, size: 10.5 },
+    ...(order.companyName ? [{ text: order.customerName, bold: false, size: 8.5 }] : []),
+    { text: order.billingAddress, bold: false, size: 8.5 },
+    { text: `${order.billingCity}, ${order.billingState} — ${order.billingPincode}`, bold: false, size: 8.5 },
+    { text: `${order.customerPhone}  ·  ${order.customerEmail}`, bold: false, size: 8 },
+    { text: order.gstNo ? `GSTIN: ${order.gstNo}` : "Unregistered buyer", bold: false, size: 8 },
   ];
-  const shipLines = [
-    order.companyName || order.customerName,
-    order.shippingAddress,
-    `${order.shippingCity}, ${order.shippingState} — ${order.shippingPincode}`,
-    ...(order.shippingZone ? [`Zone: ${order.shippingZone}${order.chargeableWeight > 0 ? ` · ${formatGrams(order.chargeableWeight)} chargeable` : ""}`] : []),
+  const shipLines: PartyLine[] = [
+    { text: order.companyName || order.customerName, bold: true, size: 10.5 },
+    { text: order.shippingAddress, bold: false, size: 8.5 },
+    { text: `${order.shippingCity}, ${order.shippingState} — ${order.shippingPincode}`, bold: false, size: 8.5 },
+    ...(order.shippingZone
+      ? [
+          {
+            text: `Delivery zone ${order.shippingZone}${order.chargeableWeight > 0 ? ` · ${formatGrams(order.chargeableWeight)} chargeable` : ""}`,
+            bold: false,
+            size: 8,
+          },
+        ]
+      : []),
   ];
-  const y1 = party("Bill to", left, billLines);
-  const y2 = party("Ship to", left + colW + 20, shipLines);
-  y = Math.max(y1, y2) + 12;
+  const cardH = Math.max(measureCard(billLines), measureCard(shipLines));
+  drawCard("Bill to", left, y, cardH, billLines);
+  drawCard("Ship to", left + cardW + gap, y, cardH, shipLines);
+  y += cardH + 20;
 
   // ── Items table ────────────────────────────────────────────────────────
-  // Widths sum to 515 (A4 minus margins); numeric columns are sized for
-  // amounts up to ₹9,99,999.00 at 8 pt without wrapping.
-  const cols = interState
-    ? [
-        { key: "sn", label: "#", w: 16, align: "left" as const },
-        { key: "desc", label: "Description", w: 158, align: "left" as const },
-        { key: "hsn", label: "HSN", w: 42, align: "left" as const },
-        { key: "qty", label: "Qty", w: 30, align: "right" as const },
-        { key: "rate", label: "Rate", w: 60, align: "right" as const },
-        { key: "taxable", label: "Taxable", w: 70, align: "right" as const },
-        { key: "igst", label: "IGST", w: 62, align: "right" as const },
-        { key: "total", label: "Total", w: 77, align: "right" as const },
-      ]
-    : [
-        { key: "sn", label: "#", w: 16, align: "left" as const },
-        { key: "desc", label: "Description", w: 128, align: "left" as const },
-        { key: "hsn", label: "HSN", w: 48, align: "left" as const },
-        { key: "qty", label: "Qty", w: 28, align: "right" as const },
-        { key: "rate", label: "Rate", w: 54, align: "right" as const },
-        { key: "taxable", label: "Taxable", w: 66, align: "right" as const },
-        { key: "cgst", label: "CGST", w: 52, align: "right" as const },
-        { key: "sgst", label: "SGST", w: 52, align: "right" as const },
-        { key: "total", label: "Total", w: 71, align: "right" as const },
-      ];
-  const tableW = cols.reduce((s, c) => s + c.w, 0);
-  const scale = width / tableW;
-  cols.forEach((c) => (c.w = c.w * scale));
+  // One calm 8-column schema for both intra- and inter-state sales: the
+  // CGST/SGST split lives in the HSN breakup below, so the main table shows
+  // a single Tax column (amount + rate).
+  const cols = [
+    { key: "sn", label: "#", w: 30, align: "left" as const },
+    { key: "desc", label: "Description", w: 0, align: "left" as const }, // flex
+    { key: "hsn", label: "HSN", w: 58, align: "left" as const },
+    { key: "qty", label: "Qty", w: 30, align: "right" as const },
+    { key: "rate", label: "Rate", w: 60, align: "right" as const },
+    { key: "taxable", label: "Taxable", w: 66, align: "right" as const },
+    { key: "tax", label: "Tax", w: 62, align: "right" as const },
+    { key: "total", label: "Total", w: 76, align: "right" as const },
+  ];
+  cols[1].w = width - cols.reduce((s, c) => s + c.w, 0);
 
-  const drawHeader = () => {
-    doc.rect(left, y, width, 20).fill(CHARCOAL);
+  const drawTableHeader = () => {
     let x = left + 6;
-    doc.font("Bold").fontSize(7.5).fillColor("#ffffff");
+    doc.font("Bold").fontSize(7.5).fillColor(MUTED);
     for (const c of cols) {
-      doc.text(c.label.toUpperCase(), x, y + 6.5, { width: c.w - 8, align: c.align, characterSpacing: 0.6 });
+      doc.text(c.label.toUpperCase(), x, y, { width: c.w - 10, align: c.align, characterSpacing: 0.8, lineBreak: false });
       x += c.w;
     }
-    y += 20;
+    rule(left, y + 15, right, "#9ca3af", 1);
+    y += 21;
   };
-  drawHeader();
+  drawTableHeader();
 
   const rows = [
     ...order.items.map((it) => ({ ...it, isShipping: false })),
     ...(order.shipping > 0
-      ? [{ name: "Shipping & handling", variantLabel: order.shippingZone, sku: null, hsnCode: "996812", gstRate: 18, quantity: 1, unitPrice: order.shipping, lineTotal: order.shipping, isShipping: true }]
+      ? [
+          {
+            name: "Shipping & handling",
+            variantLabel: order.shippingZone,
+            sku: null,
+            hsnCode: "996812",
+            gstRate: 18,
+            quantity: 1,
+            unitPrice: order.shipping,
+            lineTotal: order.shipping,
+            soldBy: null,
+            isShipping: true,
+          },
+        ]
       : []),
   ];
 
+  const CELL = 6;
   rows.forEach((it, i) => {
     const { taxable, tax } = splitInclusive(it.lineTotal, it.gstRate);
     const unitTaxable = splitInclusive(it.unitPrice, it.gstRate).taxable;
-    const desc = `${it.name}${it.variantLabel ? ` — ${it.variantLabel}` : ""}`;
-    const sub = [it.sku ? `SKU ${it.sku}` : null, `GST ${it.gstRate}%`, it.soldBy ? `Sold by ${it.soldBy}` : null]
+    const name = `${it.name}${it.variantLabel ? ` (${it.variantLabel})` : ""}`;
+    const sub = [
+      it.sku ? `SKU ${it.sku}` : null,
+      `${it.gstRate}% GST`,
+      it.soldBy ? `Sold by ${it.soldBy}` : null,
+    ]
       .filter(Boolean)
-      .join(" · ");
-    const descH = doc.font("Body").fontSize(8.5).heightOfString(desc, { width: cols[1].w - 8 }) + 11;
-    const rowH = Math.max(24, descH + 4);
+      .join("  ·  ");
+    const descW = cols[1].w - CELL * 2;
+    const descH =
+      doc.font("Bold").fontSize(8.5).heightOfString(name, { width: descW }) +
+      2 +
+      doc.font("Body").fontSize(7.5).heightOfString(sub, { width: descW });
+    const taxH =
+      doc.font("Body").fontSize(8.5).heightOfString(inr(tax), { width: cols[6].w }) +
+      2 +
+      doc.font("Body").fontSize(7).heightOfString(`${it.gstRate}%`, { width: cols[6].w });
+    const rowH = Math.max(38, descH + 18, taxH + 18);
 
-    if (y + rowH > doc.page.height - 200) {
+    if (y + rowH > pageH - 150) {
       doc.addPage();
       y = 40;
-      drawHeader();
+      drawTableHeader();
     }
-    if (i % 2 === 1) doc.rect(left, y, width, rowH).fill(SURFACE);
 
-    const values: Record<string, string> = {
-      sn: String(i + 1),
-      desc,
-      hsn: it.hsnCode ?? "—",
-      qty: String(it.quantity),
-      rate: inr(unitTaxable),
-      taxable: inr(taxable),
-      igst: inr(tax),
-      cgst: inr(tax / 2),
-      sgst: inr(tax - Math.round((tax / 2) * 100) / 100),
-      total: inr(it.lineTotal),
-    };
-    let x = left + 6;
-    for (const c of cols) {
-      const isDesc = c.key === "desc";
-      const numeric = c.align === "right";
+    let x = left + CELL;
+    // #
+    doc.font("Body").fontSize(8.5).fillColor(BODY).text(String(i + 1), x, y + 9, { width: cols[0].w - CELL * 2, lineBreak: false });
+    x += cols[0].w;
+    // Description
+    doc.font("Bold").fontSize(8.5).fillColor(INK).text(name, x, y + 9, { width: descW });
+    doc.font("Body").fontSize(7.5).fillColor(MUTED).text(sub, x, doc.y + 2, { width: descW });
+    x += cols[1].w;
+    // HSN
+    doc
+      .font("Body")
+      .fontSize(fitSize(it.hsnCode ?? "—", "Body", 8, cols[2].w - CELL * 2))
+      .fillColor(BODY)
+      .text(it.hsnCode ?? "—", x, y + 9, { width: cols[2].w - CELL * 2, lineBreak: false });
+    x += cols[2].w;
+    // Qty / Rate / Taxable — numeric cells never wrap.
+    const num = (v: string, w: number, bold: boolean, size: number, yy: number) => {
+      const fitted = fitSize(v, bold ? "Bold" : "Body", size, w - CELL * 2);
       doc
-        .font(isDesc ? "Bold" : "Body")
-        .fontSize(numeric ? 8 : 8.5)
+        .font(bold ? "Bold" : "Body")
+        .fontSize(fitted)
         .fillColor(INK)
-        // Numeric cells never wrap — a wrapped amount is worse than a tight one.
-        .text(values[c.key] ?? "", x, y + 6, { width: c.w - 8, align: c.align, lineBreak: !numeric && c.key !== "hsn" });
-      if (isDesc) {
-        doc.font("Body").fontSize(7).fillColor(MUTED).text(sub, x, doc.y + 0.5, { width: c.w - 8 });
-      }
-      x += c.w;
-    }
+        .text(v, x, yy, { width: w - CELL * 2, align: "right", lineBreak: false });
+      x += w;
+    };
+    num(String(it.quantity), cols[3].w, false, 8.5, y + 9);
+    num(inr(unitTaxable), cols[4].w, false, 8.5, y + 9);
+    num(inr(taxable), cols[5].w, false, 8.5, y + 9);
+    // Tax: amount + rate beneath
+    num(inr(tax), cols[6].w, false, 8.5, y + 9);
+    x -= cols[6].w;
+    doc
+      .font("Body")
+      .fontSize(7)
+      .fillColor(MUTED)
+      .text(`${it.gstRate}%`, x, y + 21, { width: cols[6].w - CELL * 2, align: "right", lineBreak: false });
+    x += cols[6].w;
+    // Total
+    num(inr(it.lineTotal), cols[7].w, true, 9, y + 9);
+
     y += rowH;
-    doc.moveTo(left, y).lineTo(right, y).lineWidth(0.5).strokeColor(RULE).stroke();
+    rule(left, y, right);
   });
 
-  y += 14;
-  if (y > doc.page.height - 260) {
+  y += 20;
+  if (y > pageH - 240) {
     doc.addPage();
     y = 40;
   }
 
-  // ── HSN summary (left) + totals (right) ───────────────────────────────
+  // ── HSN breakup (left) + totals (right) ────────────────────────────────
   const hsnMap = new Map<string, { rate: number; taxable: number; tax: number }>();
   for (const r of rows) {
     const key = `${r.hsnCode ?? "—"}|${r.gstRate}`;
@@ -288,103 +386,142 @@ export async function renderInvoicePdf(order: InvoiceOrder, seller: InvoiceSelle
     const prev = hsnMap.get(key) ?? { rate: r.gstRate, taxable: 0, tax: 0 };
     hsnMap.set(key, { rate: r.gstRate, taxable: prev.taxable + taxable, tax: prev.tax + tax });
   }
+  // Keep the breakup block together — a caption stranded at a page bottom
+  // with its rows on the next page reads as a rendering bug.
+  if (y + 24 + hsnMap.size * 16 > pageH - 120) {
+    doc.addPage();
+    y = 40;
+  }
   const leftW = width * 0.56;
-  const totalsX = left + leftW + 20;
+  const totalsX = left + leftW + 24;
   const totalsW = right - totalsX;
 
-  doc.font("Bold").fontSize(7.5).fillColor(BRAND_TEAL).text("HSN-WISE TAX SUMMARY", left, y, { characterSpacing: 1 });
-  let hy = y + 13;
+  caption("Tax breakup — HSN wise", left, y);
+  let hy = y + 15;
   const hCols = interState
-    ? [["HSN", 70, "left"], ["Taxable", 80, "right"], ["Rate", 40, "right"], ["IGST", 70, "right"]]
-    : [["HSN", 60, "left"], ["Taxable", 74, "right"], ["Rate", 36, "right"], ["CGST", 55, "right"], ["SGST", 55, "right"]];
-  const hScale = leftW / hCols.reduce((s, c) => s + (c[1] as number), 0);
-  doc.rect(left, hy, leftW, 16).fill(SURFACE);
-  let hx = left + 4;
-  doc.font("Bold").fontSize(7.5).fillColor(CHARCOAL);
-  for (const [label, w, align] of hCols) {
-    doc.text(String(label), hx, hy + 4.5, { width: (w as number) * hScale - 6, align: align as "left" | "right" });
-    hx += (w as number) * hScale;
-  }
-  hy += 16;
-  for (const [key, v] of hsnMap) {
-    const hsn = key.split("|")[0];
-    const cells = interState
-      ? [hsn, inr(v.taxable), `${v.rate}%`, inr(v.tax)]
-      : [hsn, inr(v.taxable), `${v.rate}%`, inr(v.tax / 2), inr(v.tax - Math.round((v.tax / 2) * 100) / 100)];
-    hx = left + 4;
-    doc.font("Body").fontSize(8).fillColor(INK);
-    cells.forEach((cell, ci) => {
-      doc.text(cell, hx, hy + 4, { width: (hCols[ci][1] as number) * hScale - 6, align: hCols[ci][2] as "left" | "right", lineBreak: false });
-      hx += (hCols[ci][1] as number) * hScale;
-    });
-    hy += 15;
-    doc.moveTo(left, hy).lineTo(left + leftW, hy).lineWidth(0.5).strokeColor(RULE).stroke();
+    ? [
+        { label: "HSN", w: 66, align: "left" as const },
+        { label: "Taxable", w: 84, align: "right" as const },
+        { label: "Rate", w: 44, align: "right" as const },
+        { label: "IGST", w: 76, align: "right" as const },
+      ]
+    : [
+        { label: "HSN", w: 58, align: "left" as const },
+        { label: "Taxable", w: 78, align: "right" as const },
+        { label: "Rate", w: 40, align: "right" as const },
+        { label: "CGST", w: 56, align: "right" as const },
+        { label: "SGST", w: 56, align: "right" as const },
+      ];
+  {
+    let hx = left + 4;
+    doc.font("Bold").fontSize(7.5).fillColor(MUTED);
+    for (const c of hCols) {
+      doc.text(c.label, hx, hy, { width: c.w - 8, align: c.align, lineBreak: false });
+      hx += c.w;
+    }
+    rule(left, hy + 13, left + leftW, "#9ca3af", 0.75);
+    hy += 19;
+    for (const [key, v] of hsnMap) {
+      const hsn = key.split("|")[0];
+      const cells = interState
+        ? [hsn, inr(v.taxable), `${v.rate}%`, inr(v.tax)]
+        : [hsn, inr(v.taxable), `${v.rate}%`, inr(v.tax / 2), inr(v.tax - Math.round((v.tax / 2) * 100) / 100)];
+      hx = left + 4;
+      doc.font("Body").fillColor(INK);
+      cells.forEach((cell, ci) => {
+        const cw = hCols[ci].w - 8;
+        doc.fontSize(fitSize(cell, "Body", 8, cw));
+        doc.text(cell, hx, hy, { width: cw, align: hCols[ci].align, lineBreak: false });
+        hx += hCols[ci].w;
+      });
+      hy += 16;
+      rule(left, hy, left + leftW);
+    }
   }
 
   // Totals
-  const totalTax = order.cgst + order.sgst + order.igst;
-  const totalRows: [string, string, boolean][] = [
-    ["Taxable value", inr(order.taxableAmount), false],
+  const totalRows: [string, string][] = [
+    ["Taxable value", inr(order.taxableAmount)],
     ...(interState
-      ? ([["IGST", inr(order.igst), false]] as [string, string, boolean][])
+      ? ([["IGST", inr(order.igst)]] as [string, string][])
       : ([
-          ["CGST", inr(order.cgst), false],
-          ["SGST", inr(order.sgst), false],
-        ] as [string, string, boolean][])),
-    ["Total tax", inr(totalTax), false],
-    ["Items (incl. GST)", inr(order.subtotal), false],
-    ["Shipping (incl. GST)", order.shipping > 0 ? inr(order.shipping) : "Free", false],
-    ["Grand total", inr(order.total), true],
+          ["CGST", inr(order.cgst)],
+          ["SGST", inr(order.sgst)],
+        ] as [string, string][])),
+    ["Items (incl. GST)", inr(order.subtotal)],
+    ["Shipping (incl. GST)", order.shipping > 0 ? inr(order.shipping) : "Free"],
   ];
-  let ty = y;
-  for (const [k, v, strong] of totalRows) {
-    if (strong) {
-      doc.rect(totalsX, ty - 2, totalsW, 22).fill(BRAND_TEAL);
-      doc.font("Bold").fontSize(10).fillColor("#ffffff").text(k, totalsX + 8, ty + 4, { width: totalsW / 2 });
-      doc.font("Bold").fontSize(11).fillColor("#ffffff").text(v, totalsX, ty + 3, { width: totalsW - 8, align: "right" });
-      ty += 26;
-    } else {
-      doc.font("Body").fontSize(8.5).fillColor(MUTED).text(k, totalsX + 8, ty, { width: totalsW / 2 });
-      doc.font("Bold").fontSize(8.5).fillColor(INK).text(v, totalsX, ty, { width: totalsW - 8, align: "right" });
-      ty += 15;
-    }
+  let ty = y + 2;
+  for (const [k, v] of totalRows) {
+    doc.font("Body").fontSize(9).fillColor(BODY).text(k, totalsX, ty, { width: totalsW * 0.58 });
+    doc
+      .font("Bold")
+      .fontSize(fitSize(v, "Bold", 9.5, totalsW - 2))
+      .fillColor(INK)
+      .text(v, totalsX, ty, { width: totalsW - 2, align: "right", lineBreak: false });
+    ty += 19;
   }
-  doc.font("Body").fontSize(7.5).fillColor(MUTED).text(amountInWords(order.total), totalsX, ty + 2, { width: totalsW, align: "right" });
-  ty = doc.y + 4;
+  ty += 4;
+  doc.roundedRect(totalsX, ty, totalsW, 30, 5).fill(INK);
+  doc.font("Bold").fontSize(10).fillColor("#ffffff").text("Grand total", totalsX + 10, ty + 9, { lineBreak: false });
+  doc
+    .font("Bold")
+    .fontSize(fitSize(inr(order.total), "Bold", 12.5, totalsW - 10))
+    .fillColor("#ffffff")
+    .text(inr(order.total), totalsX, ty + 6.5, { width: totalsW - 10, align: "right", lineBreak: false });
+  ty += 38;
 
   y = Math.max(hy, ty) + 18;
-  if (y > doc.page.height - 120) {
+
+  // Amount in words — full width, its own moment. Kept together: never
+  // leave the caption orphaned at a page bottom.
+  if (y > pageH - 120) {
+    doc.addPage();
+    y = 40;
+  }
+  caption("Amount in words", left, y);
+  doc.font("Body").fontSize(9).fillColor(INK).text(amountInWords(order.total), left, y + 14, { width });
+  y = doc.y + 18;
+  if (y > pageH - 150) {
     doc.addPage();
     y = 40;
   }
 
-  // ── Footer: notes, declaration, signature ─────────────────────────────
-  doc.moveTo(left, y).lineTo(right, y).lineWidth(0.8).strokeColor(RULE).stroke();
-  y += 10;
-  doc.font("Bold").fontSize(7.5).fillColor(BRAND_TEAL).text("DECLARATION", left, y, { characterSpacing: 1 });
-  doc
-    .font("Body")
-    .fontSize(7.5)
-    .fillColor(CHARCOAL)
-    .text(
-      "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct. Prices are inclusive of GST. Goods once sold are not returnable except for manufacturing defects reported within 48 hours of delivery." +
-        (order.notes ? `\nOrder notes: ${order.notes}` : ""),
-      left,
-      y + 12,
-      { width: leftW, lineGap: 1.5 },
-    );
-  doc.font("Body").fontSize(8).fillColor(MUTED).text(`For ${seller.name}`, totalsX, y + 4, { width: totalsW, align: "right" });
-  doc.font("Bold").fontSize(8).fillColor(INK).text("Authorised signatory", totalsX, y + 48, { width: totalsW, align: "right" });
-  doc.moveTo(totalsX + totalsW - 120, y + 44).lineTo(right, y + 44).lineWidth(0.5).strokeColor(CHARCOAL).stroke();
+  // ── Footer: declaration, signature ─────────────────────────────────────
+  const declW = width * 0.6;
+  const declText =
+    "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct. Prices are inclusive of GST. Goods once sold are not returnable except for manufacturing defects reported within 48 hours of delivery." +
+    (order.notes ? `\nOrder notes: ${order.notes}` : "");
+  // Order notes can be long — measure first so the block never collides
+  // with the page footer.
+  const declH =
+    12 + 14 + doc.font("Body").fontSize(7.5).heightOfString(declText, { width: declW, lineGap: 1.5 });
+  if (y + declH > pageH - 64) {
+    doc.addPage();
+    y = 40;
+  }
+  rule(left, y, right);
+  y += 12;
+  caption("Declaration", left, y);
+  doc.font("Body").fontSize(7.5).fillColor(BODY).text(declText, left, y + 14, { width: declW, lineGap: 1.5 });
+  const sigX = left + declW + 24;
+  const sigW = right - sigX;
+  doc.font("Body").fontSize(8.5).fillColor(MUTED).text(`For ${seller.name}`, sigX, y + 2, { width: sigW, align: "right" });
+  rule(right - 140, y + 48, right, BODY, 0.75);
+  doc.font("Bold").fontSize(8).fillColor(INK).text("Authorised signatory", sigX, y + 52, { width: sigW, align: "right" });
 
   // Page footer — kept inside the bottom margin, otherwise PDFKit's auto
   // page-break would spill it onto a blank trailing page.
-  const footY = doc.page.height - doc.page.margins.bottom - 14;
+  const footY = pageH - doc.page.margins.bottom - 14;
   doc
     .font("Body")
     .fontSize(7)
     .fillColor(MUTED)
-    .text(`${seller.name} · ${order.invoiceNumber} · This is a computer-generated invoice.`, left, footY, { width, align: "center", lineBreak: false });
+    .text(`${seller.name} · ${order.invoiceNumber} · This is a computer-generated invoice.`, left, footY, {
+      width,
+      align: "center",
+      lineBreak: false,
+    });
 
   doc.end();
   return done;

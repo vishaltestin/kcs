@@ -65,6 +65,7 @@ export default async function ProfilePage() {
               id: order.id,
               orderNumber: order.orderNumber,
               status: order.status,
+              paymentStatus: order.paymentStatus,
               total: Number(order.total),
               itemCount: order.items.length,
               createdAt: order.createdAt.toISOString(),

@@ -53,6 +53,7 @@ type OrderSummary = {
   id: string;
   orderNumber: string;
   status: string;
+  paymentStatus: string;
   total: number;
   itemCount: number;
   createdAt: string;
@@ -101,7 +102,7 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
   };
 
   const totalSpent = orders
-    .filter((o) => o.status !== "CANCELLED")
+    .filter((o) => o.status !== "CANCELLED" && o.paymentStatus === "PAID")
     .reduce((sum, o) => sum + o.total, 0);
 
   const openOrders = orders.filter((o) => o.status !== "DELIVERED" && o.status !== "CANCELLED").length;
@@ -244,6 +245,11 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
                           >
                             {STATUS_LABELS[order.status] ?? order.status}
                           </span>
+                          {order.paymentStatus !== "PAID" && order.status !== "CANCELLED" && (
+                            <span className="rounded-md bg-warning/15 px-2 py-0.5 text-[11px] font-bold text-warning-foreground ring-1 ring-warning/30">
+                              Payment pending
+                            </span>
+                          )}
                           <p className="numeral min-w-[6rem] text-right text-[1.05rem]">{formatCurrency(order.total)}</p>
                           <ChevronRight
                             className="size-4 text-muted-foreground/50 transition-transform group-hover/order:translate-x-0.5 group-hover/order:text-primary"
@@ -266,6 +272,14 @@ export function ProfileTabs({ user, orders }: { user: ProfileUser; orders: Order
                               <Truck className="size-3.5" aria-hidden /> Tracking appears once dispatched
                             </span>
                           ) : null}
+                          {order.paymentStatus !== "PAID" && order.status !== "CANCELLED" && (
+                            <Link
+                              href={`/payment-failed/${order.orderNumber}`}
+                              className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                            >
+                              Complete payment <ArrowRight className="size-3" aria-hidden />
+                            </Link>
+                          )}
                           {order.trackingUrl && (
                             <a
                               href={order.trackingUrl}

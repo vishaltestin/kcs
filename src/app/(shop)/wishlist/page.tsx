@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Heart, ShoppingCart, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
+import { WishlistSkeleton } from "@/components/shared/skeletons";
 import { useWishlist } from "@/components/shop/wishlist-provider";
 import { useCartStore } from "@/store/cart";
 import { formatCurrency } from "@/lib/utils";
@@ -14,7 +17,12 @@ import { toast } from "sonner";
 export default function WishlistPage() {
   // Reads through the wishlist provider: guests see their localStorage
   // items, signed-in users see their server-backed (per-user) items.
-  const { items, remove: removeFromWishlist, clearAll } = useWishlist();
+  const { items, hydrated, remove: removeFromWishlist, clearAll } = useWishlist();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const addProduct = useCartStore((state) => state.addProduct);
 
   const moveToCart = (item: (typeof items)[number]) => {
@@ -56,6 +64,11 @@ export default function WishlistPage() {
     clearAll();
     toast.success(`Moved ${items.length} ${items.length === 1 ? "item" : "items"} to cart`);
   };
+
+  // Gate on both client mount AND provider readiness: for signed-in
+  // users the real list arrives from the server after mount, so this
+  // keeps a skeleton up instead of flashing an empty (or stale) list.
+  if (!mounted || !hydrated) return <WishlistSkeleton />;
 
   return (
     <div>

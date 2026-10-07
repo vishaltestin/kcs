@@ -20,6 +20,7 @@ export interface AdminOrderRow {
   itemCount: number;
   total: number;
   status: string;
+  paymentStatus: string;
   createdAt: Date;
   invoiceNumber: string | null;
   hasGst: boolean;
@@ -40,6 +41,15 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 const ORDER_STATUSES = ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
+
+const PAYMENT_BADGE: Record<string, string> = {
+  PAID: "bg-green-100 text-green-800",
+  PENDING: "bg-amber-100 text-amber-800",
+  FAILED: "bg-red-100 text-red-700",
+  REFUNDED: "bg-violet-100 text-violet-800",
+};
+
+const PAYMENT_STATUSES = ["PAID", "PENDING", "FAILED", "REFUNDED"] as const;
 
 const columnHelper = createColumnHelper<DataTableFeatures, AdminOrderRow>();
 
@@ -109,6 +119,18 @@ export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
       cell: ({ row }) => (
         <span className="whitespace-nowrap font-semibold">{formatCurrency(row.original.total)}</span>
       ),
+    }),
+    columnHelper.accessor("paymentStatus", {
+      meta: { label: "Payment" },
+      header: ({ column }) => <SortButton column={column} label="Payment" />,
+      cell: ({ row }) => (
+        <span
+          className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${PAYMENT_BADGE[row.original.paymentStatus] ?? "bg-muted text-muted-foreground"}`}
+        >
+          {row.original.paymentStatus}
+        </span>
+      ),
+      filterFn: "equalsString",
     }),
     columnHelper.accessor("courierName", {
       meta: { label: "Shipment" },
@@ -207,7 +229,7 @@ export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
       data={orders}
       getRowId={(order) => order.id}
       globalFilter={(order, query) =>
-        [order.orderNumber, order.customerName, order.customerEmail, order.status, order.invoiceNumber, order.trackingNumber, order.courierName, ...order.sellers]
+        [order.orderNumber, order.customerName, order.customerEmail, order.status, order.paymentStatus, order.invoiceNumber, order.trackingNumber, order.courierName, ...order.sellers]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(query))
       }
@@ -217,6 +239,11 @@ export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
           columnId: "status",
           title: "Status",
           options: ORDER_STATUSES.map((status) => ({ label: status, value: status })),
+        },
+        {
+          columnId: "paymentStatus",
+          title: "Payment",
+          options: PAYMENT_STATUSES.map((status) => ({ label: status, value: status })),
         },
       ]}
       initialSorting={[{ id: "createdAt", desc: true }]}

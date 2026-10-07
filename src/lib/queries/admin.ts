@@ -44,10 +44,13 @@ export async function getDashboardStats() {
     db.review.count({ where: { isApproved: false } }),
     db.contactMessage.count({ where: { isRead: false } }),
     db.meetingBooking.count({ where: { status: "PENDING" } }),
-    db.order.aggregate({ _sum: { total: true }, where: { status: { not: "CANCELLED" } } }),
     db.order.aggregate({
       _sum: { total: true },
-      where: { status: { not: "CANCELLED" }, createdAt: { gte: last30 } },
+      where: { status: { not: "CANCELLED" }, paymentStatus: "PAID" },
+    }),
+    db.order.aggregate({
+      _sum: { total: true },
+      where: { status: { not: "CANCELLED" }, paymentStatus: "PAID", createdAt: { gte: last30 } },
     }),
   ]);
 

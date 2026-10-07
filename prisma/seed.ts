@@ -2146,6 +2146,9 @@ async function main() {
         shippingMethod: quote.method,
         invoiceNumber,
         invoicedAt: invoiceNumber ? createdAt : null,
+        paymentStatus: cancelled ? "PENDING" : "PAID",
+        cashfreeOrderId: orderNumber,
+        paidAt: cancelled ? null : createdAt,
         createdAt,
       },
     });
@@ -2163,6 +2166,7 @@ async function main() {
           parentId: parent.id,
           vendorId: sub.vendorId,
           status: order.status,
+          paymentStatus: cancelled ? "PENDING" : "PAID",
           subtotal: sub.subtotal,
           shipping: sub.shipping,
           total: sub.total,

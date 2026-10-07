@@ -52,6 +52,15 @@ enum OrderStatus {
   CANCELLED
 }
 
+/// Online-payment state (Cashfree). Stock is reserved and the invoice number
+/// allocated only once a PENDING order flips to PAID.
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
 enum EnquiryStatus {
   NEW
   CONTACTED
@@ -462,6 +471,16 @@ model Order {
   chargeableWeight Int     @default(0)
   shippingMethod   String? @db.VarChar(60)
 
+  // Payment (Cashfree, online-only checkout) -----------------------------------
+  /// ONLINE for gateway orders; PAY_LATER is reserved for assisted sales.
+  paymentMethod String        @default("ONLINE") @db.VarChar(20)
+  paymentStatus PaymentStatus @default(PENDING)
+  /// Order id sent to Cashfree (our orderNumber; suffixed -R… on retry after expiry).
+  cashfreeOrderId String?     @unique @db.VarChar(64)
+  /// Cashfree payment id (cfpay_…) captured on success.
+  cfPaymentId String? @db.VarChar(64)
+  paidAt      DateTime?
+
   // Invoice
   invoiceNumber String?   @unique
   invoicedAt    DateTime?
@@ -488,6 +507,7 @@ model Order {
 
   @@index([userId])
   @@index([status])
+  @@index([paymentStatus])
   @@index([createdAt])
   @@index([parentId])
   @@index([vendorId])

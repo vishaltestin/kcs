@@ -21,7 +21,7 @@ export async function getSalesTrend(days = 30): Promise<SalesTrendPoint[]> {
   since.setDate(since.getDate() - (days - 1));
 
   const orders = await db.order.findMany({
-    where: { createdAt: { gte: since }, status: { not: "CANCELLED" } },
+    where: { createdAt: { gte: since }, status: { not: "CANCELLED" }, paymentStatus: "PAID" },
     select: { createdAt: true, total: true },
   });
 
@@ -63,7 +63,7 @@ export interface TopProductStat {
 /** Best-selling products by units sold (from delivered/active orders). */
 export async function getTopProducts(limit = 8): Promise<TopProductStat[]> {
   const items = await db.orderItem.findMany({
-    where: { order: { status: { not: "CANCELLED" } } },
+    where: { order: { status: { not: "CANCELLED" }, paymentStatus: "PAID" } },
     select: { productId: true, name: true, quantity: true, lineTotal: true },
   });
 

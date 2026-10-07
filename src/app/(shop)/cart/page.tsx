@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -18,6 +18,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
+import { CartSkeleton } from "@/components/shared/skeletons";
 import { useCartStore } from "@/store/cart";
 import { useShippingEstimate } from "@/components/shop/use-shipping-estimate";
 import { ShippingEstimateRow } from "@/components/shop/shipping-estimate-row";
@@ -27,6 +28,11 @@ import { formatCurrency } from "@/lib/utils";
 export default function CartPage() {
   const { items, removeProduct, updateQuantity, reset } = useCartStore();
   const [destination, setDestination] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
   const { estimate, loading } = useShippingEstimate(items, destination, subtotal);
@@ -35,6 +41,11 @@ export default function CartPage() {
   const pieces = items.reduce((sum, item) => sum + item.qty, 0);
   const threshold = estimate?.freeShippingThreshold ?? 1000;
   const remaining = Math.max(0, threshold - subtotal);
+
+  // The cart lives in localStorage, which doesn't exist during SSR: render
+  // a skeleton until the client has hydrated, so a returning customer never
+  // sees a flash of "empty cart" (and SSR never mismatches persisted items).
+  if (!mounted) return <CartSkeleton />;
 
   return (
     <div>

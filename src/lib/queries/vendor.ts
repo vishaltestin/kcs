@@ -32,15 +32,15 @@ export async function getVendorDashboard(vendorId: string) {
     db.order.count({ where: { vendorId, parentId: { not: null } } }),
     db.order.aggregate({
       _sum: { total: true },
-      where: { vendorId, parentId: { not: null }, status: { not: "CANCELLED" } },
+      where: { vendorId, parentId: { not: null }, status: { not: "CANCELLED" }, paymentStatus: "PAID" },
     }),
     db.order.aggregate({
       _sum: { total: true },
-      where: { vendorId, parentId: { not: null }, status: { not: "CANCELLED" }, createdAt: { gte: last30 } },
+      where: { vendorId, parentId: { not: null }, status: { not: "CANCELLED" }, paymentStatus: "PAID", createdAt: { gte: last30 } },
     }),
     db.orderItem.aggregate({
       _sum: { quantity: true },
-      where: { order: { vendorId, parentId: { not: null }, status: { not: "CANCELLED" } } },
+      where: { order: { vendorId, parentId: { not: null }, status: { not: "CANCELLED" }, paymentStatus: "PAID" } },
     }),
     db.order.findMany({
       where: { vendorId, parentId: { not: null } },

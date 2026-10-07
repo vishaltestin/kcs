@@ -39,6 +39,13 @@ export async function GET(_req: Request, ctx: { params: Promise<{ orderNumber: s
   if (order.status === "CANCELLED") {
     return NextResponse.json({ error: "Cancelled orders have no invoice." }, { status: 409 });
   }
+  // Invoices exist only for paid orders — admins stay exempt for records/refunds.
+  if (order.paymentStatus !== "PAID" && user.role !== "ADMIN") {
+    return NextResponse.json(
+      { error: "Payment is pending — the invoice is issued after successful payment." },
+      { status: 402 },
+    );
+  }
 
   const invoiceNumber = order.invoiceNumber ?? (await ensureInvoiceNumber(order.id));
   const settings = await getStoreSettings();

@@ -1,33 +1,29 @@
+import { Loader2 } from "lucide-react";
+
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
- * Route-level loading UI for the order confirmation page.
- *
- * Without this file, navigating here from checkout falls back to the shop
- * layout's generic loading.tsx (a full-page skeleton). This keeps the
- * transition lightweight and shaped like the confirmation page itself.
+ * Brief transition while the success page loads the confirmed order —
+ * a celebratory status card instead of a page-shaped skeleton, since the
+ * customer just paid and only waits a beat here.
  */
 export default function OrderSuccessLoading() {
   return (
-    <div className="container max-w-3xl py-12" aria-busy aria-label="Loading order confirmation">
-      <div className="mb-10 flex flex-col items-center text-center">
-        <Skeleton className="mb-5 size-20 rounded-full" />
-        <Skeleton className="mb-3 h-9 w-72 rounded-lg" />
-        <Skeleton className="h-4 w-96 max-w-full rounded" />
-      </div>
-      <div className="border-t border-foreground/[0.12] pt-6">
-        <Skeleton className="mb-5 h-5 w-40 rounded" />
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <Skeleton className="size-12 rounded-lg" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-2/3 rounded" />
-                <Skeleton className="h-3 w-1/3 rounded" />
-              </div>
-              <Skeleton className="h-4 w-16 rounded" />
-            </div>
-          ))}
+    <div
+      className="container flex min-h-[62vh] items-center justify-center py-16"
+      aria-busy="true"
+      aria-label="Loading your order confirmation"
+    >
+      <div className="w-full max-w-md rounded-2xl border border-foreground/[0.08] bg-card p-8 text-center shadow-sm">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-500/15">
+          <Loader2 className="size-7 animate-spin text-emerald-600" aria-hidden />
+        </div>
+        <h1 className="mt-5 text-xl font-semibold tracking-tight">Payment successful!</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Putting together your order confirmation…</p>
+        <div className="mt-6 space-y-2.5" aria-hidden>
+          <Skeleton className="h-4 w-2/3 rounded-full mx-auto" />
+          <Skeleton className="h-9 w-full rounded-xl" />
+          <Skeleton className="h-9 w-full rounded-xl" />
         </div>
       </div>
     </div>

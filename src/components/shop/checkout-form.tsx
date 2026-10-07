@@ -34,7 +34,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/shared/empty-state";
-import { placeOrderAction } from "@/actions/orders";
+import { placeOrderAction, type CheckoutSession } from "@/actions/orders";
+import { launchCashfreeCheckout } from "@/lib/cashfree-client";
 import { useShippingEstimate } from "@/components/shop/use-shipping-estimate";
 import { formatGrams } from "@/lib/shipping";
 import { INDIAN_STATES } from "@/lib/india";
@@ -69,14 +70,14 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
     !defaults.shippingAddress || defaults.shippingAddress === defaults.billingAddress
   );
 
-  const [state, formAction, isPending] = useActionState<ActionResult<{ orderNumber: string }> | null, FormData>(
+  const [state, formAction, isPending] = useActionState<ActionResult<CheckoutSession> | null, FormData>(
     placeOrderAction,
     null
   );
 
   // Keeps the button in its "busy" state from the moment the order succeeds
-  // until the success page has actually taken over — so the user only ever
-  // sees the button loading, never a blank/skeleton page in between.
+  // until the success page (or the Cashfree tab) has actually taken over — so
+  // the user only ever sees the button loading, never a blank page in between.
   const [isRedirecting, setIsRedirecting] = useState(false);
   const handledState = useRef<typeof state>(null);
   /** One idempotency key per cart payload — see onSubmit. */
@@ -103,10 +104,25 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
     // through the redirect either way.
     const id = window.setTimeout(() => {
       if (state.ok && state.data) {
+        // Already paid (idempotent replay) → straight to the confirmation,
+        // clearing the cart that matches this order.
+        const session = state.data;
+        const paymentSessionId = session.paymentSessionId;
+        if (session.alreadyPaid || !paymentSessionId) {
+          setIsRedirecting(true);
+          resetCart();
+          toast.success(state.message ?? "Payment received!");
+          router.push(`/order-success/${session.orderNumber}`);
+          return;
+        }
+        // Unpaid order created — hand off to Cashfree. The cart stays intact
+        // until payment succeeds (the success page clears it then).
         setIsRedirecting(true);
-        resetCart();
-        toast.success(state.message ?? "Order placed!");
-        router.push(`/order-success/${state.data.orderNumber}`);
+        launchCashfreeCheckout(session.orderNumber, paymentSessionId).catch(() => {
+          setIsRedirecting(false);
+          toast.error("Couldn't open the payment page — please retry from your order.");
+          router.push(`/payment-failed/${session.orderNumber}`);
+        });
       } else if (!state.ok) {
         toast.error(state.message);
       }
@@ -503,11 +519,11 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
                 {busy ? (
                   <>
                     <Loader2 className="animate-spin" aria-hidden />
-                    {isRedirecting ? "Order placed — opening confirmation…" : "Placing your order…"}
+                    {isRedirecting ? "Opening secure payment…" : "Creating your order…"}
                   </>
                 ) : (
                   <>
-                    <Lock aria-hidden /> Place Order <ArrowRight aria-hidden />
+                    <Lock aria-hidden /> Proceed to Secure Payment <ArrowRight aria-hidden />
                   </>
                 )}
               </Button>
@@ -515,7 +531,7 @@ export function CheckoutForm({ defaults }: { defaults: CheckoutDefaults }) {
               <ul className="mt-4 space-y-1.5 text-xs text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
-                  Our team confirms every corporate order by phone/email before dispatch.
+                  Secure UPI, cards, netbanking & more via Cashfree — your order is confirmed only after successful payment.
                 </li>
                 <li className="flex items-start gap-2">
                   <Truck className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />

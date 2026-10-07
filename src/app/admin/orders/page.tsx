@@ -33,6 +33,7 @@ export default async function AdminOrdersPage() {
         : order.items.length,
       total: Number(order.total),
       status: order.status,
+      paymentStatus: order.paymentStatus,
       createdAt: order.createdAt,
       invoiceNumber: order.invoiceNumber,
       hasGst: !!order.gstNo,

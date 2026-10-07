@@ -245,6 +245,43 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               )}
               <div className="rounded-xl bg-surface p-3 text-xs">
                 <p className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Payment</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${
+                      order.paymentStatus === "PAID"
+                        ? "bg-green-100 text-green-800"
+                        : order.paymentStatus === "FAILED"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-amber-100 text-amber-800"
+                    }`}
+                  >
+                    {order.paymentStatus}
+                  </span>
+                </p>
+                <p className="mt-1 flex items-center justify-between">
+                  <span className="text-muted-foreground">Method</span>
+                  <span className="font-semibold">{order.paymentMethod}</span>
+                </p>
+                {order.cfPaymentId && (
+                  <p className="mt-1 flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">Cashfree payment</span>
+                    <span className="truncate font-mono font-semibold">{order.cfPaymentId}</span>
+                  </p>
+                )}
+                {order.paidAt && (
+                  <p className="mt-1 flex items-center justify-between">
+                    <span className="text-muted-foreground">Paid at</span>
+                    <span>{formatDateTime(order.paidAt)}</span>
+                  </p>
+                )}
+                {order.paymentStatus !== "PAID" && order.status !== "CANCELLED" && (
+                  <p className="mt-1 text-muted-foreground">
+                    Unpaid — confirm fulfilment only after payment.
+                  </p>
+                )}
+              </div>
+              <div className="rounded-xl bg-surface p-3 text-xs">
+                <p className="flex items-center justify-between">
                   <span className="text-muted-foreground">Invoice</span>
                   <span className="font-mono font-semibold">{order.invoiceNumber ?? "Issued on download"}</span>
                 </p>

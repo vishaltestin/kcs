@@ -9,27 +9,38 @@ import { getShippingConfig, getStoreSettings } from "@/lib/queries/shipping";
 import { quoteShipping } from "@/lib/shipping";
 import { resolveVariantTiers } from "@/lib/variants";
 import { resolvePlaceOfSupply, splitInclusive, summariseTax, type TaxSummary } from "@/lib/tax";
-import { allocateInvoiceNumber } from "@/lib/invoice";
 import {
   allocateProRata,
   generateSubOrderNumber,
   sumCurrency,
 } from "@/lib/sub-orders";
-import { reserveStock, stockLineKey, StockError } from "@/lib/inventory";
+import { CashfreeError, createCashfreeOrder } from "@/lib/cashfree";
+import { createPaymentSessionForOrder } from "@/lib/order-payments";
 import type { ActionResult } from "@/types";
 import { str } from "@/lib/form";
 
 /**
- * Order placement. Prices, stock, weights, shipping and GST are ALL recomputed
- * server-side from the database — client-supplied amounts are never trusted.
+ * Online-only checkout (Cashfree). Prices, stock, weights, shipping and GST
+ * are ALL recomputed server-side from the database — client-supplied amounts
+ * are never trusted.
  *
  * Flow: validate → load products/variants (+vendor) → price each line from its
  * tier table → quote shipping (zone × chargeable weight) → group lines by
- * vendor → create the parent order plus one sub-order per vendor (each with a
- * pro-rata shipping share and its own GST carve-out against the vendor's
- * state code) → decrement stock and allocate a sequential invoice number,
- * all in one transaction.
+ * vendor → create the parent order plus one sub-order per vendor as UNPAID →
+ * mint a single-use Cashfree payment session for the browser to open.
+ *
+ * Stock is reserved and the invoice number allocated only after successful
+ * payment (`confirmOrderPayment`), so an abandoned checkout never blocks
+ * inventory or burns an invoice number.
  */
+
+/** What the checkout form needs to hand off to the Cashfree SDK. */
+export interface CheckoutSession {
+  orderNumber: string;
+  /** Null when the order is already paid (replay) — redirect to success. */
+  paymentSessionId: string | null;
+  alreadyPaid: boolean;
+}
 
 type Line = {
   productId: string;
@@ -67,9 +78,9 @@ type VendorGroup = {
 };
 
 export async function placeOrderAction(
-  _prev: ActionResult<{ orderNumber: string }> | null,
+  _prev: ActionResult<CheckoutSession> | null,
   formData: FormData,
-): Promise<ActionResult<{ orderNumber: string }>> {
+): Promise<ActionResult<CheckoutSession>> {
   const user = await getSessionUser();
   if (!user) {
     return { ok: false, message: "Please sign in to place an order." };
@@ -189,8 +200,9 @@ export async function placeOrderAction(
       return { ok: false, message: `"${label}" has a minimum order quantity of ${minQty} pcs.` };
     }
 
-    // Fast, friendly pre-check only — the authoritative reservation happens
-    // inside the order transaction (concurrent buyers can pass this check).
+    // Pre-payment availability check only — the authoritative reservation
+    // happens after successful payment (see confirmOrderPayment), when the
+    // units are actually spoken for.
     const stock = variant ? variant.stock : product.stock;
     if (tracked && item.quantity > stock) {
       return {
@@ -315,7 +327,8 @@ export async function placeOrderAction(
 
   // Idempotency: the checkout form sends a key that is stable for one cart
   // payload. A double click or a network retry replays the original order
-  // instead of creating (and invoicing) a second one.
+  // (minting a fresh single-use payment session) instead of creating —
+  // and charging for — a second one.
   const checkoutKey = (() => {
     const raw = str(formData.get("checkoutKey")).trim();
     return /^[A-Za-z0-9_-]{8,64}$/.test(raw) ? raw : null;
@@ -323,34 +336,18 @@ export async function placeOrderAction(
   if (checkoutKey) {
     const existing = await db.order.findFirst({
       where: { userId, checkoutKey },
-      select: { orderNumber: true },
+      select: { id: true },
     });
     if (existing) {
-      return {
-        ok: true,
-        message: "Order placed successfully!",
-        data: { orderNumber: existing.orderNumber },
-      };
+      return replayCheckout(existing.id, userId);
     }
   }
 
   const createOrder = (orderNumber: string) =>
     db.$transaction(async (tx) => {
-      const invoiceNumber = await allocateInvoiceNumber(tx);
-
-      // Authoritative inventory reservation: conditional decrement under row
-      // locks, in a fixed order. Throws StockError (rolled back) when another
-      // checkout took the units first.
-      const reserved = await reserveStock(
-        tx,
-        lines.map((line) => ({
-          productId: line.productId,
-          variantId: line.variantId,
-          quantity: line.quantity,
-          label: line.variantLabel ? `${line.name} (${line.variantLabel})` : line.name,
-        })),
-      );
-
+      // Deliberately NO stock reservation and NO invoice number here: the
+      // order is unpaid until Cashfree confirms the money. Both happen in
+      // confirmOrderPayment, after verification.
       const created = await tx.order.create({
         select: { id: true, orderNumber: true },
         data: {
@@ -382,8 +379,9 @@ export async function placeOrderAction(
           shippingZone: quote.zone?.name ?? null,
           chargeableWeight: quote.chargeableWeight,
           shippingMethod: quote.method,
-          invoiceNumber,
-          invoicedAt: new Date(),
+          paymentMethod: "ONLINE",
+          paymentStatus: "PENDING",
+          cashfreeOrderId: orderNumber,
         },
       });
 
@@ -439,9 +437,7 @@ export async function placeOrderAction(
                 gstRate: line.gstRate,
                 taxAmount: line.taxAmount,
                 weightGrams: line.weightGrams,
-                // Exactly what this line took from tracked stock, so a later
-                // cancellation can put it back once.
-                stockReserved: reserved.get(stockLineKey(line.productId, line.variantId)) ?? 0,
+                // stockReserved stays 0 until payment confirms the order.
               })),
             },
           },
@@ -454,15 +450,12 @@ export async function placeOrderAction(
   // `orderNumber` is @unique with a short random suffix; on the rare
   // collision (P2002) retry with a fresh number instead of surfacing a 500.
   // A P2002 on (userId, checkoutKey) is a concurrent replay of the same
-  // checkout — return the winning order rather than erroring.
+  // checkout — resume that order rather than erroring.
   let order: { id: string; orderNumber: string } | null = null;
   for (let attempt = 0; attempt < 3 && !order; attempt++) {
     try {
       order = await createOrder(generateOrderNumber());
     } catch (error) {
-      if (error instanceof StockError) {
-        return { ok: false, message: error.message };
-      }
       const code =
         typeof error === "object" && error !== null && "code" in error
           ? (error as { code?: string }).code
@@ -470,14 +463,10 @@ export async function placeOrderAction(
       if (code === "P2002" && checkoutKey) {
         const raced = await db.order.findFirst({
           where: { userId, checkoutKey },
-          select: { orderNumber: true },
+          select: { id: true },
         });
         if (raced) {
-          return {
-            ok: true,
-            message: "Order placed successfully!",
-            data: { orderNumber: raced.orderNumber },
-          };
+          return replayCheckout(raced.id, userId);
         }
       }
       if (code !== "P2002" || attempt === 2) {
@@ -496,9 +485,67 @@ export async function placeOrderAction(
     };
   }
 
-  return {
-    ok: true,
-    message: "Order placed successfully!",
-    data: { orderNumber: order.orderNumber },
-  };
+  // The local order exists (unpaid). Mint the single-use Cashfree session —
+  // kept OUTSIDE the transaction because it is a network call. If the
+  // gateway is unreachable the order stays PENDING and the customer retries
+  // (via the idempotency replay above) without duplicating anything.
+  try {
+    const session = await createCashfreeOrder({
+      orderId: order.orderNumber,
+      amount: total,
+      customerId: userId,
+      customerName: data.customerName,
+      customerEmail: data.customerEmail,
+      customerPhone: data.customerPhone,
+    });
+    return {
+      ok: true,
+      message: "Order created — opening secure payment…",
+      data: { orderNumber: order.orderNumber, paymentSessionId: session.paymentSessionId, alreadyPaid: false },
+    };
+  } catch (error) {
+    console.error("[placeOrderAction] cashfree session failed", error);
+    const reason =
+      error instanceof CashfreeError ? error.message : "We couldn't reach the payment gateway.";
+    return {
+      ok: false,
+      message: `${reason} Your order ${order.orderNumber} is saved — please press Pay again.`,
+    };
+  }
+}
+
+/**
+ * Resumes an existing checkout (double submit, network retry, gateway down
+ * at first attempt): verifies whether the money already arrived and mints a
+ * fresh single-use session otherwise. Never creates a second order.
+ */
+async function replayCheckout(orderId: string, userId: string): Promise<ActionResult<CheckoutSession>> {
+  try {
+    const session = await createPaymentSessionForOrder(orderId, userId);
+    if (session.alreadyPaid) {
+      return {
+        ok: true,
+        message: "Payment already received for this order!",
+        data: { orderNumber: session.orderNumber, paymentSessionId: null, alreadyPaid: true },
+      };
+    }
+    return {
+      ok: true,
+      message: "Order found — opening secure payment…",
+      data: {
+        orderNumber: session.orderNumber,
+        paymentSessionId: session.paymentSessionId,
+        alreadyPaid: false,
+      },
+    };
+  } catch (error) {
+    console.error("[placeOrderAction] replay failed", error);
+    return {
+      ok: false,
+      message:
+        error instanceof CashfreeError || error instanceof Error
+          ? error.message
+          : "We couldn't resume your checkout. Please try again.",
+    };
+  }
 }
