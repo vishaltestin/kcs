@@ -12,6 +12,11 @@ import {
   refreshPendingCode,
   verifyPendingCode,
   resendCooldownSeconds,
+  getPhoneVerification,
+  upsertPhoneVerification,
+  verifyPhoneCode,
+  getVerifiedPhone,
+  OTP_RESEND_COOLDOWN_SECONDS,
 } from "@/lib/otp";
 import { sendOtpWhatsApp } from "@/lib/whatsapp";
 
@@ -22,11 +27,15 @@ import { str } from "@/lib/form";
 /**
  * Authentication server actions.
  *
- * Signup flow (customer + vendor):
- *   1. User fills form → signupAction validates, generates OTP, sends via WhatsApp,
- *      stores everything in PendingRegistration (no User row yet)
- *   2. User enters OTP → verifyOtpAction confirms code, creates User (and Vendor
- *      for vendor signups), deletes PendingRegistration
+ * Signup flow (customer + vendor) — phone-first OTP:
+ *   1. User enters mobile → requestPhoneOtpAction sends a WhatsApp code
+ *      (state on PhoneVerification, keyed by phone — no account data yet)
+ *   2. User enters code → verifyPhoneOtpAction marks the phone verified
+ *   3. User fills the rest → signupAction/vendorSignupAction re-check the
+ *      verification server-side and create the account immediately
+ *
+ * The legacy email-keyed flow (verifyOtpAction/resendOtpAction +
+ * PendingRegistration) is kept for in-flight signups and /verify-phone.
  */
 
 export type PreLoginResult =
@@ -119,17 +128,115 @@ export async function preLoginCheckAction(
 
 // ─── Customer Signup ────────────────────────────────────────────────────────
 
-type SignupOtpResult = ActionResult<{
-  otpRequired: boolean;
-  email: string;
+// ─── Phone-first OTP (current signup flow) ──────────────────────────────────
+
+type RequestPhoneOtpResult = ActionResult<{
   maskedPhone: string;
+  cooldownSeconds: number;
   devOtp?: string;
 }>;
 
+/**
+ * Step 1: send a WhatsApp code to a phone number. No account data is needed
+ * (or stored) yet — this same action serves first-send and resend, with the
+ * server enforcing the cooldown.
+ */
+export async function requestPhoneOtpAction(phoneRaw: string): Promise<RequestPhoneOtpResult> {
+  const ipAllowed = rateLimit(await limitKey("otp-request"), 5, 60_000);
+  if (!ipAllowed) {
+    return { ok: false, message: "Too many attempts. Please try again in a minute." };
+  }
+
+  const phone = normalizePhone(phoneRaw);
+  if (!phone) {
+    return { ok: false, message: "Enter a valid 10-digit mobile number." };
+  }
+
+  // Per-number throttle so a single number can't be spammed with codes.
+  if (!rateLimit(accountKey("phone-otp", phone), 3, 10 * 60_000)) {
+    return { ok: false, message: "Too many codes sent to this number. Please try again later." };
+  }
+
+  const existingUser = await db.user.findFirst({ where: { phone }, select: { id: true } });
+  if (existingUser) {
+    return { ok: false, message: "This number is already registered. Try signing in instead." };
+  }
+
+  const existing = await getPhoneVerification(phone);
+  if (existing) {
+    const cooldown = resendCooldownSeconds(existing.lastSentAt);
+    if (cooldown > 0) {
+      return {
+        ok: true,
+        message: existing.verifiedAt ? "This number is already verified." : "Verification code already sent.",
+        data: { maskedPhone: maskPhone(phone), cooldownSeconds: cooldown },
+      };
+    }
+  }
+
+  const code = generateOtpCode();
+  const sent = await sendOtpWhatsApp(phone, code);
+  if (!sent.ok) {
+    return { ok: false, message: sent.error };
+  }
+
+  await upsertPhoneVerification(phone, await hashOtpCode(code));
+
+  return {
+    ok: true,
+    message: "Code sent to your WhatsApp.",
+    data: {
+      maskedPhone: maskPhone(phone),
+      cooldownSeconds: OTP_RESEND_COOLDOWN_SECONDS,
+      ...(sent.dev ? { devOtp: code } : {}),
+    },
+  };
+}
+
+/**
+ * Step 2: check the code. A correct code marks the phone verified for
+ * VERIFIED_PHONE_TTL_MINUTES, during which signup must complete.
+ */
+export async function verifyPhoneOtpAction(phoneRaw: string, codeRaw: string): Promise<VerifyOtpResult> {
+  const ipAllowed = rateLimit(await limitKey("otp-verify"), 30, 60_000);
+  if (!ipAllowed) {
+    return { ok: false, message: "Too many attempts. Please try again in a minute." };
+  }
+
+  const phone = normalizePhone(phoneRaw);
+  const code = codeRaw.trim();
+  if (!phone) {
+    return { ok: false, message: "Enter a valid 10-digit mobile number." };
+  }
+  if (!/^\d{6}$/.test(code)) {
+    return { ok: false, message: "Enter the 6-digit code." };
+  }
+
+  const existingUser = await db.user.findFirst({ where: { phone }, select: { id: true } });
+  if (existingUser) {
+    return { ok: false, message: "This number is already registered. Try signing in instead." };
+  }
+
+  const result = await verifyPhoneCode(phone, code);
+  if (!result.ok) {
+    return { ok: false, message: result.error };
+  }
+  return { ok: true, message: "Number verified!" };
+}
+
+// ─── Customer Signup ────────────────────────────────────────────────────────
+
+export type SignupResult = ActionResult<{ email: string }>;
+
+/**
+ * Creates the account immediately — the phone MUST already be verified via
+ * the OTP step. The verification row is re-checked here and consumed in the
+ * same transaction; the client's "verified" flag is never trusted.
+ */
 export async function signupAction(
-  _prev: SignupOtpResult | null,
+  _prev: SignupResult | null,
   formData: FormData
-): Promise<SignupOtpResult> {
+): Promise<SignupResult> {
   const allowed = rateLimit(await limitKey("signup"), 5, 60_000);
   if (!allowed) {
     return { ok: false, message: "Too many attempts. Please try again in a minute." };
@@ -162,72 +269,66 @@ export async function signupAction(
     };
   }
 
-  const existing = await db.user.findUnique({ where: { email } });
-  if (existing) {
+  const verified = await getVerifiedPhone(phone);
+  if (!verified) {
+    return {
+      ok: false,
+      message: "Please verify your mobile number with the OTP first.",
+      fieldErrors: { mobile: ["Verify this number with the OTP first."] },
+    };
+  }
+
+  const [emailTaken, phoneTaken] = await Promise.all([
+    db.user.findUnique({ where: { email }, select: { id: true } }),
+    db.user.findFirst({ where: { phone }, select: { id: true } }),
+  ]);
+  if (emailTaken) {
     return {
       ok: false,
       message: "An account with this email already exists. Try signing in instead.",
       fieldErrors: { email: ["Email already registered."] },
     };
   }
-
-  // Check if a code was just sent — don't spam WhatsApp
-  const existingPending = await getPendingRegistration(email);
-  if (existingPending) {
-    const cooldown = resendCooldownSeconds(existingPending.lastSentAt);
-    if (cooldown > 0) {
-      return {
-        ok: true,
-        message: "Verification code already sent.",
-        data: {
-          otpRequired: true,
-          email,
-          maskedPhone: maskPhone(existingPending.phone),
-        },
-      };
-    }
+  if (phoneTaken) {
+    return {
+      ok: false,
+      message: "This number is already registered. Try signing in instead.",
+      fieldErrors: { mobile: ["This number is already registered."] },
+    };
   }
 
-  // Generate OTP and send via WhatsApp
-  const code = generateOtpCode();
-  const sent = await sendOtpWhatsApp(phone, code);
-  if (!sent.ok) {
-    return { ok: false, message: sent.error };
-  }
+  const passwordHash = await hashPassword(parsed.data.password);
 
-  const [passwordHash, codeHash] = await Promise.all([
-    hashPassword(parsed.data.password),
-    hashOtpCode(code),
-  ]);
-
-  await upsertPendingRegistration({
-    email,
-    firstName: parsed.data.firstName,
-    lastName: parsed.data.lastName,
-    phone,
-    passwordHash,
-    codeHash,
-    role: "CUSTOMER",
+  await db.$transaction(async (tx) => {
+    await tx.user.create({
+      data: {
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        email,
+        phone,
+        passwordHash,
+        // The phone OTP was verified moments ago — the account is verified.
+        emailVerifiedAt: new Date(),
+      },
+    });
+    // Single-use verification, plus hygiene for legacy email-keyed rows.
+    await tx.phoneVerification.deleteMany({ where: { phone } });
+    await tx.pendingRegistration.deleteMany({ where: { email } });
   });
 
   return {
     ok: true,
-    message: "Verification code sent to your WhatsApp.",
-    data: {
-      otpRequired: true,
-      email,
-      maskedPhone: maskPhone(phone),
-      ...(sent.dev ? { devOtp: code } : {}),
-    },
+    message: "Your account is ready — signing you in!",
+    data: { email },
   };
 }
 
 // ─── Vendor Signup ──────────────────────────────────────────────────────────
 
 export async function vendorSignupAction(
-  _prev: SignupOtpResult | null,
+  _prev: SignupResult | null,
   formData: FormData
-): Promise<SignupOtpResult> {
+): Promise<SignupResult> {
   const allowed = rateLimit(await limitKey("vendor-signup"), 5, 60_000);
   if (!allowed) {
     return { ok: false, message: "Too many attempts. Please try again in a minute." };
@@ -261,65 +362,80 @@ export async function vendorSignupAction(
     };
   }
 
-  const existingUser = await db.user.findUnique({ where: { email } });
-  if (existingUser) {
+  const verified = await getVerifiedPhone(phone);
+  if (!verified) {
+    return {
+      ok: false,
+      message: "Please verify your mobile number with the OTP first.",
+      fieldErrors: { phone: ["Verify this number with the OTP first."] },
+    };
+  }
+
+  const [emailTaken, phoneTaken] = await Promise.all([
+    db.user.findUnique({ where: { email }, select: { id: true } }),
+    db.user.findFirst({ where: { phone }, select: { id: true } }),
+  ]);
+  if (emailTaken) {
     return {
       ok: false,
       message: "An account with this email already exists. Try signing in instead.",
       fieldErrors: { email: ["Email already registered."] },
     };
   }
-
-  // Check if a code was just sent — don't spam WhatsApp
-  const existingPending = await getPendingRegistration(email);
-  if (existingPending) {
-    const cooldown = resendCooldownSeconds(existingPending.lastSentAt);
-    if (cooldown > 0) {
-      return {
-        ok: true,
-        message: "Verification code already sent.",
-        data: {
-          otpRequired: true,
-          email,
-          maskedPhone: maskPhone(existingPending.phone),
-        },
-      };
-    }
+  if (phoneTaken) {
+    return {
+      ok: false,
+      message: "This number is already registered. Try signing in instead.",
+      fieldErrors: { phone: ["This number is already registered."] },
+    };
   }
 
-  // Generate OTP and send via WhatsApp
-  const code = generateOtpCode();
-  const sent = await sendOtpWhatsApp(phone, code);
-  if (!sent.ok) {
-    return { ok: false, message: sent.error };
+  const baseSlug = parsed.data.vendorName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 120);
+  let slug = baseSlug || `vendor-${Date.now().toString(36)}`;
+  let counter = 1;
+  while (await db.vendor.findUnique({ where: { slug } })) {
+    slug = `${baseSlug}-${counter++}`;
   }
 
-  const [passwordHash, codeHash] = await Promise.all([
-    hashPassword(parsed.data.password),
-    hashOtpCode(code),
-  ]);
+  const passwordHash = await hashPassword(parsed.data.password);
 
-  await upsertPendingRegistration({
-    email,
-    firstName: parsed.data.firstName,
-    lastName: parsed.data.lastName,
-    phone,
-    passwordHash,
-    plainPassword: parsed.data.password,
-    codeHash,
-    role: "VENDOR",
-    vendorName: parsed.data.vendorName,
+  await db.$transaction(async (tx) => {
+    const vendor = await tx.vendor.create({
+      data: {
+        name: parsed.data.vendorName,
+        slug,
+        email,
+        phone,
+        status: "ACTIVE",
+      },
+    });
+
+    await tx.user.create({
+      data: {
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        email,
+        phone,
+        passwordHash,
+        plainPassword: parsed.data.password,
+        role: "VENDOR",
+        emailVerifiedAt: new Date(),
+        vendorId: vendor.id,
+      },
+    });
+
+    await tx.phoneVerification.deleteMany({ where: { phone } });
+    await tx.pendingRegistration.deleteMany({ where: { email } });
   });
 
   return {
     ok: true,
-    message: "Verification code sent to your WhatsApp.",
-    data: {
-      otpRequired: true,
-      email,
-      maskedPhone: maskPhone(phone),
-      ...(sent.dev ? { devOtp: code } : {}),
-    },
+    message: "Your vendor account is ready — signing you in!",
+    data: { email },
   };
 }
 
@@ -327,6 +443,10 @@ export async function vendorSignupAction(
 
 type VerifyOtpResult = ActionResult;
 
+/**
+ * LEGACY email-keyed verification (PendingRegistration) — kept for signups
+ * started before the phone-first flow, completed via /verify-phone.
+ */
 export async function verifyOtpAction(
   email: string,
   code: string

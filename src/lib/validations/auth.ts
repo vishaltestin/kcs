@@ -11,10 +11,10 @@ export const signupSchema = z
   .object({
     firstName: z.string().trim().min(2, "First name must be at least 2 characters."),
     lastName: z.string().trim().min(1, "Last name is required."),
-    mobile: z
-      .string()
-      .trim()
-      .regex(/^(\+91[\s-]?)?[6-9]\d{9}$/, "Please enter a valid 10-digit Indian mobile number."),
+    // The number is validated + OTP-verified server-side before this form can
+    // submit, so the schema only requires it present (normalizePhone accepts
+    // wider formats — spaces, trunk 0, +91 — than a client regex should).
+    mobile: z.string().trim().min(1, "Verify your mobile number first."),
     email: z.string().trim().email("Please enter a valid email address."),
     password: z
       .string()
@@ -116,10 +116,9 @@ export const vendorSignupSchema = z
     firstName: z.string().trim().min(2, "First name must be at least 2 characters."),
     lastName: z.string().trim().min(1, "Last name is required."),
     email: z.string().trim().email("Please enter a valid email address."),
-    phone: z
-      .string()
-      .trim()
-      .regex(/^(\+91[\s-]?)?[6-9]\d{9}$/, "Please enter a valid 10-digit Indian mobile number."),
+    // The number is validated + OTP-verified server-side before this form can
+    // submit — see the note on signupSchema.mobile.
+    phone: z.string().trim().min(1, "Verify your mobile number first."),
     password: z
       .string()
       .min(8, "Password must be at least 8 characters long.")

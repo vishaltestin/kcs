@@ -135,3 +135,85 @@ export function resendCooldownSeconds(lastSentAt: Date): number {
   const elapsed = (Date.now() - lastSentAt.getTime()) / 1000;
   return Math.max(0, Math.ceil(OTP_RESEND_COOLDOWN_SECONDS - elapsed));
 }
+
+// ─── Phone-first verification (current signup flow) ──────────────────────────
+// The OTP is verified BEFORE any account data exists, so state is keyed by
+// phone on `PhoneVerification`. A correct code stamps `verifiedAt`; signup
+// requires a fresh stamp and deletes the row in the same transaction that
+// creates the user (single-use).
+
+/** How long a verified phone stays usable for completing signup. */
+export const VERIFIED_PHONE_TTL_MINUTES = 30;
+
+export async function getPhoneVerification(phone: string) {
+  return db.phoneVerification.findUnique({ where: { phone } });
+}
+
+/** Replace any previous OTP state for this phone with a fresh code. */
+export async function upsertPhoneVerification(phone: string, codeHash: string): Promise<void> {
+  const fresh = {
+    codeHash,
+    attempts: 0,
+    expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60_000),
+    lastSentAt: new Date(),
+    verifiedAt: null,
+  };
+  await db.phoneVerification.upsert({
+    where: { phone },
+    create: { phone, ...fresh },
+    update: fresh,
+  });
+}
+
+export type VerifyPhoneResult = { ok: true } | { ok: false; error: string; exhausted?: boolean };
+
+/** Checks the code; on success stamps `verifiedAt` for signup to consume. */
+export async function verifyPhoneCode(phone: string, code: string): Promise<VerifyPhoneResult> {
+  const pending = await getPhoneVerification(phone);
+  if (!pending) {
+    return { ok: false, error: "No code was sent to this number yet. Tap Send OTP first." };
+  }
+  // NOTE: no early-return for verifiedAt — the code is always checked, so a
+  // second person can't ride an existing verification with a random code.
+  if (pending.expiresAt < new Date()) {
+    return { ok: false, error: "That code has expired. Please request a new one." };
+  }
+  if (pending.attempts >= OTP_MAX_ATTEMPTS) {
+    return {
+      ok: false,
+      error: "Too many wrong attempts. Please request a new code.",
+      exhausted: true,
+    };
+  }
+
+  const matches = await bcrypt.compare(code, pending.codeHash);
+  if (!matches) {
+    const remaining = OTP_MAX_ATTEMPTS - (pending.attempts + 1);
+    await db.phoneVerification.update({
+      where: { id: pending.id },
+      data: { attempts: { increment: 1 } },
+    });
+    return {
+      ok: false,
+      error:
+        remaining > 0
+          ? `Incorrect code. ${remaining} attempt${remaining === 1 ? "" : "s"} left.`
+          : "Too many wrong attempts. Please request a new code.",
+      exhausted: remaining <= 0,
+    };
+  }
+
+  await db.phoneVerification.update({
+    where: { id: pending.id },
+    data: { verifiedAt: new Date() },
+  });
+  return { ok: true };
+}
+
+/** The verification row, only if verified recently enough to sign up with. */
+export async function getVerifiedPhone(phone: string) {
+  const row = await getPhoneVerification(phone);
+  if (!row?.verifiedAt) return null;
+  if (row.verifiedAt.getTime() < Date.now() - VERIFIED_PHONE_TTL_MINUTES * 60_000) return null;
+  return row;
+}

@@ -1,10 +1,11 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { signIn } from "next-auth/react";
 import { ArrowRight, CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,15 +27,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { vendorSignupAction } from "@/actions/auth";
 import { vendorSignupSchema, type VendorSignupInput } from "@/lib/validations/auth";
 import { cn } from "@/lib/utils";
-import { PhoneOtpCard } from "@/components/auth/phone-otp-card";
-import type { ActionResult } from "@/types";
-
-type SignupResult = ActionResult<{
-  otpRequired: boolean;
-  email: string;
-  maskedPhone: string;
-  devOtp?: string;
-}>;
+import { PhoneVerifySection } from "@/components/auth/phone-verify-section";
 
 const STRENGTH = [
   { label: "Too weak", bar: "bg-red-400", text: "text-red-500" },
@@ -55,18 +48,18 @@ function evaluatePassword(pw: string) {
   return { checks, score };
 }
 
+const CARD_CLASS =
+  "gap-0 rounded-3xl border-none py-0 shadow-[0_28px_56px_-32px_rgb(0_0_0/0.35)] ring-1 ring-foreground/[0.07]";
+
 export function VendorSignupForm() {
-  const [state, formAction, isPending] = useActionState<SignupResult | null, FormData>(
-    vendorSignupAction,
-    null
-  );
+  const [isPending, startTransition] = useTransition();
   const [showPassword, setShowPassword] = useState(false);
-  const [otpState, setOtpState] = useState<{
-    email: string;
-    maskedPhone: string;
-    devOtp?: string;
-  } | null>(null);
-  const [verified, setVerified] = useState(false);
+  /** Raw phone as typed, once its OTP has verified (null until then). */
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
+  /** Remount the verify section when the server rejects the verification. */
+  const [verifyKey, setVerifyKey] = useState(0);
+  /** Fallback: account exists but the auto sign-in failed — show a login link. */
+  const [created, setCreated] = useState(false);
 
   const form = useForm<VendorSignupInput>({
     resolver: zodResolver(vendorSignupSchema),
@@ -85,48 +78,67 @@ export function VendorSignupForm() {
   const { checks, score } = useMemo(() => evaluatePassword(password), [password]);
   const strength = STRENGTH[score];
 
-  useEffect(() => {
-    if (!state) return;
-    const id = window.setTimeout(() => {
-      if (state.ok) {
-        toast.success(state.message ?? "Verification code sent!");
-        if (state.data?.otpRequired) {
-          setOtpState({
-            email: state.data.email,
-            maskedPhone: state.data.maskedPhone,
-            devOtp: state.data.devOtp,
-          });
-        }
-      } else {
-        toast.error(state.message);
-      }
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [state]);
+  function handleVerified(phone: string | null) {
+    setVerifiedPhone(phone);
+    form.setValue("phone", phone ?? "", { shouldValidate: true });
+    if (phone) form.clearErrors("phone");
+  }
 
   const onSubmit = (values: VendorSignupInput) => {
+    if (!verifiedPhone) {
+      toast.error("Verify your mobile number with the OTP first.");
+      return;
+    }
     const formData = new FormData();
     formData.set("vendorName", values.vendorName);
     formData.set("firstName", values.firstName);
     formData.set("lastName", values.lastName);
-    formData.set("phone", values.phone);
+    formData.set("phone", verifiedPhone);
     formData.set("email", values.email);
     formData.set("password", values.password);
     formData.set("passwordConfirmation", values.passwordConfirmation);
-    startTransition(() => {
-      formAction(formData);
+    startTransition(async () => {
+      const res = await vendorSignupAction(null, formData);
+      if (!res.ok) {
+        toast.error(res.message);
+        if (res.fieldErrors) {
+          for (const [key, messages] of Object.entries(res.fieldErrors)) {
+            if (messages?.length) {
+              form.setError(key as keyof VendorSignupInput, { message: messages[0] });
+            }
+          }
+          // Verification expired or was consumed elsewhere — reset to unverified.
+          if (res.fieldErrors.phone) {
+            setVerifiedPhone(null);
+            form.setValue("phone", "");
+            setVerifyKey((k) => k + 1);
+          }
+        }
+        return;
+      }
+      // Account created — sign straight into the vendor console.
+      const result = await signIn("credentials", {
+        email: values.email.trim(),
+        password: values.password,
+        redirect: false,
+      });
+      if (!result || result.error) {
+        setCreated(true);
+        return;
+      }
+      window.location.href = "/vendor";
     });
   };
 
-  // Show success state after verification
-  if (verified) {
+  // Fallback when the account was created but auto sign-in failed.
+  if (created) {
     return (
-      <Card className="gap-0 rounded-3xl border-none py-0 shadow-[0_28px_56px_-32px_rgb(0_0_0/0.35)] ring-1 ring-foreground/[0.07]">
+      <Card className={CARD_CLASS}>
         <CardContent className="px-6 py-7 md:px-8">
           <Alert className="border-success/40 bg-success/[0.06] text-success">
             <CheckCircle2 className="h-4 w-4" aria-hidden />
             <AlertDescription className="text-success">
-              Mobile number verified — your vendor account is ready!{" "}
+              Your vendor account is ready!{" "}
               <Link href="/login" className="font-semibold underline">
                 Sign in now
               </Link>
@@ -137,29 +149,17 @@ export function VendorSignupForm() {
     );
   }
 
-  // Show OTP verification card
-  if (otpState) {
-    return (
-      <Card className="gap-0 rounded-3xl border-none py-0 shadow-[0_28px_56px_-32px_rgb(0_0_0/0.35)] ring-1 ring-foreground/[0.07]">
-        <CardContent className="px-6 py-7 md:px-8">
-          <PhoneOtpCard
-            email={otpState.email}
-            maskedPhone={otpState.maskedPhone}
-            initialDevOtp={otpState.devOtp}
-            onVerified={() => setVerified(true)}
-            onBack={() => setOtpState(null)}
-          />
-        </CardContent>
-      </Card>
-    );
-  }
-
+  // One continuous form: phone + OTP inline at the top, everything else
+  // fillable in any order. Only the submit waits for verification — and the
+  // server re-checks it instead of trusting this UI.
   return (
-    <Card className="gap-0 rounded-3xl border-none py-0 shadow-[0_28px_56px_-32px_rgb(0_0_0/0.35)] ring-1 ring-foreground/[0.07]">
+    <Card className={CARD_CLASS}>
       <CardContent className="px-6 py-7 md:px-8">
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-7">
+            <PhoneVerifySection key={verifyKey} onVerified={handleVerified} />
+
             {/* ── Business details ─────────────────────────────────── */}
             <fieldset className="space-y-4">
               <legend className="kicker text-primary">Business details</legend>
@@ -225,26 +225,6 @@ export function VendorSignupForm() {
                   )}
                 />
               </div>
-
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Mobile number</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="tel"
-                        placeholder="98765 43210"
-                        className="h-11 rounded-xl"
-                        autoComplete="tel"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <FormField
                 control={form.control}
@@ -397,7 +377,12 @@ export function VendorSignupForm() {
             </fieldset>
 
             <div className="space-y-4 pt-1">
-              <Button type="submit" size="xl" className="w-full" disabled={isPending}>
+              <Button
+                type="submit"
+                size="xl"
+                className="w-full"
+                disabled={isPending || !verifiedPhone}
+              >
                 {isPending ? (
                   <>
                     <Loader2 className="animate-spin" aria-hidden /> Creating vendor account…
@@ -408,6 +393,11 @@ export function VendorSignupForm() {
                   </>
                 )}
               </Button>
+              {!verifiedPhone && !isPending && (
+                <p className="text-center text-[12px] font-medium text-muted-foreground">
+                  Verify your mobile number above to register.
+                </p>
+              )}
               <p className="text-center text-[12px] leading-relaxed text-muted-foreground">
                 After registration you&apos;ll be able to fill in your complete business details
                 (GST, address, logo, etc.) from the vendor dashboard.

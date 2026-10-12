@@ -763,3 +763,21 @@ model PendingRegistration {
 
   @@map("pending_registrations")
 }
+
+// Phone-first signup: the OTP is verified BEFORE any account data is
+// collected, so this row is keyed by phone (not email). `verifiedAt` is
+// stamped on a correct code and consumed (row deleted) when signup
+// completes. Unverified rows expire with their code.
+model PhoneVerification {
+  id         String    @id @default(cuid())
+  phone      String    @unique // E.164 format
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  lastSentAt DateTime  @default(now())
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@map("phone_verifications")
+}
